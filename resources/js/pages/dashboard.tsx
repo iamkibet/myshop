@@ -1,12 +1,11 @@
-import { usePage } from '@inertiajs/react';
-import { PlaceholderPattern } from '@/components/ui/placeholder-pattern';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Icon } from '@/components/icon';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PlaceholderPattern } from '@/components/ui/placeholder-pattern';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
+import { BarChart3, Package, Receipt, ShoppingCart, Users } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -26,6 +25,7 @@ interface PageProps {
     auth: {
         user: User;
     };
+    [key: string]: unknown; // Use unknown instead of any for better type safety
 }
 
 export default function Dashboard() {
@@ -37,7 +37,7 @@ export default function Dashboard() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4 overflow-x-auto">
+            <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-bold">Welcome back, {user.name}!</h1>
@@ -52,13 +52,11 @@ export default function Dashboard() {
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium">Products</CardTitle>
-                                <Icon name="package" className="h-4 w-4 text-muted-foreground" />
+                                <Package className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold">Manage Inventory</div>
-                                <p className="text-xs text-muted-foreground">
-                                    Add, edit, and manage products
-                                </p>
+                                <p className="text-xs text-muted-foreground">Add, edit, and manage products</p>
                                 <Link href="/products" className="mt-2 inline-block">
                                     <Button size="sm" variant="outline">
                                         View Products
@@ -70,13 +68,11 @@ export default function Dashboard() {
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium">Users</CardTitle>
-                                <Icon name="users" className="h-4 w-4 text-muted-foreground" />
+                                <Users className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold">User Management</div>
-                                <p className="text-xs text-muted-foreground">
-                                    Manage user accounts and roles
-                                </p>
+                                <p className="text-xs text-muted-foreground">Manage user accounts and roles</p>
                                 <Link href="/users" className="mt-2 inline-block">
                                     <Button size="sm" variant="outline">
                                         View Users
@@ -88,13 +84,11 @@ export default function Dashboard() {
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium">Analytics</CardTitle>
-                                <Icon name="bar-chart" className="h-4 w-4 text-muted-foreground" />
+                                <BarChart3 className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold">Sales Reports</div>
-                                <p className="text-xs text-muted-foreground">
-                                    View sales analytics and reports
-                                </p>
+                                <p className="text-xs text-muted-foreground">View sales analytics and reports</p>
                                 <Button size="sm" variant="outline" className="mt-2">
                                     View Analytics
                                 </Button>
@@ -108,13 +102,11 @@ export default function Dashboard() {
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium">Shopping Cart</CardTitle>
-                                <Icon name="shopping-cart" className="h-4 w-4 text-muted-foreground" />
+                                <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold">Process Sales</div>
-                                <p className="text-xs text-muted-foreground">
-                                    Add items to cart and complete sales
-                                </p>
+                                <p className="text-xs text-muted-foreground">Add items to cart and complete sales</p>
                                 <Link href="/cart" className="mt-2 inline-block">
                                     <Button size="sm" variant="outline">
                                         Go to Cart
@@ -126,13 +118,11 @@ export default function Dashboard() {
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium">My Sales</CardTitle>
-                                <Icon name="receipt" className="h-4 w-4 text-muted-foreground" />
+                                <Receipt className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold">View History</div>
-                                <p className="text-xs text-muted-foreground">
-                                    View your sales history and receipts
-                                </p>
+                                <p className="text-xs text-muted-foreground">View your sales history and receipts</p>
                                 <Button size="sm" variant="outline" className="mt-2">
                                     View Sales
                                 </Button>
