@@ -6,6 +6,7 @@ import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
+import { ArrowLeft, Check, CreditCard, Edit, Loader, Plus, ShoppingCart, Trash, X } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -148,7 +149,7 @@ export default function CartPage({ cartItems, total }: CartPageProps) {
                     </div>
                     <Link href="/dashboard">
                         <Button variant="outline">
-                            <Icon name="arrow-left" className="mr-2 h-4 w-4" />
+                            <Icon iconNode={ArrowLeft} className="mr-2 h-4 w-4" />
                             Back to Dashboard
                         </Button>
                     </Link>
@@ -157,12 +158,12 @@ export default function CartPage({ cartItems, total }: CartPageProps) {
                 {cartItems.length === 0 ? (
                     <Card>
                         <CardContent className="py-8 text-center">
-                            <Icon name="shopping-cart" className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                            <Icon iconNode={ShoppingCart} className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
                             <h3 className="mb-2 text-lg font-semibold">Your cart is empty</h3>
                             <p className="mb-4 text-muted-foreground">Add some products to your cart to get started.</p>
                             <Link href="/dashboard">
                                 <Button>
-                                    <Icon name="plus" className="mr-2 h-4 w-4" />
+                                    <Icon iconNode={Plus} className="mr-2 h-4 w-4" />
                                     Browse Products
                                 </Button>
                             </Link>
@@ -228,23 +229,23 @@ export default function CartPage({ cartItems, total }: CartPageProps) {
                                                             {editingItem === item.product_id ? (
                                                                 <>
                                                                     <Button size="sm" onClick={() => handleSaveEdit(item.product_id)}>
-                                                                        <Icon name="check" className="h-4 w-4" />
+                                                                        <Icon iconNode={Check} className="h-4 w-4" />
                                                                     </Button>
                                                                     <Button variant="outline" size="sm" onClick={() => setEditingItem(null)}>
-                                                                        <Icon name="x" className="h-4 w-4" />
+                                                                        <Icon iconNode={X} className="h-4 w-4" />
                                                                     </Button>
                                                                 </>
                                                             ) : (
                                                                 <>
                                                                     <Button variant="outline" size="sm" onClick={() => handleEditItem(item)}>
-                                                                        <Icon name="edit" className="h-4 w-4" />
+                                                                        <Icon iconNode={Edit} className="h-4 w-4" />
                                                                     </Button>
                                                                     <Button
                                                                         variant="outline"
                                                                         size="sm"
                                                                         onClick={() => handleRemoveItem(item.product_id)}
                                                                     >
-                                                                        <Icon name="trash" className="h-4 w-4" />
+                                                                        <Icon iconNode={Trash} className="h-4 w-4" />
                                                                     </Button>
                                                                 </>
                                                             )}
@@ -269,12 +270,12 @@ export default function CartPage({ cartItems, total }: CartPageProps) {
                                 <Button size="lg" onClick={handleCheckout} disabled={isCheckingOut || cartItems.length === 0}>
                                     {isCheckingOut ? (
                                         <>
-                                            <Icon name="loader" className="mr-2 h-4 w-4 animate-spin" />
+                                            <Icon iconNode={Loader} className="mr-2 h-4 w-4 animate-spin" />
                                             Processing...
                                         </>
                                     ) : (
                                         <>
-                                            <Icon name="credit-card" className="mr-2 h-4 w-4" />
+                                            <Icon iconNode={CreditCard} className="mr-2 h-4 w-4" />
                                             Checkout
                                         </>
                                     )}

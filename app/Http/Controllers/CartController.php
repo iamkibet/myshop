@@ -21,9 +21,14 @@ class CartController extends Controller
      */
     public function index(): Response
     {
+        // Check if user is a manager
+        if (!auth()->user() || !auth()->user()->isManager()) {
+            abort(403, 'Unauthorized action.');
+        }
+
         $cart = session('cart', []);
         $products = Product::whereIn('id', array_keys($cart))->get();
-        
+
         $cartItems = collect($cart)->map(function ($item, $productId) use ($products) {
             $product = $products->find($productId);
             return [
@@ -46,20 +51,26 @@ class CartController extends Controller
      */
     public function addItem(CartItemRequest $request): JsonResponse
     {
+        // Check if user is a manager
+        if (!auth()->user() || !auth()->user()->isManager()) {
+            abort(403, 'Unauthorized action.');
+        }
+
         $validated = $request->validated();
         $cart = session('cart', []);
-        
+
         $productId = $validated['product_id'];
         $cart[$productId] = [
             'quantity' => $validated['quantity'],
             'sale_price' => $validated['sale_price'],
         ];
-        
+
         session(['cart' => $cart]);
 
         return response()->json([
             'message' => 'Item added to cart.',
             'cart' => $cart,
+            'cartCount' => count($cart),
         ]);
     }
 
@@ -68,13 +79,18 @@ class CartController extends Controller
      */
     public function updateItem(Request $request, $productId): JsonResponse
     {
+        // Check if user is a manager
+        if (!auth()->user() || !auth()->user()->isManager()) {
+            abort(403, 'Unauthorized action.');
+        }
+
         $request->validate([
             'quantity' => 'required|integer|min:1',
             'sale_price' => 'required|numeric|min:0',
         ]);
 
         $product = Product::findOrFail($productId);
-        
+
         if ($request->sale_price < $product->msrp) {
             return response()->json([
                 'message' => 'Sale price must be at least the MSRP.',
@@ -92,7 +108,7 @@ class CartController extends Controller
             'quantity' => $request->quantity,
             'sale_price' => $request->sale_price,
         ];
-        
+
         session(['cart' => $cart]);
 
         return response()->json([
@@ -106,6 +122,11 @@ class CartController extends Controller
      */
     public function removeItem($productId): JsonResponse
     {
+        // Check if user is a manager
+        if (!auth()->user() || !auth()->user()->isManager()) {
+            abort(403, 'Unauthorized action.');
+        }
+
         $cart = session('cart', []);
         unset($cart[$productId]);
         session(['cart' => $cart]);
@@ -121,6 +142,11 @@ class CartController extends Controller
      */
     public function checkout(Request $request): JsonResponse
     {
+        // Check if user is a manager
+        if (!auth()->user() || !auth()->user()->isManager()) {
+            abort(403, 'Unauthorized action.');
+        }
+
         $request->validate([
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
@@ -184,7 +210,6 @@ class CartController extends Controller
                 'receipt_url' => Storage::url($receiptPath),
                 'sale_id' => $sale->id,
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -199,14 +224,14 @@ class CartController extends Controller
     private function generateReceipt(Sale $sale): string
     {
         $receiptPath = "receipts/{$sale->id}.pdf";
-        
+
         // For now, we'll create a simple text receipt
         // In a real implementation, you'd use DOMPDF or similar
         $receiptContent = view('receipts.sale', compact('sale'))->render();
-        
+
         // Store the receipt (in a real app, you'd generate PDF)
         Storage::put($receiptPath, $receiptContent);
-        
+
         return $receiptPath;
     }
-} 
+}

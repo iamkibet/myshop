@@ -18,7 +18,7 @@ class ProductController extends Controller
     public function __construct(ImageService $imageService)
     {
         $this->imageService = $imageService;
-        \Log::info('ProductController constructor called');
+        Log::info('ProductController constructor called');
     }
 
     /**

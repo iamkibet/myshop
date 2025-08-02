@@ -26,7 +26,43 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
+        $user = auth()->user();
+        $data = [
+            'auth' => [
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                ],
+            ],
+        ];
+
+        // If user is a manager, provide products and cart data
+        if ($user->isManager()) {
+            $query = \App\Models\Product::where('is_active', true);
+
+            // Add search functionality
+            if (request('search')) {
+                $search = request('search');
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('sku', 'like', "%{$search}%")
+                        ->orWhere('brand', 'like', "%{$search}%")
+                        ->orWhere('category', 'like', "%{$search}%");
+                });
+            }
+
+            $products = $query->orderBy('name')->paginate(12);
+
+            $cart = session('cart', []);
+            $cartCount = count($cart);
+
+            $data['products'] = $products;
+            $data['cartCount'] = $cartCount;
+        }
+
+        return Inertia::render('dashboard', $data);
     })->name('dashboard');
 
     // Test route to check user role
@@ -40,7 +76,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 'role' => $user->role,
                 'isAdmin' => $user->isAdmin(),
                 'isManager' => $user->isManager(),
-            ] : null
+            ] : null,
+            'authenticated' => auth()->check(),
+            'session_id' => session()->getId(),
+        ]);
+    });
+
+    // Test route without authentication
+    Route::get('/test-public', function () {
+        return response()->json([
+            'message' => 'Public route works',
+            'session_id' => session()->getId(),
         ]);
     });
 
@@ -57,15 +103,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/receipts/{sale}', [ReceiptController::class, 'show'])->name('receipts.show');
     });
 
-    // Manager routes
-    Route::middleware(['can:isManager'])->group(function () {
-        Route::get('/products/catalog', [ProductController::class, 'catalog'])->name('products.catalog');
-        Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
-        Route::post('/cart/items', [CartController::class, 'addItem'])->name('cart.add-item');
-        Route::put('/cart/items/{productId}', [CartController::class, 'updateItem'])->name('cart.update-item');
-        Route::delete('/cart/items/{productId}', [CartController::class, 'removeItem'])->name('cart.remove-item');
-        Route::post('/cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
-    });
+    // Manager routes - accessible to both managers and admins
+    Route::get('/products/catalog', [ProductController::class, 'catalog'])->name('products.catalog');
+    Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
+    Route::post('/cart/items', [CartController::class, 'addItem'])->name('cart.add-item');
+    Route::put('/cart/items/{productId}', [CartController::class, 'updateItem'])->name('cart.update-item');
+    Route::delete('/cart/items/{productId}', [CartController::class, 'removeItem'])->name('cart.remove-item');
+    Route::post('/cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
 });
 
 require __DIR__ . '/settings.php';
