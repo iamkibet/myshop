@@ -1,12 +1,12 @@
-import { useState } from 'react';
-import { Head, Link } from '@inertiajs/react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/icon';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
+import { formatCurrency } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
+import { Head, Link } from '@inertiajs/react';
+import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -63,7 +63,7 @@ export default function CartPage({ cartItems, total }: CartPageProps) {
                     sale_price: editPrice,
                 }),
             });
-            
+
             // Reload the page to get updated cart
             window.location.reload();
         } catch (error) {
@@ -80,7 +80,7 @@ export default function CartPage({ cartItems, total }: CartPageProps) {
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                     },
                 });
-                
+
                 // Reload the page to get updated cart
                 window.location.reload();
             } catch (error) {
@@ -104,7 +104,7 @@ export default function CartPage({ cartItems, total }: CartPageProps) {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
                 body: JSON.stringify({
-                    items: cartItems.map(item => ({
+                    items: cartItems.map((item) => ({
                         product_id: item.product_id,
                         quantity: item.quantity,
                         sale_price: item.sale_price,
@@ -113,7 +113,7 @@ export default function CartPage({ cartItems, total }: CartPageProps) {
             });
 
             const result = await response.json();
-            
+
             if (result.success) {
                 // Download receipt
                 const link = document.createElement('a');
@@ -122,7 +122,7 @@ export default function CartPage({ cartItems, total }: CartPageProps) {
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                
+
                 alert('Sale completed successfully! Receipt downloaded.');
                 window.location.href = '/dashboard';
             } else {
@@ -139,7 +139,7 @@ export default function CartPage({ cartItems, total }: CartPageProps) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Shopping Cart" />
-            
+
             <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <div>
@@ -156,12 +156,10 @@ export default function CartPage({ cartItems, total }: CartPageProps) {
 
                 {cartItems.length === 0 ? (
                     <Card>
-                        <CardContent className="text-center py-8">
-                            <Icon name="shopping-cart" className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                            <h3 className="text-lg font-semibold mb-2">Your cart is empty</h3>
-                            <p className="text-muted-foreground mb-4">
-                                Add some products to your cart to get started.
-                            </p>
+                        <CardContent className="py-8 text-center">
+                            <Icon name="shopping-cart" className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                            <h3 className="mb-2 text-lg font-semibold">Your cart is empty</h3>
+                            <p className="mb-4 text-muted-foreground">Add some products to your cart to get started.</p>
                             <Link href="/dashboard">
                                 <Button>
                                     <Icon name="plus" className="mr-2 h-4 w-4" />
@@ -181,13 +179,13 @@ export default function CartPage({ cartItems, total }: CartPageProps) {
                                     <table className="w-full">
                                         <thead>
                                             <tr className="border-b">
-                                                <th className="text-left p-2">Product</th>
-                                                <th className="text-left p-2">SKU</th>
-                                                <th className="text-left p-2">MSRP</th>
-                                                <th className="text-left p-2">Quantity</th>
-                                                <th className="text-left p-2">Sale Price</th>
-                                                <th className="text-left p-2">Line Total</th>
-                                                <th className="text-left p-2">Actions</th>
+                                                <th className="p-2 text-left">Product</th>
+                                                <th className="p-2 text-left">SKU</th>
+                                                <th className="p-2 text-left">MSRP</th>
+                                                <th className="p-2 text-left">Quantity</th>
+                                                <th className="p-2 text-left">Sale Price</th>
+                                                <th className="p-2 text-left">Line Total</th>
+                                                <th className="p-2 text-left">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -221,37 +219,24 @@ export default function CartPage({ cartItems, total }: CartPageProps) {
                                                                 className="w-24"
                                                             />
                                                         ) : (
-                                                            `$${item.sale_price.toFixed(2)}`
+                                                            formatCurrency(item.sale_price)
                                                         )}
                                                     </td>
-                                                    <td className="p-2 font-medium">
-                                                        ${item.line_total.toFixed(2)}
-                                                    </td>
+                                                    <td className="p-2 font-medium">{formatCurrency(item.line_total)}</td>
                                                     <td className="p-2">
                                                         <div className="flex items-center space-x-2">
                                                             {editingItem === item.product_id ? (
                                                                 <>
-                                                                    <Button
-                                                                        size="sm"
-                                                                        onClick={() => handleSaveEdit(item.product_id)}
-                                                                    >
+                                                                    <Button size="sm" onClick={() => handleSaveEdit(item.product_id)}>
                                                                         <Icon name="check" className="h-4 w-4" />
                                                                     </Button>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => setEditingItem(null)}
-                                                                    >
+                                                                    <Button variant="outline" size="sm" onClick={() => setEditingItem(null)}>
                                                                         <Icon name="x" className="h-4 w-4" />
                                                                     </Button>
                                                                 </>
                                                             ) : (
                                                                 <>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => handleEditItem(item)}
-                                                                    >
+                                                                    <Button variant="outline" size="sm" onClick={() => handleEditItem(item)}>
                                                                         <Icon name="edit" className="h-4 w-4" />
                                                                     </Button>
                                                                     <Button
@@ -274,20 +259,14 @@ export default function CartPage({ cartItems, total }: CartPageProps) {
                         </Card>
 
                         <Card>
-                            <CardContent className="flex justify-between items-center p-6">
+                            <CardContent className="flex items-center justify-between p-6">
                                 <div>
-                                    <p className="text-lg font-semibold">
-                                        Total: ${total.toFixed(2)}
-                                    </p>
+                                    <p className="text-lg font-semibold">Total: {formatCurrency(total)}</p>
                                     <p className="text-sm text-muted-foreground">
                                         {cartItems.length} item{cartItems.length !== 1 ? 's' : ''} in cart
                                     </p>
                                 </div>
-                                <Button
-                                    size="lg"
-                                    onClick={handleCheckout}
-                                    disabled={isCheckingOut || cartItems.length === 0}
-                                >
+                                <Button size="lg" onClick={handleCheckout} disabled={isCheckingOut || cartItems.length === 0}>
                                     {isCheckingOut ? (
                                         <>
                                             <Icon name="loader" className="mr-2 h-4 w-4 animate-spin" />
@@ -307,4 +286,4 @@ export default function CartPage({ cartItems, total }: CartPageProps) {
             </div>
         </AppLayout>
     );
-} 
+}

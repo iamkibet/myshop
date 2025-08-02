@@ -1,12 +1,13 @@
-import { useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Icon } from '@/components/icon';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Icon } from '@/components/icon';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
+import { Head, Link, router } from '@inertiajs/react';
+import { ArrowLeft, Loader, Save } from 'lucide-react';
+import { useState } from 'react';
 
 interface User {
     id?: number;
@@ -66,29 +67,25 @@ export default function UsersForm({ user }: UsersFormProps) {
     };
 
     const handleInputChange = (field: string, value: string) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
+        setFormData((prev) => ({ ...prev, [field]: value }));
         if (errors[field]) {
-            setErrors(prev => ({ ...prev, [field]: '' }));
+            setErrors((prev) => ({ ...prev, [field]: '' }));
         }
     };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={isEditing ? 'Edit User' : 'Create User'} />
-            
+
             <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold">
-                            {isEditing ? 'Edit User' : 'Create User'}
-                        </h1>
-                        <p className="text-muted-foreground">
-                            {isEditing ? 'Update user information' : 'Add a new user account'}
-                        </p>
+                        <h1 className="text-2xl font-bold">{isEditing ? 'Edit User' : 'Create User'}</h1>
+                        <p className="text-muted-foreground">{isEditing ? 'Update user information' : 'Add a new user account'}</p>
                     </div>
                     <Link href="/users">
                         <Button variant="outline">
-                            <Icon name="arrow-left" className="mr-2 h-4 w-4" />
+                            <Icon iconNode={ArrowLeft} className="mr-2 h-4 w-4" />
                             Back to Users
                         </Button>
                     </Link>
@@ -100,7 +97,7 @@ export default function UsersForm({ user }: UsersFormProps) {
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="name">Full Name</Label>
                                     <Input
@@ -125,9 +122,7 @@ export default function UsersForm({ user }: UsersFormProps) {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="password">
-                                        Password {isEditing && '(leave blank to keep current)'}
-                                    </Label>
+                                    <Label htmlFor="password">Password {isEditing && '(leave blank to keep current)'}</Label>
                                     <Input
                                         id="password"
                                         type="password"
@@ -144,14 +139,12 @@ export default function UsersForm({ user }: UsersFormProps) {
                                         id="role"
                                         value={formData.role}
                                         onChange={(e) => handleInputChange('role', e.target.value)}
-                                        className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm"
+                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                     >
                                         <option value="manager">Manager</option>
                                         <option value="admin">Admin</option>
                                     </select>
-                                    {errors.role && (
-                                        <p className="text-sm text-destructive">{errors.role}</p>
-                                    )}
+                                    {errors.role && <p className="text-sm text-destructive">{errors.role}</p>}
                                 </div>
                             </div>
 
@@ -164,12 +157,12 @@ export default function UsersForm({ user }: UsersFormProps) {
                                 <Button type="submit" disabled={isSubmitting}>
                                     {isSubmitting ? (
                                         <>
-                                            <Icon name="loader" className="mr-2 h-4 w-4 animate-spin" />
+                                            <Icon iconNode={Loader} className="mr-2 h-4 w-4 animate-spin" />
                                             Saving...
                                         </>
                                     ) : (
                                         <>
-                                            <Icon name="save" className="mr-2 h-4 w-4" />
+                                            <Icon iconNode={Save} className="mr-2 h-4 w-4" />
                                             {isEditing ? 'Update User' : 'Create User'}
                                         </>
                                     )}
@@ -181,4 +174,4 @@ export default function UsersForm({ user }: UsersFormProps) {
             </div>
         </AppLayout>
     );
-} 
+}

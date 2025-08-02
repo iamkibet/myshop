@@ -1,12 +1,13 @@
-import { useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/icon';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
+import { Head, Link, router } from '@inertiajs/react';
+import { Edit, Eye, Trash, UserPlus } from 'lucide-react';
+import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -48,18 +49,26 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
 
     const handleSearch = (value: string) => {
         setSearch(value);
-        router.get('/users', { search: value, role: roleFilter }, { 
-            preserveState: true,
-            preserveScroll: true,
-        });
+        router.get(
+            '/users',
+            { search: value, role: roleFilter },
+            {
+                preserveState: true,
+                preserveScroll: true,
+            },
+        );
     };
 
     const handleRoleFilter = (value: string) => {
         setRoleFilter(value);
-        router.get('/users', { search, role: value }, { 
-            preserveState: true,
-            preserveScroll: true,
-        });
+        router.get(
+            '/users',
+            { search, role: value },
+            {
+                preserveState: true,
+                preserveScroll: true,
+            },
+        );
     };
 
     const handleDelete = (userId: number) => {
@@ -75,7 +84,7 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Users" />
-            
+
             <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <div>
@@ -84,7 +93,7 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
                     </div>
                     <Link href="/users/create">
                         <Button>
-                            <Icon name="user-plus" className="mr-2 h-4 w-4" />
+                            <Icon iconNode={UserPlus} className="mr-2 h-4 w-4" />
                             Add User
                         </Button>
                     </Link>
@@ -94,16 +103,11 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
                     <CardHeader>
                         <CardTitle>User Management</CardTitle>
                         <div className="flex items-center space-x-2">
-                            <Input
-                                placeholder="Search users..."
-                                value={search}
-                                onChange={(e) => handleSearch(e.target.value)}
-                                className="max-w-sm"
-                            />
+                            <Input placeholder="Search users..." value={search} onChange={(e) => handleSearch(e.target.value)} className="max-w-sm" />
                             <select
                                 value={roleFilter}
                                 onChange={(e) => handleRoleFilter(e.target.value)}
-                                className="px-3 py-2 border border-input bg-background rounded-md text-sm"
+                                className="rounded-md border border-input bg-background px-3 py-2 text-sm"
                             >
                                 <option value="">All Roles</option>
                                 <option value="admin">Admin</option>
@@ -116,11 +120,11 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
                             <table className="w-full">
                                 <thead>
                                     <tr className="border-b">
-                                        <th className="text-left p-2">Name</th>
-                                        <th className="text-left p-2">Email</th>
-                                        <th className="text-left p-2">Role</th>
-                                        <th className="text-left p-2">Created</th>
-                                        <th className="text-left p-2">Actions</th>
+                                        <th className="p-2 text-left">Name</th>
+                                        <th className="p-2 text-left">Email</th>
+                                        <th className="p-2 text-left">Role</th>
+                                        <th className="p-2 text-left">Created</th>
+                                        <th className="p-2 text-left">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -129,26 +133,23 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
                                             <td className="p-2 font-medium">{user.name}</td>
                                             <td className="p-2 text-sm text-muted-foreground">{user.email}</td>
                                             <td className="p-2">
-                                                <Badge variant={getRoleBadgeVariant(user.role)}>
-                                                    {user.role}
-                                                </Badge>
+                                                <Badge variant={getRoleBadgeVariant(user.role)}>{user.role}</Badge>
                                             </td>
-                                            <td className="p-2 text-sm text-muted-foreground">
-                                                {new Date(user.created_at).toLocaleDateString()}
-                                            </td>
+                                            <td className="p-2 text-sm text-muted-foreground">{new Date(user.created_at).toLocaleDateString()}</td>
                                             <td className="p-2">
                                                 <div className="flex items-center space-x-2">
-                                                    <Link href={`/users/${user.id}/edit`}>
+                                                    <Link href={`/users/${user.id}`}>
                                                         <Button variant="outline" size="sm">
-                                                            <Icon name="edit" className="h-4 w-4" />
+                                                            <Icon iconNode={Eye} className="h-4 w-4" />
                                                         </Button>
                                                     </Link>
-                                                    <Button 
-                                                        variant="outline" 
-                                                        size="sm"
-                                                        onClick={() => handleDelete(user.id)}
-                                                    >
-                                                        <Icon name="trash" className="h-4 w-4" />
+                                                    <Link href={`/users/${user.id}/edit`}>
+                                                        <Button variant="outline" size="sm">
+                                                            <Icon iconNode={Edit} className="h-4 w-4" />
+                                                        </Button>
+                                                    </Link>
+                                                    <Button variant="outline" size="sm" onClick={() => handleDelete(user.id)}>
+                                                        <Icon iconNode={Trash} className="h-4 w-4" />
                                                     </Button>
                                                 </div>
                                             </td>
@@ -159,7 +160,7 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
                         </div>
 
                         {users.data.length === 0 && (
-                            <div className="text-center py-8">
+                            <div className="py-8 text-center">
                                 <p className="text-muted-foreground">No users found.</p>
                             </div>
                         )}
@@ -168,4 +169,4 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
             </div>
         </AppLayout>
     );
-} 
+}

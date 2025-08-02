@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Container\Attributes\Auth;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Log;
 
 class ProductRequest extends FormRequest
 {
@@ -11,7 +13,8 @@ class ProductRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('isAdmin');
+        Log::info('ProductRequest::authorize called');
+        return auth()->user()->can('isAdmin');
     }
 
     /**
@@ -21,18 +24,91 @@ class ProductRequest extends FormRequest
      */
     public function rules(): array
     {
-        $productId = $this->route('product');
-        $skuRule = $productId 
-            ? "unique:products,sku,{$productId}" 
-            : 'unique:products,sku';
+        Log::info('ProductRequest::rules - START');
 
-        return [
+        $productId = $this->route('product')?->id;
+
+        Log::info('ProductRequest::rules called', [
+            'method' => $this->method(),
+            'all_data' => $this->all(),
+            'product_id' => $productId
+        ]);
+
+        $rules = [
             'name' => 'required|string|max:255',
-            'sku' => "required|string|max:255|{$skuRule}",
+            'sku' => 'required|string|max:100', // Temporarily removed unique validation
+            'description' => 'nullable|string|max:1000',
+            'brand' => 'required|string|max:255',
+            'category' => 'required|string|max:255',
             'cost_price' => 'required|numeric|min:0',
-            'msrp' => 'required|numeric|min:0|gte:cost_price',
+            'msrp' => 'required|numeric|min:0',
             'quantity_on_hand' => 'required|integer|min:0',
+            'low_stock_threshold' => 'required|integer|min:0',
+            'images' => 'nullable|string', // Changed from array to string (JSON)
+            'image_files' => 'nullable|array',
+            'image_files.*' => 'nullable|image|mimes:jpeg,png,gif,webp|max:5120', // 5MB max
+            'sizes' => 'nullable|string', // Changed from array to string (JSON)
+            'colors' => 'nullable|string', // Changed from array to string (JSON)
+            'is_active' => 'boolean',
         ];
+
+        Log::info('ProductRequest::rules - END', ['rules' => $rules]);
+        return $rules;
+    }
+
+    /**
+     * Configure the validator instance.
+     */
+    public function withValidator($validator)
+    {
+        Log::info('ProductRequest::withValidator - START');
+
+        $validator->after(function ($validator) {
+            Log::info('ProductRequest::withValidator::after - START');
+
+            // Custom validation for msrp >= cost_price
+            $costPrice = $this->input('cost_price');
+            $msrp = $this->input('msrp');
+
+            Log::info('ProductRequest::withValidator::after - checking prices', [
+                'cost_price' => $costPrice,
+                'msrp' => $msrp
+            ]);
+
+            if ($costPrice && $msrp && floatval($msrp) < floatval($costPrice)) {
+                $validator->errors()->add('msrp', 'The MSRP must be greater than or equal to the cost price.');
+            }
+
+            // Test JSON validation
+            Log::info('ProductRequest::withValidator::after - testing JSON fields');
+            $jsonFields = ['sizes', 'colors', 'images'];
+            foreach ($jsonFields as $field) {
+                $value = $this->input($field);
+                Log::info("Testing JSON field: {$field}", ['value' => $value]);
+
+                if ($value && is_string($value)) {
+                    $decoded = json_decode($value, true);
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        Log::error("JSON decode error for {$field}", [
+                            'value' => $value,
+                            'error' => json_last_error_msg()
+                        ]);
+                        $validator->errors()->add($field, "Invalid JSON format for {$field}");
+                    } else {
+                        Log::info("JSON decode successful for {$field}", ['decoded' => $decoded]);
+                    }
+                }
+            }
+
+            Log::info('ProductRequest validation completed', [
+                'errors' => $validator->errors()->toArray(),
+                'passes' => $validator->passes()
+            ]);
+
+            Log::info('ProductRequest::withValidator::after - END');
+        });
+
+        Log::info('ProductRequest::withValidator - END');
     }
 
     /**
@@ -42,6 +118,9 @@ class ProductRequest extends FormRequest
     {
         return [
             'msrp.gte' => 'The MSRP must be greater than or equal to the cost price.',
+            'sizes.string' => 'Sizes must be a valid JSON string.',
+            'colors.string' => 'Colors must be a valid JSON string.',
+            'images.string' => 'Images must be a valid JSON string.',
         ];
     }
-} 
+}

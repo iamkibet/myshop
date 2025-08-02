@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\Facades\Gate;
+use App\Services\ImageService;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -12,7 +12,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(ImageService::class, function ($app) {
+            return new ImageService();
+        });
     }
 
     /**
@@ -20,13 +22,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Define authorization gates
-        Gate::define('isAdmin', function ($user) {
-            return $user->isAdmin();
-        });
-
-        Gate::define('isManager', function ($user) {
-            return $user->isManager();
-        });
+        //
     }
 }

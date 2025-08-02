@@ -60,6 +60,39 @@ class UserController extends Controller
     }
 
     /**
+     * Display the specified resource.
+     */
+    public function show(User $user): Response
+    {
+        // Load user with sales and related data
+        $user->load(['sales' => function ($query) {
+            $query->with(['saleItems.product'])
+                ->orderBy('created_at', 'desc');
+        }]);
+
+        // Calculate sales statistics
+        $salesStats = [
+            'total_sales' => $user->sales->count(),
+            'total_revenue' => $user->sales->sum('total_amount'),
+            'total_products_sold' => $user->sales->sum(function ($sale) {
+                return $sale->saleItems->sum('quantity');
+            }),
+            'average_sale_value' => $user->sales->count() > 0
+                ? $user->sales->avg('total_amount')
+                : 0,
+        ];
+
+        // Get recent sales for display
+        $recentSales = $user->sales->take(10);
+
+        return Inertia::render('Users/Show', [
+            'user' => $user,
+            'salesStats' => $salesStats,
+            'recentSales' => $recentSales,
+        ]);
+    }
+
+    /**
      * Show the form for editing the specified resource.
      */
     public function edit(User $user): Response
@@ -75,7 +108,7 @@ class UserController extends Controller
     public function update(UserRequest $request, User $user): JsonResponse
     {
         $data = $request->validated();
-        
+
         if (isset($data['password'])) {
             $data['password'] = Hash::make($data['password']);
         } else {
@@ -95,7 +128,7 @@ class UserController extends Controller
      */
     public function destroy(User $user): JsonResponse
     {
-        if ($user->id === auth()->id()) {
+        if ($user->id === request()->user()->id) {
             return response()->json([
                 'message' => 'You cannot delete your own account.',
             ], 422);
@@ -107,4 +140,4 @@ class UserController extends Controller
             'message' => 'User deleted successfully.',
         ]);
     }
-} 
+}
