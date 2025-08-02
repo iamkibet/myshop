@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Edit, Eye, Trash, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 
@@ -41,11 +41,17 @@ interface UsersIndexProps {
         search?: string;
         role?: string;
     };
+    flash?: {
+        success?: string;
+        error?: string;
+        message?: string;
+    };
 }
 
 export default function UsersIndex({ users, filters }: UsersIndexProps) {
     const [search, setSearch] = useState(filters.search || '');
     const [roleFilter, setRoleFilter] = useState(filters.role || '');
+    const { flash } = usePage<{ flash?: { success?: string; error?: string; message?: string } }>().props;
 
     const handleSearch = (value: string) => {
         setSearch(value);
@@ -86,6 +92,30 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
             <Head title="Users" />
 
             <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
+                {/* Success Message */}
+                {flash?.success && (
+                    <div className="rounded-md border border-green-200 bg-green-50 p-4">
+                        <div className="flex">
+                            <div className="ml-3">
+                                <h3 className="text-sm font-medium text-green-800">Success!</h3>
+                                <div className="mt-2 text-sm text-green-700">{flash.success}</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Error Message */}
+                {flash?.error && (
+                    <div className="rounded-md border border-red-200 bg-red-50 p-4">
+                        <div className="flex">
+                            <div className="ml-3">
+                                <h3 className="text-sm font-medium text-red-800">Error</h3>
+                                <div className="mt-2 text-sm text-red-700">{flash.error}</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-bold">Users</h1>

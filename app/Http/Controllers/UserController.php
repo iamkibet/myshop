@@ -46,17 +46,14 @@ class UserController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(UserRequest $request): JsonResponse
+    public function store(UserRequest $request): \Illuminate\Http\RedirectResponse
     {
         $data = $request->validated();
         $data['password'] = Hash::make($data['password']);
 
         $user = User::create($data);
 
-        return response()->json([
-            'message' => 'User created successfully.',
-            'user' => $user,
-        ], 201);
+        return redirect()->route('users.index')->with('success', 'User created successfully.');
     }
 
     /**
@@ -105,7 +102,7 @@ class UserController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UserRequest $request, User $user): JsonResponse
+    public function update(UserRequest $request, User $user): \Illuminate\Http\RedirectResponse
     {
         $data = $request->validated();
 
@@ -117,27 +114,20 @@ class UserController extends Controller
 
         $user->update($data);
 
-        return response()->json([
-            'message' => 'User updated successfully.',
-            'user' => $user,
-        ]);
+        return redirect()->route('users.index')->with('success', 'User updated successfully.');
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(User $user): JsonResponse
+    public function destroy(User $user): \Illuminate\Http\RedirectResponse
     {
         if ($user->id === request()->user()->id) {
-            return response()->json([
-                'message' => 'You cannot delete your own account.',
-            ], 422);
+            return redirect()->route('users.index')->with('error', 'You cannot delete your own account.');
         }
 
         $user->delete();
 
-        return response()->json([
-            'message' => 'User deleted successfully.',
-        ]);
+        return redirect()->route('users.index')->with('success', 'User deleted successfully.');
     }
 }

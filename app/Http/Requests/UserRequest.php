@@ -21,9 +21,11 @@ class UserRequest extends FormRequest
      */
     public function rules(): array
     {
-        $userId = $this->route('user');
-        $emailRule = $userId 
-            ? "unique:users,email,{$userId}" 
+        $user = $this->route('user');
+        $userId = $user ? $user->id : null;
+
+        $emailRule = $userId
+            ? "unique:users,email,{$userId}"
             : 'unique:users,email';
 
         return [
@@ -33,4 +35,4 @@ class UserRequest extends FormRequest
             'role' => 'required|in:admin,manager',
         ];
     }
-} 
+}

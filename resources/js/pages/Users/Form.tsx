@@ -51,18 +51,10 @@ export default function UsersForm({ user }: UsersFormProps) {
         setIsSubmitting(true);
         setErrors({});
 
-        try {
-            if (isEditing) {
-                await router.put(`/users/${user.id}`, formData);
-            } else {
-                await router.post('/users', formData);
-            }
-        } catch (error: any) {
-            if (error.response?.data?.errors) {
-                setErrors(error.response.data.errors);
-            }
-        } finally {
-            setIsSubmitting(false);
+        if (isEditing) {
+            await router.put(`/users/${user.id}`, formData);
+        } else {
+            await router.post('/users', formData);
         }
     };
 
