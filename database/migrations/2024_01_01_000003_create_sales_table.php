@@ -16,6 +16,9 @@ return new class extends Migration
             $table->foreignId('manager_id')->constrained('users')->onDelete('cascade');
             $table->decimal('total_amount', 10, 2);
             $table->timestamps();
+            
+            $table->index('manager_id');
+            $table->index('created_at');
         });
     }
 

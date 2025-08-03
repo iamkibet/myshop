@@ -10,33 +10,22 @@ class SaleItem extends Model
 {
     use HasFactory;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'sale_id',
-        'product_id',
+        'product_variant_id',
         'quantity',
-        'sale_price',
+        'unit_price',
+        'total_price',
+    ];
+
+    protected $casts = [
+        'quantity' => 'integer',
+        'unit_price' => 'decimal:2',
+        'total_price' => 'decimal:2',
     ];
 
     /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'quantity' => 'integer',
-            'sale_price' => 'decimal:2',
-        ];
-    }
-
-    /**
-     * Get the sale this item belongs to.
+     * Get the sale that owns the item.
      */
     public function sale(): BelongsTo
     {
@@ -44,18 +33,38 @@ class SaleItem extends Model
     }
 
     /**
-     * Get the product this item represents.
+     * Get the product variant for this item.
      */
-    public function product(): BelongsTo
+    public function productVariant(): BelongsTo
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(ProductVariant::class);
     }
 
     /**
-     * Calculate the line total for this item.
+     * Get the product through the variant.
      */
-    public function getLineTotalAttribute(): float
+    public function product(): BelongsTo
     {
-        return $this->quantity * $this->sale_price;
+        return $this->belongsTo(Product::class, 'product_id', 'id', 'product_variants');
+    }
+
+    /**
+     * Calculate total price before saving.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($saleItem) {
+            if (!$saleItem->total_price) {
+                $saleItem->total_price = $saleItem->quantity * $saleItem->unit_price;
+            }
+        });
+
+        static::updating(function ($saleItem) {
+            if ($saleItem->isDirty('quantity') || $saleItem->isDirty('unit_price')) {
+                $saleItem->total_price = $saleItem->quantity * $saleItem->unit_price;
+            }
+        });
     }
 } 

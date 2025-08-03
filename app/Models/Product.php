@@ -12,90 +12,126 @@ class Product extends Model
 
     protected $fillable = [
         'name',
-        'sku',
         'description',
         'brand',
         'category',
-        'cost_price',
-        'msrp',
-        'quantity_on_hand',
-        'low_stock_threshold',
-        'images',
-        'sizes',
-        'colors',
+        'image_url',
+        'features',
+        'meta_title',
+        'meta_description',
         'is_active',
     ];
 
     protected $casts = [
-        'cost_price' => 'decimal:2',
-        'msrp' => 'decimal:2',
-        'quantity_on_hand' => 'integer',
-        'low_stock_threshold' => 'integer',
-        'images' => 'array',
-        'sizes' => 'array',
-        'colors' => 'array',
         'is_active' => 'boolean',
+        'features' => 'array',
     ];
 
-    public function saleItems(): HasMany
+    /**
+     * Get the variants for the product.
+     */
+    public function variants(): HasMany
     {
-        return $this->hasMany(SaleItem::class);
+        return $this->hasMany(ProductVariant::class);
     }
 
-    public function isInStock(): bool
+    /**
+     * Get active variants for the product.
+     */
+    public function activeVariants(): HasMany
     {
-        return $this->quantity_on_hand > 0;
+        return $this->hasMany(ProductVariant::class)->active();
     }
 
-    public function hasStock(int $quantity = 1): bool
+    /**
+     * Get in-stock variants for the product.
+     */
+    public function inStockVariants(): HasMany
     {
-        return $this->quantity_on_hand >= $quantity;
+        return $this->hasMany(ProductVariant::class)->active()->inStock();
     }
 
-    public function isLowStock(): bool
+    /**
+     * Get low stock variants for the product.
+     */
+    public function lowStockVariants(): HasMany
     {
-        return $this->quantity_on_hand <= $this->low_stock_threshold;
+        return $this->hasMany(ProductVariant::class)->active()->lowStock();
     }
 
-    public function isOutOfStock(): bool
+    /**
+     * Get the total quantity across all variants.
+     */
+    public function getTotalQuantity(): int
     {
-        return $this->quantity_on_hand === 0;
+        return $this->variants()->sum('quantity');
     }
 
-    public function getStockStatus(): string
+    /**
+     * Get the minimum price across all variants.
+     */
+    public function getMinPrice(): float
     {
-        if ($this->isOutOfStock()) {
-            return 'out_of_stock';
-        }
-
-        if ($this->isLowStock()) {
-            return 'low_stock';
-        }
-
-        return 'in_stock';
+        return $this->variants()->active()->min('selling_price') ?? 0;
     }
 
-    public function getStockStatusColor(): string
+    /**
+     * Get the maximum price across all variants.
+     */
+    public function getMaxPrice(): float
     {
-        return match ($this->getStockStatus()) {
-            'out_of_stock' => 'destructive',
-            'low_stock' => 'warning',
-            default => 'default',
-        };
+        return $this->variants()->active()->max('selling_price') ?? 0;
     }
 
-    public function getMainImage(): ?string
+    /**
+     * Check if the product has any variants in stock.
+     */
+    public function hasStock(): bool
     {
-        return $this->images[0] ?? null;
+        return $this->variants()->active()->where('quantity', '>', 0)->exists();
     }
 
-    public function getAvailableSizes(): array
-    {
-        return $this->sizes ?? [];
-    }
-
+    /**
+     * Get available colors for this product.
+     */
     public function getAvailableColors(): array
     {
-        return $this->colors ?? [];
+        return $this->variants()
+            ->active()
+            ->whereNotNull('color')
+            ->distinct()
+            ->pluck('color')
+            ->toArray();
+    }
+
+    /**
+     * Get available sizes for this product.
+     */
+    public function getAvailableSizes(): array
+    {
+        return $this->variants()
+            ->active()
+            ->whereNotNull('size')
+            ->distinct()
+            ->pluck('size')
+            ->toArray();
+    }
+
+    /**
+     * Scope for active products.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
+     * Scope for products with stock.
+     */
+    public function scopeInStock($query)
+    {
+        return $query->whereHas('variants', function ($q) {
+            $q->active()->where('quantity', '>', 0);
+        });
     }
 }

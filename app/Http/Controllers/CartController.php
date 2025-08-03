@@ -3,11 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Events\SaleCreated;
-use App\Http\Requests\CartItemRequest;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\Sale;
 use App\Models\SaleItem;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -27,57 +26,83 @@ class CartController extends Controller
         }
 
         $cart = session('cart', []);
-        $products = Product::whereIn('id', array_keys($cart))->get();
+        $variants = ProductVariant::with('product')->whereIn('id', array_keys($cart))->get();
 
-        $cartItems = collect($cart)->map(function ($item, $productId) use ($products) {
-            $product = $products->find($productId);
+        $cartItems = collect($cart)->map(function ($item, $variantId) use ($variants) {
+            $variant = $variants->find($variantId);
+            if (!$variant) {
+                return null;
+            }
+
             return [
-                'product_id' => $productId,
-                'product' => $product,
-                'quantity' => $item['quantity'],
-                'sale_price' => $item['sale_price'],
-                'line_total' => $item['quantity'] * $item['sale_price'],
+                'variant_id' => (int) $variantId,
+                'product_variant' => [
+                    'id' => $variant->id,
+                    'product' => [
+                        'id' => $variant->product->id,
+                        'name' => $variant->product->name,
+                        'sku' => $variant->sku,
+                    ],
+                    'color' => $variant->color,
+                    'size' => $variant->size,
+                    'quantity' => $variant->quantity,
+                    'selling_price' => (float) $variant->selling_price,
+                    'discount_price' => $variant->discount_price ? (float) $variant->discount_price : null,
+                ],
+                'quantity' => (int) $item['quantity'],
+                'unit_price' => (float) $item['unit_price'],
+                'total_price' => (float) ($item['quantity'] * $item['unit_price']),
             ];
-        });
+        })->filter()->values()->toArray();
 
         return Inertia::render('Cart/CartPage', [
             'cartItems' => $cartItems,
-            'total' => $cartItems->sum('line_total'),
+            'total' => collect($cartItems)->sum('total_price'),
+            'flash' => [
+                'success' => session('success'),
+                'error' => session('error'),
+            ],
         ]);
     }
 
     /**
      * Add item to cart.
      */
-    public function addItem(CartItemRequest $request): JsonResponse
+    public function addItem(Request $request)
     {
         // Check if user is a manager
         if (!auth()->user() || !auth()->user()->isManager()) {
             abort(403, 'Unauthorized action.');
         }
 
-        $validated = $request->validated();
-        $cart = session('cart', []);
+        $request->validate([
+            'variant_id' => 'required|exists:product_variants,id',
+            'quantity' => 'required|integer|min:1',
+            'unit_price' => 'required|numeric|min:0',
+        ]);
 
-        $productId = $validated['product_id'];
-        $cart[$productId] = [
-            'quantity' => $validated['quantity'],
-            'sale_price' => $validated['sale_price'],
+        $variant = ProductVariant::with('product')->findOrFail($request->variant_id);
+
+        // Check stock availability
+        if ($variant->quantity < $request->quantity) {
+            return back()->with('error', "Not enough stock available. Only {$variant->quantity} units in stock.");
+        }
+
+        $cart = session('cart', []);
+        $cart[$request->variant_id] = [
+            'quantity' => $request->quantity,
+            'unit_price' => $request->unit_price,
         ];
 
         session(['cart' => $cart]);
 
-        return response()->json([
-            'message' => 'Item added to cart.',
-            'cart' => $cart,
-            'cartCount' => count($cart),
-        ]);
+        return back()->with('success', 'Item added to cart successfully!');
     }
 
     /**
      * Update cart item.
      */
-    public function updateItem(Request $request, $productId): JsonResponse
+    public function updateItem(Request $request, $variantId)
     {
         // Check if user is a manager
         if (!auth()->user() || !auth()->user()->isManager()) {
@@ -86,41 +111,31 @@ class CartController extends Controller
 
         $request->validate([
             'quantity' => 'required|integer|min:1',
-            'sale_price' => 'required|numeric|min:0',
+            'unit_price' => 'required|numeric|min:0',
         ]);
 
-        $product = Product::findOrFail($productId);
+        $variant = ProductVariant::findOrFail($variantId);
 
-        if ($request->sale_price < $product->msrp) {
-            return response()->json([
-                'message' => 'Sale price must be at least the MSRP.',
-            ], 422);
-        }
-
-        if ($request->quantity > $product->quantity_on_hand) {
-            return response()->json([
-                'message' => 'Not enough stock available.',
-            ], 422);
+        // Check stock availability
+        if ($variant->quantity < $request->quantity) {
+            return back()->with('error', "Not enough stock available. Only {$variant->quantity} units in stock.");
         }
 
         $cart = session('cart', []);
-        $cart[$productId] = [
+        $cart[$variantId] = [
             'quantity' => $request->quantity,
-            'sale_price' => $request->sale_price,
+            'unit_price' => $request->unit_price,
         ];
 
         session(['cart' => $cart]);
 
-        return response()->json([
-            'message' => 'Cart item updated.',
-            'cart' => $cart,
-        ]);
+        return back()->with('success', 'Cart item updated successfully!');
     }
 
     /**
      * Remove item from cart.
      */
-    public function removeItem($productId): JsonResponse
+    public function removeItem($variantId)
     {
         // Check if user is a manager
         if (!auth()->user() || !auth()->user()->isManager()) {
@@ -128,47 +143,35 @@ class CartController extends Controller
         }
 
         $cart = session('cart', []);
-        unset($cart[$productId]);
+        unset($cart[$variantId]);
         session(['cart' => $cart]);
 
-        return response()->json([
-            'message' => 'Item removed from cart.',
-            'cart' => $cart,
-        ]);
+        return back()->with('success', 'Item removed from cart successfully!');
     }
 
     /**
      * Checkout the cart.
      */
-    public function checkout(Request $request): JsonResponse
+    public function checkout(Request $request)
     {
         // Check if user is a manager
         if (!auth()->user() || !auth()->user()->isManager()) {
             abort(403, 'Unauthorized action.');
         }
 
-        $request->validate([
-            'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
-            'items.*.quantity' => 'required|integer|min:1',
-            'items.*.sale_price' => 'required|numeric|min:0',
-        ]);
-
         $cart = session('cart', []);
         if (empty($cart)) {
-            return response()->json([
-                'message' => 'Cart is empty.',
-            ], 422);
+            return back()->with('error', 'Cart is empty.');
         }
 
         try {
             DB::beginTransaction();
 
             // Validate stock availability
-            foreach ($cart as $productId => $item) {
-                $product = Product::findOrFail($productId);
-                if ($item['quantity'] > $product->quantity_on_hand) {
-                    throw new \Exception("Insufficient stock for product: {$product->name}");
+            foreach ($cart as $variantId => $item) {
+                $variant = ProductVariant::findOrFail($variantId);
+                if ($item['quantity'] > $variant->quantity) {
+                    throw new \Exception("Insufficient stock for variant: {$variant->sku}");
                 }
             }
 
@@ -176,22 +179,23 @@ class CartController extends Controller
             $sale = Sale::create([
                 'manager_id' => auth()->id(),
                 'total_amount' => collect($cart)->sum(function ($item) {
-                    return $item['quantity'] * $item['sale_price'];
+                    return $item['quantity'] * $item['unit_price'];
                 }),
             ]);
 
             // Create sale items and update stock
-            foreach ($cart as $productId => $item) {
+            foreach ($cart as $variantId => $item) {
                 SaleItem::create([
                     'sale_id' => $sale->id,
-                    'product_id' => $productId,
+                    'product_variant_id' => $variantId,
                     'quantity' => $item['quantity'],
-                    'sale_price' => $item['sale_price'],
+                    'unit_price' => $item['unit_price'],
+                    'total_price' => $item['quantity'] * $item['unit_price'],
                 ]);
 
-                // Update product stock
-                $product = Product::find($productId);
-                $product->decrement('quantity_on_hand', $item['quantity']);
+                // Update variant stock
+                $variant = ProductVariant::find($variantId);
+                $variant->decrement('quantity', $item['quantity']);
             }
 
             // Clear cart
@@ -205,16 +209,10 @@ class CartController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'receipt_url' => Storage::url($receiptPath),
-                'sale_id' => $sale->id,
-            ]);
+            return redirect()->route('dashboard')->with('success', 'Sale completed successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'message' => $e->getMessage(),
-            ], 422);
+            return back()->with('error', $e->getMessage());
         }
     }
 
@@ -224,6 +222,12 @@ class CartController extends Controller
     private function generateReceipt(Sale $sale): string
     {
         $receiptPath = "receipts/{$sale->id}.pdf";
+
+        // Load the sale with all necessary relationships
+        $sale->load([
+            'manager',
+            'saleItems.productVariant.product'
+        ]);
 
         // For now, we'll create a simple text receipt
         // In a real implementation, you'd use DOMPDF or similar

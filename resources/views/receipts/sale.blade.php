@@ -104,7 +104,7 @@
             <div>
                 <strong>Receipt #:</strong> {{ $sale->id }}<br>
                 <strong>Date:</strong> {{ $sale->created_at->format('M d, Y g:i A') }}<br>
-                <strong>Manager:</strong> {{ $sale->manager->name }}
+                <strong>Manager:</strong> {{ $sale->manager->name ?? 'Unknown' }}
             </div>
         </div>
 
@@ -112,22 +112,28 @@
             <thead>
                 <tr>
                     <th>Product</th>
+                    <th>Variant</th>
                     <th>SKU</th>
                     <th>Qty</th>
                     <th>Unit Price</th>
-                    <th>Sale Price</th>
                     <th>Total</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach ($sale->saleItems as $item)
                     <tr>
-                        <td>{{ $item->product->name }}</td>
-                        <td>{{ $item->product->sku }}</td>
+                        <td>{{ $item->productVariant->product->name ?? 'Unknown Product' }}</td>
+                        <td>
+                            @if ($item->productVariant->color || $item->productVariant->size)
+                                {{ $item->productVariant->color ?? '' }}{{ $item->productVariant->color && $item->productVariant->size ? ' - ' : '' }}{{ $item->productVariant->size ?? '' }}
+                            @else
+                                Standard
+                            @endif
+                        </td>
+                        <td>{{ $item->productVariant->sku ?? 'N/A' }}</td>
                         <td>{{ $item->quantity }}</td>
-                        <td>KSH {{ number_format($item->product->msrp, 2) }}</td>
-                        <td>KSH {{ number_format($item->sale_price, 2) }}</td>
-                        <td>KSH {{ number_format($item->line_total, 2) }}</td>
+                        <td>KSH {{ number_format($item->unit_price, 2) }}</td>
+                        <td>KSH {{ number_format($item->total_price, 2) }}</td>
                     </tr>
                 @endforeach
             </tbody>
