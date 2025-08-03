@@ -69,6 +69,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
             $data['flash']['success'] = session('success');
         }
 
+        // Redirect admins to admin dashboard, managers to regular dashboard
+        if ($user->isAdmin()) {
+            // Debug: Log the redirect
+            \Log::info('Admin user detected, redirecting to admin dashboard', [
+                'user_id' => $user->id,
+                'user_role' => $user->role,
+                'user_email' => $user->email
+            ]);
+            return redirect('/admin-dashboard');
+        }
+
         return Inertia::render('dashboard', $data);
     })->name('dashboard');
 
@@ -97,14 +108,66 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ]);
     });
 
+    // Admin Dashboard (accessible to admins)
+    Route::get('/admin-dashboard', function () {
+        $user = auth()->user();
+
+        // Ensure only admins can access this route
+        if (!$user || !$user->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        // Get basic analytics data directly
+        $totalSales = \App\Models\Sale::sum('total_amount');
+        $totalOrders = \App\Models\Sale::count();
+        $averageOrderValue = $totalOrders > 0 ? $totalSales / $totalOrders : 0;
+
+        $totalProducts = \App\Models\Product::count();
+        $totalVariants = \App\Models\ProductVariant::count();
+        $lowStockProducts = \App\Models\ProductVariant::where('quantity', '<=', 5)
+            ->where('quantity', '>', 0)
+            ->where('is_active', true)
+            ->count();
+        $outOfStockProducts = \App\Models\ProductVariant::where('quantity', 0)
+            ->where('is_active', true)
+            ->count();
+
+        $data = [
+            'auth' => [
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                ],
+            ],
+            'analytics' => [
+                'sales' => [
+                    'totalSales' => $totalSales,
+                    'totalOrders' => $totalOrders,
+                    'averageOrderValue' => round($averageOrderValue, 2),
+                ],
+                'inventory' => [
+                    'totalProducts' => $totalProducts,
+                    'totalVariants' => $totalVariants,
+                    'lowStockProducts' => $lowStockProducts,
+                    'outOfStockProducts' => $outOfStockProducts,
+                ],
+            ],
+        ];
+
+        return Inertia::render('admin-dashboard', $data);
+    })->name('admin-dashboard');
+
     // Admin routes
     Route::middleware(['can:isAdmin'])->group(function () {
         Route::resource('products', ProductController::class);
         Route::resource('users', UserController::class);
 
-        // Analytics routes
-        Route::get('/analytics/sales', [AnalyticsController::class, 'sales'])->name('analytics.sales');
-        Route::get('/analytics/top-products', [AnalyticsController::class, 'topProducts'])->name('analytics.top-products');
+        // Dashboard Analytics routes
+        Route::get('/dashboard/analytics', [AnalyticsController::class, 'dashboard'])->name('dashboard.analytics');
+        Route::get('/dashboard/sales-analytics', [AnalyticsController::class, 'salesAnalytics'])->name('dashboard.sales-analytics');
+        Route::get('/dashboard/inventory-analytics', [AnalyticsController::class, 'inventoryAnalytics'])->name('dashboard.inventory-analytics');
 
         // Receipt routes
         Route::get('/receipts/{sale}', [ReceiptController::class, 'show'])->name('receipts.show');
