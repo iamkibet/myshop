@@ -1,4 +1,4 @@
-import { Icon } from '@/components/icon';
+// import { Icon } from '@/components/icon';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -150,7 +150,7 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                     </div>
                     <Link href="/dashboard">
                         <Button variant="outline">
-                            <Icon iconNode={ArrowLeft} className="mr-2 h-4 w-4" />
+                            <ArrowLeft className="mr-2 h-4 w-4" />
                             Back to Dashboard
                         </Button>
                     </Link>
@@ -159,12 +159,12 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                 {safeCartItems.length === 0 ? (
                     <Card>
                         <CardContent className="py-8 text-center">
-                            <Icon iconNode={ShoppingCart} className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                            <ShoppingCart className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
                             <h3 className="mb-2 text-lg font-semibold">Your cart is empty</h3>
                             <p className="mb-4 text-muted-foreground">Add some products to your cart to get started.</p>
                             <Link href="/dashboard">
                                 <Button>
-                                    <Icon iconNode={Plus} className="mr-2 h-4 w-4" />
+                                    <Plus className="mr-2 h-4 w-4" />
                                     Browse Products
                                 </Button>
                             </Link>
@@ -258,9 +258,9 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                                                                             className="transition-all duration-200"
                                                                         >
                                                                             {isUpdating ? (
-                                                                                <Icon iconNode={Loader} className="h-4 w-4 animate-spin" />
+                                                                                <Loader className="h-4 w-4 animate-spin" />
                                                                             ) : (
-                                                                                <Icon iconNode={Check} className="h-4 w-4" />
+                                                                                <Check className="h-4 w-4" />
                                                                             )}
                                                                         </Button>
                                                                         <Button
@@ -269,7 +269,7 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                                                                             onClick={() => setEditingItem(null)}
                                                                             disabled={isUpdating}
                                                                         >
-                                                                            <Icon iconNode={X} className="h-4 w-4" />
+                                                                            <X className="h-4 w-4" />
                                                                         </Button>
                                                                     </>
                                                                 ) : (
@@ -281,7 +281,7 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                                                                             disabled={isRemoving}
                                                                             className="transition-all duration-200 hover:bg-blue-50"
                                                                         >
-                                                                            <Icon iconNode={Edit} className="h-4 w-4" />
+                                                                            <Edit className="h-4 w-4" />
                                                                         </Button>
                                                                         <Button
                                                                             variant="outline"
@@ -291,9 +291,9 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                                                                             className="transition-all duration-200 hover:bg-red-50 hover:text-red-600"
                                                                         >
                                                                             {isRemoving ? (
-                                                                                <Icon iconNode={Loader} className="h-4 w-4 animate-spin" />
+                                                                                <Loader className="h-4 w-4 animate-spin" />
                                                                             ) : (
-                                                                                <Icon iconNode={Trash} className="h-4 w-4" />
+                                                                                <Trash className="h-4 w-4" />
                                                                             )}
                                                                         </Button>
                                                                     </>
@@ -325,12 +325,12 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                                 >
                                     {isCheckingOut ? (
                                         <>
-                                            <Icon iconNode={Loader} className="mr-2 h-4 w-4 animate-spin" />
+                                            <Loader className="mr-2 h-4 w-4 animate-spin" />
                                             Processing...
                                         </>
                                     ) : (
                                         <>
-                                            <Icon iconNode={CreditCard} className="mr-2 h-4 w-4" />
+                                            <CreditCard className="mr-2 h-4 w-4" />
                                             Complete Sale
                                         </>
                                     )}

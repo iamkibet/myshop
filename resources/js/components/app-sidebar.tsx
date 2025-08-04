@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, Package, Plus, Users } from 'lucide-react';
+import { BookOpen, Folder, LayoutGrid, Package, Plus, Receipt, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 interface User {
@@ -76,6 +76,11 @@ export function AppSidebar() {
             title: 'Shopping Cart',
             href: '/cart',
             icon: Package,
+        },
+        {
+            title: 'Sales History',
+            href: '/sales',
+            icon: Receipt,
         },
     ];
 

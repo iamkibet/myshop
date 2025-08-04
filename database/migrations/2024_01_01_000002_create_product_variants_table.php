@@ -14,9 +14,9 @@ return new class extends Migration
         Schema::create('product_variants', function (Blueprint $table) {
             $table->id();
             $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
-            $table->string('color')->nullable();
-            $table->string('size')->nullable();
-            $table->string('sku')->unique();
+            $table->string('color', 50)->nullable();
+            $table->string('size', 20)->nullable();
+            $table->string('sku', 100);
             $table->integer('quantity')->default(0);
             $table->decimal('cost_price', 10, 2);
             $table->decimal('selling_price', 10, 2);
@@ -25,10 +25,13 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->integer('low_stock_threshold')->default(5);
             $table->timestamps();
-            
-            $table->index(['product_id', 'color', 'size']);
-            $table->index('sku');
-            $table->index('is_active');
+
+            // Senior-level indexing and constraints
+            $table->unique(['product_id', 'sku'], 'variants_product_sku_unique');
+            $table->index(['product_id', 'is_active'], 'variants_product_active_idx');
+            $table->index(['quantity', 'is_active'], 'variants_stock_active_idx');
+            $table->index(['selling_price', 'is_active'], 'variants_price_active_idx');
+            $table->index(['color', 'size'], 'variants_color_size_idx');
         });
     }
 

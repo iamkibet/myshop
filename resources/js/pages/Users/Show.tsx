@@ -1,4 +1,3 @@
-import { Icon } from '@/components/icon';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,11 +9,19 @@ import { ArrowLeft, DollarSign, Edit, Receipt, ShoppingCart, TrendingUp } from '
 interface SaleItem {
     id: number;
     quantity: number;
-    price: number;
-    product: {
+    unit_price: number;
+    total_price: number;
+    product_variant: {
         id: number;
-        name: string;
-        price: number;
+        sku: string;
+        color?: string;
+        size?: string;
+        product: {
+            id: number;
+            name: string;
+            brand: string;
+            category: string;
+        };
     };
 }
 
@@ -22,7 +29,7 @@ interface Sale {
     id: number;
     total_amount: number;
     created_at: string;
-    saleItems: SaleItem[];
+    sale_items: SaleItem[];
 }
 
 interface User {
@@ -31,7 +38,7 @@ interface User {
     email: string;
     role: 'admin' | 'manager';
     created_at: string;
-    sales: Sale[];
+    sales?: Sale[];
 }
 
 interface SalesStats {
@@ -39,12 +46,15 @@ interface SalesStats {
     total_revenue: number;
     total_products_sold: number;
     average_sale_value: number;
+    today_sales?: number;
+    this_week_sales?: number;
+    this_month_sales?: number;
 }
 
 interface UsersShowProps {
     user: User;
     salesStats: SalesStats;
-    recentSales: Sale[];
+    recentSales?: Sale[];
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -84,6 +94,9 @@ export default function UsersShow({ user, salesStats, recentSales }: UsersShowPr
         });
     };
 
+    // Ensure recentSales is always an array
+    const safeRecentSales = recentSales || [];
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`${user.name} - Profile`} />
@@ -94,7 +107,7 @@ export default function UsersShow({ user, salesStats, recentSales }: UsersShowPr
                     <div className="flex items-center space-x-4">
                         <Link href="/users">
                             <Button variant="outline" size="sm">
-                                <Icon iconNode={ArrowLeft} className="mr-2 h-4 w-4" />
+                                <ArrowLeft className="mr-2 h-4 w-4" />
                                 Back to Users
                             </Button>
                         </Link>
@@ -103,12 +116,22 @@ export default function UsersShow({ user, salesStats, recentSales }: UsersShowPr
                             <p className="text-muted-foreground">{user.email}</p>
                         </div>
                     </div>
-                    <Link href={`/users/${user.id}/edit`}>
-                        <Button>
-                            <Icon iconNode={Edit} className="mr-2 h-4 w-4" />
-                            Edit User
-                        </Button>
-                    </Link>
+                    <div className="flex space-x-2">
+                        {user.role === 'manager' && (
+                            <Link href={`/manager/${user.id}`}>
+                                <Button variant="outline">
+                                    <TrendingUp className="mr-2 h-4 w-4" />
+                                    View Sales
+                                </Button>
+                            </Link>
+                        )}
+                        <Link href={`/users/${user.id}/edit`}>
+                            <Button>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit User
+                            </Button>
+                        </Link>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -151,28 +174,28 @@ export default function UsersShow({ user, salesStats, recentSales }: UsersShowPr
                                 <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                                     <div className="text-center">
                                         <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900">
-                                            <Icon iconNode={ShoppingCart} className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                            <ShoppingCart className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                                         </div>
                                         <p className="text-2xl font-bold">{salesStats.total_sales}</p>
                                         <p className="text-sm text-muted-foreground">Total Sales</p>
                                     </div>
                                     <div className="text-center">
                                         <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900">
-                                            <Icon iconNode={DollarSign} className="h-6 w-6 text-green-600 dark:text-green-400" />
+                                            <DollarSign className="h-6 w-6 text-green-600 dark:text-green-400" />
                                         </div>
                                         <p className="text-2xl font-bold">{formatCurrency(salesStats.total_revenue)}</p>
                                         <p className="text-sm text-muted-foreground">Total Revenue</p>
                                     </div>
                                     <div className="text-center">
                                         <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900">
-                                            <Icon iconNode={TrendingUp} className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                                            <TrendingUp className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                                         </div>
                                         <p className="text-2xl font-bold">{salesStats.total_products_sold}</p>
                                         <p className="text-sm text-muted-foreground">Products Sold</p>
                                     </div>
                                     <div className="text-center">
                                         <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900">
-                                            <Icon iconNode={Receipt} className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                                            <Receipt className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                                         </div>
                                         <p className="text-2xl font-bold">{formatCurrency(salesStats.average_sale_value)}</p>
                                         <p className="text-sm text-muted-foreground">Avg. Sale</p>
@@ -189,7 +212,7 @@ export default function UsersShow({ user, salesStats, recentSales }: UsersShowPr
                         <CardTitle>Recent Sales</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {recentSales.length > 0 ? (
+                        {safeRecentSales.length > 0 ? (
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
@@ -202,18 +225,29 @@ export default function UsersShow({ user, salesStats, recentSales }: UsersShowPr
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {recentSales.map((sale) => (
-                                            <tr key={sale.id} className="border-b hover:bg-muted/50">
+                                        {safeRecentSales.map((sale) => (
+                                            <tr key={sale.id} className="border-b">
                                                 <td className="p-2 font-medium">#{sale.id}</td>
-                                                <td className="p-2 text-sm text-muted-foreground">{formatDate(sale.created_at)}</td>
-                                                <td className="p-2 text-sm text-muted-foreground">{sale.saleItems.length} items</td>
+                                                <td className="p-2 text-sm">{formatDate(sale.created_at)}</td>
+                                                <td className="p-2 text-sm">{sale.sale_items?.length || 0} items</td>
                                                 <td className="p-2 font-medium">{formatCurrency(sale.total_amount)}</td>
                                                 <td className="p-2">
-                                                    <Link href={`/receipts/${sale.id}`}>
-                                                        <Button variant="outline" size="sm">
-                                                            <Icon iconNode={Receipt} className="h-4 w-4" />
-                                                        </Button>
-                                                    </Link>
+                                                    <div className="flex space-x-1">
+                                                        <Link href={`/receipts/${sale.id}`}>
+                                                            <Button variant="outline" size="sm">
+                                                                <Receipt className="mr-1 h-3 w-3" />
+                                                                View Receipt
+                                                            </Button>
+                                                        </Link>
+                                                        {user.role === 'manager' && (
+                                                            <Link href={`/manager/${user.id}`}>
+                                                                <Button variant="outline" size="sm">
+                                                                    <TrendingUp className="mr-1 h-3 w-3" />
+                                                                    View Sales
+                                                                </Button>
+                                                            </Link>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -222,6 +256,7 @@ export default function UsersShow({ user, salesStats, recentSales }: UsersShowPr
                             </div>
                         ) : (
                             <div className="py-8 text-center">
+                                <Receipt className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
                                 <p className="text-muted-foreground">No sales found for this user.</p>
                             </div>
                         )}

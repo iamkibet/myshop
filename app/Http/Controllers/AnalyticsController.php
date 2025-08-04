@@ -47,6 +47,21 @@ class AnalyticsController extends Controller
                 'topEntities' => $topEntities,
                 'profits' => $profitData,
                 'notifications' => $notifications,
+                'debug' => [
+                    'sale_items_count' => SaleItem::count(),
+                    'product_variants_count' => ProductVariant::count(),
+                    'sample_sale_items' => SaleItem::with(['productVariant'])->limit(3)->get()->map(function ($item) {
+                        return [
+                            'id' => $item->id,
+                            'quantity' => $item->quantity,
+                            'unit_price' => $item->unit_price,
+                            'total_price' => $item->total_price,
+                            'cost_price' => $item->productVariant->cost_price ?? 0,
+                            'selling_price' => $item->productVariant->selling_price ?? 0,
+                            'calculated_profit' => ($item->unit_price - ($item->productVariant->cost_price ?? 0)) * $item->quantity
+                        ];
+                    })
+                ]
             ]);
         } catch (\Exception $e) {
             \Log::error('Analytics dashboard error: ' . $e->getMessage(), [
@@ -177,6 +192,7 @@ class AnalyticsController extends Controller
             ->get()
             ->map(function ($variant) {
                 return [
+                    'product_variant_id' => $variant->id,
                     'product_name' => $variant->product->name ?? 'Unknown',
                     'variant_info' => $this->getVariantInfo($variant),
                     'current_stock' => $variant->quantity,
@@ -191,6 +207,7 @@ class AnalyticsController extends Controller
             ->get()
             ->map(function ($variant) {
                 return [
+                    'product_variant_id' => $variant->id,
                     'product_name' => $variant->product->name ?? 'Unknown',
                     'variant_info' => $this->getVariantInfo($variant),
                     'last_restocked' => $variant->updated_at,
@@ -198,13 +215,13 @@ class AnalyticsController extends Controller
             });
 
         // Inventory turnover rate (simplified calculation)
-        $totalInventoryValue = ProductVariant::sum(DB::raw('quantity * cost_price'));
+        $totalInventoryValue = ProductVariant::where('cost_price', '>', 0)->sum(DB::raw('quantity * cost_price'));
         $totalSalesValue = SaleItem::sum('total_price');
         $inventoryTurnoverRate = $totalInventoryValue > 0 ? $totalSalesValue / $totalInventoryValue : 0;
 
-        // Stock value calculations
-        $totalCostValue = ProductVariant::sum(DB::raw('quantity * cost_price'));
-        $totalRetailValue = ProductVariant::sum(DB::raw('quantity * selling_price'));
+        // Stock value calculations with null safety
+        $totalCostValue = ProductVariant::where('cost_price', '>', 0)->sum(DB::raw('quantity * cost_price'));
+        $totalRetailValue = ProductVariant::where('selling_price', '>', 0)->sum(DB::raw('quantity * selling_price'));
 
         return [
             'lowStockProducts' => $lowStockProducts,
@@ -231,6 +248,7 @@ class AnalyticsController extends Controller
             ->map(function ($sale) {
                 return [
                     'manager_name' => $sale->manager->name ?? 'Unknown',
+                    'manager_id' => $sale->manager_id,
                     'sales_count' => $sale->sales_count,
                     'total_revenue' => $sale->total_revenue,
                 ];
@@ -274,11 +292,15 @@ class AnalyticsController extends Controller
      */
     private function getProfitAnalytics(): array
     {
-        // Calculate profits per sale item
+        // Calculate profits per sale item with null safety
         $profitData = SaleItem::with(['productVariant'])
             ->selectRaw('
                 sale_items.*,
-                (sale_items.unit_price - product_variants.cost_price) * sale_items.quantity as profit
+                CASE 
+                    WHEN product_variants.cost_price IS NOT NULL AND product_variants.cost_price > 0 
+                    THEN (sale_items.unit_price - product_variants.cost_price) * sale_items.quantity
+                    ELSE sale_items.total_price * 0.2 -- Default 20% profit if no cost price
+                END as profit
             ')
             ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
             ->get();
@@ -287,11 +309,15 @@ class AnalyticsController extends Controller
         $totalRevenue = $profitData->sum('total_price');
         $profitMargin = $totalRevenue > 0 ? ($totalProfit / $totalRevenue) * 100 : 0;
 
-        // Profit trends (last 30 days)
+        // Profit trends (last 30 days) with null safety
         $profitTrends = SaleItem::with(['productVariant'])
             ->selectRaw('
                 DATE(sale_items.created_at) as date,
-                SUM((sale_items.unit_price - product_variants.cost_price) * sale_items.quantity) as daily_profit,
+                SUM(CASE 
+                    WHEN product_variants.cost_price IS NOT NULL AND product_variants.cost_price > 0 
+                    THEN (sale_items.unit_price - product_variants.cost_price) * sale_items.quantity
+                    ELSE sale_items.total_price * 0.2
+                END) as daily_profit,
                 SUM(sale_items.total_price) as daily_revenue
             ')
             ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
@@ -458,8 +484,13 @@ class AnalyticsController extends Controller
             ->where('is_active', true)
             ->get();
 
-        $totalCostValue = ProductVariant::sum(DB::raw('quantity * cost_price'));
-        $totalRetailValue = ProductVariant::sum(DB::raw('quantity * selling_price'));
+        // Debug: Check actual values in database
+        $debugData = ProductVariant::select('id', 'quantity', 'cost_price', 'selling_price')
+            ->where('quantity', '>', 0)
+            ->get();
+
+        $totalCostValue = ProductVariant::where('cost_price', '>', 0)->sum(DB::raw('quantity * cost_price'));
+        $totalRetailValue = ProductVariant::where('selling_price', '>', 0)->sum(DB::raw('quantity * selling_price'));
 
         return response()->json([
             'low_stock_products' => $lowStockProducts,
@@ -467,6 +498,7 @@ class AnalyticsController extends Controller
             'total_cost_value' => $totalCostValue,
             'total_retail_value' => $totalRetailValue,
             'low_stock_threshold' => $lowStockThreshold,
+            'debug_data' => $debugData, // Remove this in production
         ]);
     }
 }

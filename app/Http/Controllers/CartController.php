@@ -209,7 +209,8 @@ class CartController extends Controller
 
             DB::commit();
 
-            return redirect()->route('dashboard')->with('success', 'Sale completed successfully!');
+            // Redirect to the receipt page
+            return redirect()->route('receipts.show', $sale)->with('success', 'Sale completed successfully!');
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', $e->getMessage());

@@ -13,19 +13,23 @@ return new class extends Migration
     {
         Schema::create('products', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
+            $table->string('name', 255);
             $table->text('description')->nullable();
-            $table->string('brand')->nullable();
-            $table->string('category')->nullable();
+            $table->string('brand', 100)->nullable();
+            $table->string('category', 100)->nullable();
             $table->string('image_url')->nullable();
             $table->json('features')->nullable();
-            $table->string('meta_title')->nullable();
+            $table->string('meta_title', 255)->nullable();
             $table->text('meta_description')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
-            $table->index(['brand', 'category']);
-            $table->index('is_active');
+            // Senior-level indexing strategy
+            $table->index(['is_active', 'category'], 'products_active_category_idx');
+            $table->index(['brand', 'is_active'], 'products_brand_active_idx');
+            $table->index(['name', 'is_active'], 'products_name_active_idx');
+            // Note: fullText index removed for SQLite compatibility in testing
+            // $table->fullText(['name', 'description'], 'products_search_idx');
         });
     }
 

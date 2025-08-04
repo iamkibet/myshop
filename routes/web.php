@@ -4,6 +4,7 @@ use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReceiptController;
+use App\Http\Controllers\SalesController;
 use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -132,6 +133,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->where('is_active', true)
             ->count();
 
+        // Get top managers
+        $topManagers = \App\Models\Sale::with(['manager'])
+            ->selectRaw('manager_id, COUNT(*) as sales_count, SUM(total_amount) as total_revenue')
+            ->groupBy('manager_id')
+            ->orderByDesc('total_revenue')
+            ->limit(5)
+            ->get()
+            ->map(function ($sale) {
+                return [
+                    'manager_name' => $sale->manager->name ?? 'Unknown',
+                    'manager_id' => $sale->manager_id,
+                    'sales_count' => $sale->sales_count,
+                    'total_revenue' => $sale->total_revenue,
+                ];
+            });
+
         $data = [
             'auth' => [
                 'user' => [
@@ -153,6 +170,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     'lowStockProducts' => $lowStockProducts,
                     'outOfStockProducts' => $outOfStockProducts,
                 ],
+                'topEntities' => [
+                    'topManagers' => $topManagers,
+                ],
             ],
         ];
 
@@ -164,14 +184,28 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('products', ProductController::class);
         Route::resource('users', UserController::class);
 
+        // Image upload route
+        Route::post('/upload-image', [ProductController::class, 'uploadImage'])->name('upload.image');
+
+        // Restock route
+        Route::post('/restock', [ProductController::class, 'restock'])->name('restock');
+
         // Dashboard Analytics routes
         Route::get('/dashboard/analytics', [AnalyticsController::class, 'dashboard'])->name('dashboard.analytics');
         Route::get('/dashboard/sales-analytics', [AnalyticsController::class, 'salesAnalytics'])->name('dashboard.sales-analytics');
         Route::get('/dashboard/inventory-analytics', [AnalyticsController::class, 'inventoryAnalytics'])->name('dashboard.inventory-analytics');
 
-        // Receipt routes
-        Route::get('/receipts/{sale}', [ReceiptController::class, 'show'])->name('receipts.show');
+        // Manager stats route
+        Route::get('/manager/{managerId}', [SalesController::class, 'managerStats'])->name('manager.stats');
     });
+
+    // Sales routes - accessible to both managers and admins
+    Route::get('/sales', [SalesController::class, 'index'])->name('sales.index');
+    Route::get('/sales/{sale}', [SalesController::class, 'show'])->name('sales.show');
+
+    // Receipt routes - accessible to both managers and admins
+    Route::get('/receipts/{sale}', [ReceiptController::class, 'show'])->name('receipts.show');
+    Route::get('/receipts/{sale}/download', [ReceiptController::class, 'download'])->name('receipts.download');
 
     // Manager routes - accessible to both managers and admins
     Route::get('/products/catalog', [ProductController::class, 'catalog'])->name('products.catalog');

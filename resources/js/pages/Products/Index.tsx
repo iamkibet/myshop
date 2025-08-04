@@ -20,23 +20,35 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+interface ProductVariant {
+    id: number;
+    product_id: number;
+    color?: string;
+    size?: string;
+    sku: string;
+    quantity: number;
+    cost_price: number;
+    selling_price: number;
+    discount_price?: number;
+    image_url?: string;
+    is_active: boolean;
+    low_stock_threshold: number;
+}
+
 interface Product {
     id: number;
     name: string;
-    sku: string;
     description?: string;
     brand: string;
     category: string;
-    cost_price: number | string;
-    msrp: number | string;
-    quantity_on_hand: number;
-    low_stock_threshold: number;
-    images?: string[];
-    sizes?: string[];
-    colors?: string[];
+    image_url?: string;
+    features?: string[];
+    meta_title?: string;
+    meta_description?: string;
     is_active: boolean;
     created_at: string;
     updated_at: string;
+    variants?: ProductVariant[];
 }
 
 interface ProductsIndexProps {
@@ -55,11 +67,66 @@ interface ProductsIndexProps {
     };
 }
 
-// Helper function to safely format currency
-const getStockStatus = (quantity: number, threshold: number) => {
-    if (quantity === 0) return { status: 'Out of Stock', color: 'destructive' as const };
-    if (quantity <= threshold) return { status: 'Low Stock', color: 'secondary' as const };
+// Helper function to get stock status for a product based on its variants
+const getProductStockStatus = (product: Product) => {
+    if (!product.variants || product.variants.length === 0) {
+        return { status: 'No Variants', color: 'destructive' as const };
+    }
+
+    const inStockVariants = product.variants.filter((v) => v.quantity > 0);
+    const lowStockVariants = product.variants.filter((v) => v.quantity > 0 && v.quantity <= v.low_stock_threshold);
+
+    if (inStockVariants.length === 0) {
+        return { status: 'Out of Stock', color: 'destructive' as const };
+    }
+
+    if (lowStockVariants.length > 0) {
+        return { status: 'Low Stock', color: 'secondary' as const };
+    }
+
     return { status: 'In Stock', color: 'default' as const };
+};
+
+// Helper function to get total quantity from variants
+const getProductTotalQuantity = (product: Product): number => {
+    if (!product.variants || product.variants.length === 0) {
+        return 0;
+    }
+
+    return product.variants.reduce((total, variant) => total + variant.quantity, 0);
+};
+
+// Helper function to get minimum price from variants
+const getProductMinPrice = (product: Product): number => {
+    if (!product.variants || product.variants.length === 0) {
+        return 0;
+    }
+
+    const activeVariants = product.variants.filter((v) => v.is_active);
+    if (activeVariants.length === 0) {
+        return 0;
+    }
+
+    return Math.min(...activeVariants.map((v) => v.selling_price));
+};
+
+// Helper function to get maximum price from variants
+const getProductMaxPrice = (product: Product): number => {
+    if (!product.variants || product.variants.length === 0) {
+        return 0;
+    }
+
+    const activeVariants = product.variants.filter((v) => v.is_active);
+    if (activeVariants.length === 0) {
+        return 0;
+    }
+
+    return Math.max(...activeVariants.map((v) => v.selling_price));
+};
+
+// Helper function to get variant count
+const getVariantCount = (product: Product): number => {
+    return product.variants?.length || 0;
 };
 
 export default function ProductsIndex({ products, filters }: ProductsIndexProps) {
@@ -179,9 +246,8 @@ export default function ProductsIndex({ products, filters }: ProductsIndexProps)
                                         <th className="p-2 text-left font-medium">Name</th>
                                         <th className="p-2 text-left font-medium">Brand</th>
                                         <th className="p-2 text-left font-medium">Category</th>
-                                        <th className="p-2 text-left font-medium">SKU</th>
-                                        <th className="p-2 text-left font-medium">Cost Price</th>
-                                        <th className="p-2 text-left font-medium">MSRP</th>
+                                        <th className="p-2 text-left font-medium">Variants</th>
+                                        <th className="p-2 text-left font-medium">Price Range</th>
                                         <th className="p-2 text-left font-medium">Stock</th>
                                         <th className="p-2 text-left font-medium">Status</th>
                                         <th className="p-2 text-left font-medium">Actions</th>
@@ -189,13 +255,19 @@ export default function ProductsIndex({ products, filters }: ProductsIndexProps)
                                 </thead>
                                 <tbody>
                                     {products.data.map((product) => {
-                                        const stockStatus = getStockStatus(product.quantity_on_hand, product.low_stock_threshold);
+                                        const stockStatus = getProductStockStatus(product);
+                                        const totalQuantity = getProductTotalQuantity(product);
+                                        const minPrice = getProductMinPrice(product);
+                                        const maxPrice = getProductMaxPrice(product);
+                                        const variantCount = getVariantCount(product);
+                                        const hasStock = totalQuantity > 0;
+
                                         return (
                                             <tr key={product.id} className="border-b transition-colors hover:bg-muted/50">
                                                 <td className="p-2">
-                                                    {product.images && product.images.length > 0 ? (
+                                                    {product.image_url ? (
                                                         <img
-                                                            src={product.images[0]}
+                                                            src={product.image_url}
                                                             alt={product.name}
                                                             className="h-12 w-12 rounded-md border object-cover"
                                                             onError={(e) => {
@@ -221,15 +293,30 @@ export default function ProductsIndex({ products, filters }: ProductsIndexProps)
                                                 </td>
                                                 <td className="p-2 text-sm">{product.brand}</td>
                                                 <td className="p-2 text-sm">{product.category}</td>
-                                                <td className="p-2 text-sm text-muted-foreground">{product.sku}</td>
-                                                <td className="p-2">{formatCurrency(product.cost_price)}</td>
-                                                <td className="p-2">{formatCurrency(product.msrp)}</td>
+                                                <td className="p-2">
+                                                    <div className="text-sm">
+                                                        <span className="font-medium">{variantCount}</span>
+                                                        <span className="text-muted-foreground"> variants</span>
+                                                    </div>
+                                                </td>
+                                                <td className="p-2">
+                                                    <div className="text-sm">
+                                                        {minPrice === maxPrice ? (
+                                                            formatCurrency(minPrice)
+                                                        ) : (
+                                                            <>
+                                                                {formatCurrency(minPrice)} - {formatCurrency(maxPrice)}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </td>
                                                 <td className="p-2">
                                                     <div className="flex items-center space-x-1">
-                                                        <span className="text-sm">{product.quantity_on_hand}</span>
-                                                        {product.quantity_on_hand <= product.low_stock_threshold && (
-                                                            <AlertTriangle className="text-warning h-3 w-3" />
-                                                        )}
+                                                        <span className="text-sm">{totalQuantity}</span>
+                                                        {hasStock &&
+                                                            product.variants?.some((v) => v.quantity > 0 && v.quantity <= v.low_stock_threshold) && (
+                                                                <AlertTriangle className="text-warning h-3 w-3" />
+                                                            )}
                                                     </div>
                                                 </td>
                                                 <td className="p-2">
@@ -261,6 +348,7 @@ export default function ProductsIndex({ products, filters }: ProductsIndexProps)
 
                         {products.data.length === 0 && (
                             <div className="py-8 text-center">
+                                <Package className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
                                 <p className="text-muted-foreground">No products found.</p>
                             </div>
                         )}

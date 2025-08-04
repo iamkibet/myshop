@@ -63,7 +63,7 @@ class UserController extends Controller
     {
         // Load user with sales and related data
         $user->load(['sales' => function ($query) {
-            $query->with(['saleItems.product'])
+            $query->with(['saleItems.productVariant.product'])
                 ->orderBy('created_at', 'desc');
         }]);
 
@@ -77,6 +77,9 @@ class UserController extends Controller
             'average_sale_value' => $user->sales->count() > 0
                 ? $user->sales->avg('total_amount')
                 : 0,
+            'today_sales' => $user->sales->where('created_at', '>=', now()->startOfDay())->sum('total_amount'),
+            'this_week_sales' => $user->sales->where('created_at', '>=', now()->startOfWeek())->sum('total_amount'),
+            'this_month_sales' => $user->sales->where('created_at', '>=', now()->startOfMonth())->sum('total_amount'),
         ];
 
         // Get recent sales for display
