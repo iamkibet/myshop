@@ -273,20 +273,22 @@ export default function AdminDashboard() {
     useEffect(() => {
         if (safeAnalyticsData?.inventory?.lowStockProducts && safeAnalyticsData?.inventory?.outOfStockProducts) {
             const items: RestockItem[] = [
-                ...(safeAnalyticsData.inventory.lowStockProducts || []).map((item) => ({
+                ...(Array.isArray(safeAnalyticsData.inventory.lowStockProducts) ? safeAnalyticsData.inventory.lowStockProducts : []).map((item) => ({
                     product_variant_id: (item as any).product_variant_id || 0,
                     product_name: item.product_name || 'Unknown',
                     variant_info: item.variant_info || 'Standard',
                     current_stock: item.current_stock || 0,
                     new_quantity: (item.current_stock || 0) + 10,
                 })),
-                ...(safeAnalyticsData.inventory.outOfStockProducts || []).map((item) => ({
-                    product_variant_id: (item as any).product_variant_id || 0,
-                    product_name: item.product_name || 'Unknown',
-                    variant_info: item.variant_info || 'Standard',
-                    current_stock: 0,
-                    new_quantity: 20,
-                })),
+                ...(Array.isArray(safeAnalyticsData.inventory.outOfStockProducts) ? safeAnalyticsData.inventory.outOfStockProducts : []).map(
+                    (item) => ({
+                        product_variant_id: (item as any).product_variant_id || 0,
+                        product_name: item.product_name || 'Unknown',
+                        variant_info: item.variant_info || 'Standard',
+                        current_stock: 0,
+                        new_quantity: 20,
+                    }),
+                ),
             ];
             setRestockItems(items);
         }
@@ -461,7 +463,7 @@ export default function AdminDashboard() {
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-3">
-                                {Array.isArray(notifications)
+                                {Array.isArray(notifications) && notifications.length > 0
                                     ? notifications.slice(0, 5).map((notification, index) => (
                                           <div
                                               key={index}
@@ -568,20 +570,27 @@ export default function AdminDashboard() {
                                                 <div>
                                                     <p className="text-2xl font-bold text-green-600">
                                                         {formatCurrency(
-                                                            (sales as any).salesTrends.reduce((sum: number, day: any) => sum + (day.revenue || 0), 0),
+                                                            Array.isArray((sales as any).salesTrends)
+                                                                ? (sales as any).salesTrends.reduce(
+                                                                      (sum: number, day: any) => sum + (day.revenue || 0),
+                                                                      0,
+                                                                  )
+                                                                : 0,
                                                         )}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">Total Revenue</p>
                                                 </div>
                                                 <div>
                                                     <p className="text-2xl font-bold text-blue-600">
-                                                        {(sales as any).salesTrends.reduce((sum: number, day: any) => sum + (day.orders || 0), 0)}
+                                                        {Array.isArray((sales as any).salesTrends)
+                                                            ? (sales as any).salesTrends.reduce((sum: number, day: any) => sum + (day.orders || 0), 0)
+                                                            : 0}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">Total Orders</p>
                                                 </div>
                                                 <div>
                                                     <p className="text-2xl font-bold text-purple-600">
-                                                        {(sales as any).salesTrends.length > 0
+                                                        {Array.isArray((sales as any).salesTrends) && (sales as any).salesTrends.length > 0
                                                             ? Math.round(
                                                                   (sales as any).salesTrends.reduce(
                                                                       (sum: number, day: any) => sum + (day.revenue || 0),
@@ -594,15 +603,17 @@ export default function AdminDashboard() {
                                                 </div>
                                             </div>
                                             <div className="space-y-2">
-                                                {(sales as any).salesTrends.slice(-7).map((day: any, index: number) => (
-                                                    <div key={index} className="flex items-center justify-between rounded-lg border p-2">
-                                                        <span className="text-sm font-medium">{new Date(day.date).toLocaleDateString()}</span>
-                                                        <div className="flex items-center space-x-4">
-                                                            <span className="text-sm">{day.orders || 0} orders</span>
-                                                            <span className="text-sm font-medium">{formatCurrency(day.revenue || 0)}</span>
+                                                {(Array.isArray((sales as any).salesTrends) ? (sales as any).salesTrends.slice(-7) : []).map(
+                                                    (day: any, index: number) => (
+                                                        <div key={index} className="flex items-center justify-between rounded-lg border p-2">
+                                                            <span className="text-sm font-medium">{new Date(day.date).toLocaleDateString()}</span>
+                                                            <div className="flex items-center space-x-4">
+                                                                <span className="text-sm">{day.orders || 0} orders</span>
+                                                                <span className="text-sm font-medium">{formatCurrency(day.revenue || 0)}</span>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ))}
+                                                    ),
+                                                )}
                                             </div>
                                         </div>
                                     ) : (
@@ -630,19 +641,27 @@ export default function AdminDashboard() {
                                             <div className="grid grid-cols-3 gap-4 text-center">
                                                 <div>
                                                     <p className="text-2xl font-bold text-green-600">
-                                                        {formatCurrency(profits.profitTrends.reduce((sum, day) => sum + (day.daily_profit || 0), 0))}
+                                                        {formatCurrency(
+                                                            Array.isArray(profits.profitTrends)
+                                                                ? profits.profitTrends.reduce((sum, day) => sum + (day.daily_profit || 0), 0)
+                                                                : 0,
+                                                        )}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">Total Profit</p>
                                                 </div>
                                                 <div>
                                                     <p className="text-2xl font-bold text-blue-600">
-                                                        {formatCurrency(profits.profitTrends.reduce((sum, day) => sum + (day.daily_revenue || 0), 0))}
+                                                        {formatCurrency(
+                                                            Array.isArray(profits.profitTrends)
+                                                                ? profits.profitTrends.reduce((sum, day) => sum + (day.daily_revenue || 0), 0)
+                                                                : 0,
+                                                        )}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">Total Revenue</p>
                                                 </div>
                                                 <div>
                                                     <p className="text-2xl font-bold text-purple-600">
-                                                        {profits.profitTrends.length > 0
+                                                        {Array.isArray(profits.profitTrends) && profits.profitTrends.length > 0
                                                             ? Math.round(
                                                                   profits.profitTrends.reduce((sum, day) => sum + (day.daily_profit || 0), 0) /
                                                                       profits.profitTrends.length,
@@ -653,7 +672,7 @@ export default function AdminDashboard() {
                                                 </div>
                                             </div>
                                             <div className="space-y-2">
-                                                {profits.profitTrends.slice(-7).map((day, index) => (
+                                                {(Array.isArray(profits.profitTrends) ? profits.profitTrends.slice(-7) : []).map((day, index) => (
                                                     <div key={index} className="flex items-center justify-between rounded-lg border p-2">
                                                         <span className="text-sm font-medium">{new Date(day.date).toLocaleDateString()}</span>
                                                         <div className="flex items-center space-x-4">
@@ -694,18 +713,20 @@ export default function AdminDashboard() {
                                 <CardContent>
                                     <div className="space-y-3">
                                         {Array.isArray(sales?.bestSellingProducts)
-                                            ? sales.bestSellingProducts.slice(0, 5).map((product, index) => (
-                                                  <div key={index} className="flex items-center justify-between rounded-lg border p-3">
-                                                      <div>
-                                                          <p className="font-medium">{product.product_name}</p>
-                                                          <p className="text-sm text-muted-foreground">{product.variant_info}</p>
+                                            ? (Array.isArray(sales.bestSellingProducts) ? sales.bestSellingProducts.slice(0, 5) : []).map(
+                                                  (product, index) => (
+                                                      <div key={index} className="flex items-center justify-between rounded-lg border p-3">
+                                                          <div>
+                                                              <p className="font-medium">{product.product_name}</p>
+                                                              <p className="text-sm text-muted-foreground">{product.variant_info}</p>
+                                                          </div>
+                                                          <div className="text-right">
+                                                              <p className="font-medium">{product.total_sold} sold</p>
+                                                              <p className="text-sm text-muted-foreground">{formatCurrency(product.total_revenue)}</p>
+                                                          </div>
                                                       </div>
-                                                      <div className="text-right">
-                                                          <p className="font-medium">{product.total_sold} sold</p>
-                                                          <p className="text-sm text-muted-foreground">{formatCurrency(product.total_revenue)}</p>
-                                                      </div>
-                                                  </div>
-                                              ))
+                                                  ),
+                                              )
                                             : null}
                                     </div>
                                 </CardContent>
@@ -722,17 +743,19 @@ export default function AdminDashboard() {
                                 <CardContent>
                                     <div className="space-y-3">
                                         {Array.isArray(sales?.salesByCategory)
-                                            ? sales.salesByCategory.slice(0, 5).map((category, index) => (
-                                                  <div key={index} className="flex items-center justify-between rounded-lg border p-3">
-                                                      <div>
-                                                          <p className="font-medium">{category.category}</p>
-                                                          <p className="text-sm text-muted-foreground">{category.total_sold} units</p>
+                                            ? (Array.isArray(sales.salesByCategory) ? sales.salesByCategory.slice(0, 5) : []).map(
+                                                  (category, index) => (
+                                                      <div key={index} className="flex items-center justify-between rounded-lg border p-3">
+                                                          <div>
+                                                              <p className="font-medium">{category.category}</p>
+                                                              <p className="text-sm text-muted-foreground">{category.total_sold} units</p>
+                                                          </div>
+                                                          <div className="text-right">
+                                                              <p className="font-medium">{formatCurrency(category.total_revenue)}</p>
+                                                          </div>
                                                       </div>
-                                                      <div className="text-right">
-                                                          <p className="font-medium">{formatCurrency(category.total_revenue)}</p>
-                                                      </div>
-                                                  </div>
-                                              ))
+                                                  ),
+                                              )
                                             : null}
                                     </div>
                                 </CardContent>
@@ -753,17 +776,19 @@ export default function AdminDashboard() {
                                 <CardContent>
                                     <div className="space-y-3">
                                         {Array.isArray(inventory?.lowStockProducts)
-                                            ? inventory.lowStockProducts.slice(0, 5).map((product, index) => (
-                                                  <div key={index} className="flex items-center justify-between rounded-lg border p-3">
-                                                      <div>
-                                                          <p className="font-medium">{product.product_name}</p>
-                                                          <p className="text-sm text-muted-foreground">{product.variant_info}</p>
+                                            ? (Array.isArray(inventory.lowStockProducts) ? inventory.lowStockProducts.slice(0, 5) : []).map(
+                                                  (product, index) => (
+                                                      <div key={index} className="flex items-center justify-between rounded-lg border p-3">
+                                                          <div>
+                                                              <p className="font-medium">{product.product_name}</p>
+                                                              <p className="text-sm text-muted-foreground">{product.variant_info}</p>
+                                                          </div>
+                                                          <div className="text-right">
+                                                              <Badge variant="secondary">{product.current_stock} left</Badge>
+                                                          </div>
                                                       </div>
-                                                      <div className="text-right">
-                                                          <Badge variant="secondary">{product.current_stock} left</Badge>
-                                                      </div>
-                                                  </div>
-                                              ))
+                                                  ),
+                                              )
                                             : null}
                                     </div>
                                 </CardContent>
@@ -780,17 +805,19 @@ export default function AdminDashboard() {
                                 <CardContent>
                                     <div className="space-y-3">
                                         {Array.isArray(inventory?.outOfStockProducts)
-                                            ? inventory.outOfStockProducts.slice(0, 5).map((product, index) => (
-                                                  <div key={index} className="flex items-center justify-between rounded-lg border p-3">
-                                                      <div>
-                                                          <p className="font-medium">{product.product_name}</p>
-                                                          <p className="text-sm text-muted-foreground">{product.variant_info}</p>
+                                            ? (Array.isArray(inventory.outOfStockProducts) ? inventory.outOfStockProducts.slice(0, 5) : []).map(
+                                                  (product, index) => (
+                                                      <div key={index} className="flex items-center justify-between rounded-lg border p-3">
+                                                          <div>
+                                                              <p className="font-medium">{product.product_name}</p>
+                                                              <p className="text-sm text-muted-foreground">{product.variant_info}</p>
+                                                          </div>
+                                                          <div className="text-right">
+                                                              <Badge variant="destructive">Out of Stock</Badge>
+                                                          </div>
                                                       </div>
-                                                      <div className="text-right">
-                                                          <Badge variant="destructive">Out of Stock</Badge>
-                                                      </div>
-                                                  </div>
-                                              ))
+                                                  ),
+                                              )
                                             : null}
                                     </div>
                                 </CardContent>
@@ -879,7 +906,7 @@ export default function AdminDashboard() {
                                     </CardHeader>
                                     <CardContent>
                                         <div className="space-y-3">
-                                            {(topEntities?.topManagers || []).map((manager, index) => (
+                                            {(Array.isArray(topEntities?.topManagers) ? topEntities.topManagers : []).map((manager, index) => (
                                                 <div key={index} className="flex items-center justify-between rounded-lg border p-3">
                                                     <div className="flex items-center space-x-3">
                                                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
@@ -917,7 +944,7 @@ export default function AdminDashboard() {
                                     </CardHeader>
                                     <CardContent>
                                         <div className="space-y-3">
-                                            {(topEntities?.topCategories || []).map((category, index) => (
+                                            {(Array.isArray(topEntities?.topCategories) ? topEntities.topCategories : []).map((category, index) => (
                                                 <div key={index} className="flex items-center justify-between rounded-lg border p-3">
                                                     <div className="flex items-center space-x-3">
                                                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-sm font-bold">

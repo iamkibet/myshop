@@ -118,36 +118,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             abort(403, 'Unauthorized access.');
         }
 
-        // Get basic analytics data directly
-        $totalSales = \App\Models\Sale::sum('total_amount');
-        $totalOrders = \App\Models\Sale::count();
-        $averageOrderValue = $totalOrders > 0 ? $totalSales / $totalOrders : 0;
-
-        $totalProducts = \App\Models\Product::count();
-        $totalVariants = \App\Models\ProductVariant::count();
-        $lowStockProducts = \App\Models\ProductVariant::where('quantity', '<=', 5)
-            ->where('quantity', '>', 0)
-            ->where('is_active', true)
-            ->count();
-        $outOfStockProducts = \App\Models\ProductVariant::where('quantity', 0)
-            ->where('is_active', true)
-            ->count();
-
-        // Get top managers
-        $topManagers = \App\Models\Sale::with(['manager'])
-            ->selectRaw('manager_id, COUNT(*) as sales_count, SUM(total_amount) as total_revenue')
-            ->groupBy('manager_id')
-            ->orderByDesc('total_revenue')
-            ->limit(5)
-            ->get()
-            ->map(function ($sale) {
-                return [
-                    'manager_name' => $sale->manager->name ?? 'Unknown',
-                    'manager_id' => $sale->manager_id,
-                    'sales_count' => $sale->sales_count,
-                    'total_revenue' => $sale->total_revenue,
-                ];
-            });
+        // Get comprehensive analytics data using AnalyticsController
+        $analyticsController = new \App\Http\Controllers\AnalyticsController();
+        $analyticsResponse = $analyticsController->dashboard();
+        $analyticsData = json_decode($analyticsResponse->getContent(), true);
 
         $data = [
             'auth' => [
@@ -158,22 +132,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     'role' => $user->role,
                 ],
             ],
-            'analytics' => [
-                'sales' => [
-                    'totalSales' => $totalSales,
-                    'totalOrders' => $totalOrders,
-                    'averageOrderValue' => round($averageOrderValue, 2),
-                ],
-                'inventory' => [
-                    'totalProducts' => $totalProducts,
-                    'totalVariants' => $totalVariants,
-                    'lowStockProducts' => $lowStockProducts,
-                    'outOfStockProducts' => $outOfStockProducts,
-                ],
-                'topEntities' => [
-                    'topManagers' => $topManagers,
-                ],
-            ],
+            'analytics' => $analyticsData,
         ];
 
         return Inertia::render('admin-dashboard', $data);

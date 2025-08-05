@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AnalyticsController extends Controller
 {
@@ -47,24 +48,9 @@ class AnalyticsController extends Controller
                 'topEntities' => $topEntities,
                 'profits' => $profitData,
                 'notifications' => $notifications,
-                'debug' => [
-                    'sale_items_count' => SaleItem::count(),
-                    'product_variants_count' => ProductVariant::count(),
-                    'sample_sale_items' => SaleItem::with(['productVariant'])->limit(3)->get()->map(function ($item) {
-                        return [
-                            'id' => $item->id,
-                            'quantity' => $item->quantity,
-                            'unit_price' => $item->unit_price,
-                            'total_price' => $item->total_price,
-                            'cost_price' => $item->productVariant->cost_price ?? 0,
-                            'selling_price' => $item->productVariant->selling_price ?? 0,
-                            'calculated_profit' => ($item->unit_price - ($item->productVariant->cost_price ?? 0)) * $item->quantity
-                        ];
-                    })
-                ]
             ]);
         } catch (\Exception $e) {
-            \Log::error('Analytics dashboard error: ' . $e->getMessage(), [
+            Log::error('Analytics dashboard error: ' . $e->getMessage(), [
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString()
@@ -155,7 +141,7 @@ class AnalyticsController extends Controller
             ->get();
 
         // Sales trends (last 30 days)
-        $salesTrends = Sale::where('created_at', '>=', $now->copy()->subDays(30))
+        $salesTrends = Sale::where('created_at', '>=', Carbon::now()->subDays(30))
             ->selectRaw('DATE(created_at) as date, COUNT(*) as orders, SUM(total_amount) as revenue')
             ->groupBy('date')
             ->orderBy('date')
@@ -215,13 +201,14 @@ class AnalyticsController extends Controller
             });
 
         // Inventory turnover rate (simplified calculation)
-        $totalInventoryValue = ProductVariant::where('cost_price', '>', 0)->sum(DB::raw('quantity * cost_price'));
+        $totalInventoryValue = ProductVariant::sum(DB::raw('quantity * cost_price'));
         $totalSalesValue = SaleItem::sum('total_price');
         $inventoryTurnoverRate = $totalInventoryValue > 0 ? $totalSalesValue / $totalInventoryValue : 0;
 
-        // Stock value calculations with null safety
-        $totalCostValue = ProductVariant::where('cost_price', '>', 0)->sum(DB::raw('quantity * cost_price'));
-        $totalRetailValue = ProductVariant::where('selling_price', '>', 0)->sum(DB::raw('quantity * selling_price'));
+        // Stock value calculations
+        $totalCostValue = ProductVariant::sum(DB::raw('quantity * cost_price'));
+        $totalRetailValue = ProductVariant::sum(DB::raw('quantity * selling_price'));
+        $totalProducts = ProductVariant::where('is_active', true)->count();
 
         return [
             'lowStockProducts' => $lowStockProducts,
@@ -229,6 +216,7 @@ class AnalyticsController extends Controller
             'inventoryTurnoverRate' => round($inventoryTurnoverRate, 2),
             'totalCostValue' => $totalCostValue,
             'totalRetailValue' => $totalRetailValue,
+            'totalProducts' => $totalProducts,
             'lowStockThreshold' => $lowStockThreshold,
         ];
     }
@@ -292,15 +280,11 @@ class AnalyticsController extends Controller
      */
     private function getProfitAnalytics(): array
     {
-        // Calculate profits per sale item with null safety
+        // Calculate profits per sale item
         $profitData = SaleItem::with(['productVariant'])
             ->selectRaw('
                 sale_items.*,
-                CASE 
-                    WHEN product_variants.cost_price IS NOT NULL AND product_variants.cost_price > 0 
-                    THEN (sale_items.unit_price - product_variants.cost_price) * sale_items.quantity
-                    ELSE sale_items.total_price * 0.2 -- Default 20% profit if no cost price
-                END as profit
+                (sale_items.unit_price - product_variants.cost_price) * sale_items.quantity as profit
             ')
             ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
             ->get();
@@ -309,15 +293,11 @@ class AnalyticsController extends Controller
         $totalRevenue = $profitData->sum('total_price');
         $profitMargin = $totalRevenue > 0 ? ($totalProfit / $totalRevenue) * 100 : 0;
 
-        // Profit trends (last 30 days) with null safety
+        // Profit trends (last 30 days)
         $profitTrends = SaleItem::with(['productVariant'])
             ->selectRaw('
                 DATE(sale_items.created_at) as date,
-                SUM(CASE 
-                    WHEN product_variants.cost_price IS NOT NULL AND product_variants.cost_price > 0 
-                    THEN (sale_items.unit_price - product_variants.cost_price) * sale_items.quantity
-                    ELSE sale_items.total_price * 0.2
-                END) as daily_profit,
+                SUM((sale_items.unit_price - product_variants.cost_price) * sale_items.quantity) as daily_profit,
                 SUM(sale_items.total_price) as daily_revenue
             ')
             ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
@@ -484,13 +464,8 @@ class AnalyticsController extends Controller
             ->where('is_active', true)
             ->get();
 
-        // Debug: Check actual values in database
-        $debugData = ProductVariant::select('id', 'quantity', 'cost_price', 'selling_price')
-            ->where('quantity', '>', 0)
-            ->get();
-
-        $totalCostValue = ProductVariant::where('cost_price', '>', 0)->sum(DB::raw('quantity * cost_price'));
-        $totalRetailValue = ProductVariant::where('selling_price', '>', 0)->sum(DB::raw('quantity * selling_price'));
+        $totalCostValue = ProductVariant::sum(DB::raw('quantity * cost_price'));
+        $totalRetailValue = ProductVariant::sum(DB::raw('quantity * selling_price'));
 
         return response()->json([
             'low_stock_products' => $lowStockProducts,
@@ -498,7 +473,6 @@ class AnalyticsController extends Controller
             'total_cost_value' => $totalCostValue,
             'total_retail_value' => $totalRetailValue,
             'low_stock_threshold' => $lowStockThreshold,
-            'debug_data' => $debugData, // Remove this in production
         ]);
     }
 }
