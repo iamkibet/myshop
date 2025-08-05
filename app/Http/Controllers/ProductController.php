@@ -394,41 +394,78 @@ class ProductController extends Controller
     /**
      * Restock products
      */
-    public function restock(Request $request): JsonResponse
+    public function restock(Request $request)
     {
         try {
             $request->validate([
                 'items' => 'required|array',
-                'items.*.product_variant_id' => 'required|integer|exists:product_variants,id',
+                'items.*.product_variant_id' => 'required|integer|min:1',
                 'items.*.new_quantity' => 'required|integer|min:0',
             ]);
 
             $items = $request->input('items');
             $updatedCount = 0;
+            $errors = [];
+
+            Log::info('Restock request received', ['items' => $items]);
 
             foreach ($items as $item) {
-                $variant = ProductVariant::find($item['product_variant_id']);
+                $variantId = $item['product_variant_id'];
+                $newQuantity = $item['new_quantity'];
+
+                Log::info('Processing restock item', [
+                    'variant_id' => $variantId,
+                    'new_quantity' => $newQuantity
+                ]);
+
+                $variant = ProductVariant::find($variantId);
                 if ($variant) {
-                    $variant->update(['quantity' => $item['new_quantity']]);
+                    $oldQuantity = $variant->quantity;
+                    $variant->update(['quantity' => $newQuantity]);
                     $updatedCount++;
+
+                    Log::info('Variant updated', [
+                        'variant_id' => $variantId,
+                        'product_name' => $variant->product->name ?? 'Unknown',
+                        'old_quantity' => $oldQuantity,
+                        'new_quantity' => $newQuantity
+                    ]);
+                } else {
+                    $errors[] = "Variant ID {$variantId} not found";
+                    Log::warning('Variant not found', ['variant_id' => $variantId]);
                 }
             }
 
-            return response()->json([
-                'success' => true,
-                'message' => "Successfully restocked {$updatedCount} products",
-                'updated_count' => $updatedCount,
-            ]);
+            $message = "Successfully restocked {$updatedCount} products";
+            if (!empty($errors)) {
+                $message .= ". Errors: " . implode(', ', $errors);
+            }
+
+            // Create notification for restock
+            if ($updatedCount > 0) {
+                $notificationService = new \App\Services\NotificationService();
+                $restockedItems = [];
+                foreach ($items as $item) {
+                    $variant = ProductVariant::find($item['product_variant_id']);
+                    if ($variant) {
+                        $restockedItems[] = [
+                            'product_name' => $variant->product->name,
+                            'variant_info' => $variant->getVariantName(),
+                            'quantity' => $item['new_quantity'],
+                        ];
+                    }
+                }
+                $notificationService->createRestockNotification($restockedItems);
+            }
+
+            return redirect()->back()->with('success', $message);
         } catch (\Exception $e) {
             Log::error('Restock failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to restock products: ' . $e->getMessage(),
-            ], 500);
+            return redirect()->back()->with('error', 'Failed to restock products: ' . $e->getMessage());
         }
     }
 }

@@ -153,6 +153,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/dashboard/analytics', [AnalyticsController::class, 'dashboard'])->name('dashboard.analytics');
         Route::get('/dashboard/sales-analytics', [AnalyticsController::class, 'salesAnalytics'])->name('dashboard.sales-analytics');
         Route::get('/dashboard/inventory-analytics', [AnalyticsController::class, 'inventoryAnalytics'])->name('dashboard.inventory-analytics');
+        Route::get('/dashboard/restock-recommendations', [AnalyticsController::class, 'getRestockRecommendations'])->name('dashboard.restock-recommendations');
+
+        // Notification routes
+        Route::prefix('notifications')->name('notifications.')->group(function () {
+            Route::get('/', [\App\Http\Controllers\NotificationController::class, 'index'])->name('index');
+            Route::get('/recent', [\App\Http\Controllers\NotificationController::class, 'recent'])->name('recent');
+            Route::post('/mark-read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])->name('mark-read');
+            Route::post('/mark-all-read', [\App\Http\Controllers\NotificationController::class, 'markAllAsRead'])->name('mark-all-read');
+            Route::post('/sync', [\App\Http\Controllers\NotificationController::class, 'sync'])->name('sync');
+            Route::get('/stats', [\App\Http\Controllers\NotificationController::class, 'stats'])->name('stats');
+            Route::delete('/cleanup', [\App\Http\Controllers\NotificationController::class, 'cleanup'])->name('cleanup');
+            Route::delete('/clear-all', [\App\Http\Controllers\NotificationController::class, 'clearAll'])->name('clear-all');
+        });
 
         // Manager stats route
         Route::get('/manager/{managerId}', [SalesController::class, 'managerStats'])->name('manager.stats');

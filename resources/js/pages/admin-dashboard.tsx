@@ -1,3 +1,4 @@
+import NotificationsDropdown from '@/components/notifications-dropdown';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,8 +19,6 @@ import {
     Bell,
     Clock,
     DollarSign,
-    Eye,
-    EyeOff,
     Package,
     Plus,
     Receipt,
@@ -34,6 +33,7 @@ import {
     Zap,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -55,6 +55,14 @@ interface Notification {
     message: string;
     timestamp: string;
     icon: string;
+    action?: {
+        type: 'sale' | 'low_stock' | 'out_of_stock' | 'product';
+        url?: string;
+        id?: number;
+        product_id?: number;
+        product_name?: string;
+        variant_count?: number;
+    };
 }
 
 interface SalesData {
@@ -159,16 +167,18 @@ interface RestockItem {
 }
 
 export default function AdminDashboard() {
-    const { auth, analytics, flash } = usePage<PageProps>().props;
-    const user = auth.user;
+    const { analytics, flash } = usePage<PageProps>().props;
 
     const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(analytics || null);
     const [loading, setLoading] = useState(false);
     const [dateRange, setDateRange] = useState('month');
-    const [showNotifications, setShowNotifications] = useState(true);
     const [restockDialogOpen, setRestockDialogOpen] = useState(false);
+    const [smartRestockDialogOpen, setSmartRestockDialogOpen] = useState(false);
     const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
     const [restockLoading, setRestockLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState('overview');
+    const [restockRecommendations, setRestockRecommendations] = useState<any>(null);
+    const [selectedProductForRestock, setSelectedProductForRestock] = useState<number | null>(null);
 
     // Fetch analytics data
     const fetchAnalytics = async () => {
@@ -273,16 +283,18 @@ export default function AdminDashboard() {
     useEffect(() => {
         if (safeAnalyticsData?.inventory?.lowStockProducts && safeAnalyticsData?.inventory?.outOfStockProducts) {
             const items: RestockItem[] = [
-                ...(Array.isArray(safeAnalyticsData.inventory.lowStockProducts) ? safeAnalyticsData.inventory.lowStockProducts : []).map((item) => ({
-                    product_variant_id: (item as any).product_variant_id || 0,
-                    product_name: item.product_name || 'Unknown',
-                    variant_info: item.variant_info || 'Standard',
-                    current_stock: item.current_stock || 0,
-                    new_quantity: (item.current_stock || 0) + 10,
-                })),
+                ...(Array.isArray(safeAnalyticsData.inventory.lowStockProducts) ? safeAnalyticsData.inventory.lowStockProducts : []).map(
+                    (item: { product_variant_id?: number; product_name: string; variant_info: string; current_stock: number }) => ({
+                        product_variant_id: item.product_variant_id || 0,
+                        product_name: item.product_name || 'Unknown',
+                        variant_info: item.variant_info || 'Standard',
+                        current_stock: item.current_stock || 0,
+                        new_quantity: (item.current_stock || 0) + 10,
+                    }),
+                ),
                 ...(Array.isArray(safeAnalyticsData.inventory.outOfStockProducts) ? safeAnalyticsData.inventory.outOfStockProducts : []).map(
-                    (item) => ({
-                        product_variant_id: (item as any).product_variant_id || 0,
+                    (item: { product_variant_id?: number; product_name: string; variant_info: string }) => ({
+                        product_variant_id: item.product_variant_id || 0,
                         product_name: item.product_name || 'Unknown',
                         variant_info: item.variant_info || 'Standard',
                         current_stock: 0,
@@ -294,13 +306,20 @@ export default function AdminDashboard() {
         }
     }, [safeAnalyticsData]);
 
+    // Fetch restock recommendations when smart restock dialog opens
+    useEffect(() => {
+        if (smartRestockDialogOpen && selectedProductForRestock && !restockRecommendations) {
+            fetchRestockRecommendations(selectedProductForRestock);
+        }
+    }, [smartRestockDialogOpen, selectedProductForRestock]);
+
     const handleRestock = async () => {
         setRestockLoading(true);
         try {
             console.log('Restocking items:', restockItems);
-            await router.post('/restock', { items: restockItems as any });
+            await router.post('/restock', { items: restockItems as unknown });
             setRestockDialogOpen(false);
-            await fetchAnalytics(); // Refresh data
+            // The page will refresh automatically due to the redirect
         } catch (error) {
             console.error('Restock failed:', error);
         } finally {
@@ -310,6 +329,39 @@ export default function AdminDashboard() {
 
     const updateRestockQuantity = (index: number, quantity: number) => {
         setRestockItems((prev) => prev.map((item, i) => (i === index ? { ...item, new_quantity: quantity } : item)));
+    };
+
+    const fetchRestockRecommendations = async (productId: number) => {
+        try {
+            const response = await fetch(`/dashboard/restock-recommendations?product_id=${productId}`);
+            if (response.ok) {
+                const data = await response.json();
+                setRestockRecommendations(data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch restock recommendations:', error);
+        }
+    };
+
+    const handleSmartRestock = async () => {
+        if (!restockRecommendations) return;
+
+        setRestockLoading(true);
+        try {
+            const items = restockRecommendations.recommendations.map((rec: any) => ({
+                product_variant_id: rec.variant_id,
+                new_quantity: rec.recommended_quantity,
+            }));
+
+            await router.post('/restock', { items: items as unknown });
+            setSmartRestockDialogOpen(false);
+            setRestockRecommendations(null);
+            setSelectedProductForRestock(null);
+        } catch (error) {
+            console.error('Smart restock failed:', error);
+        } finally {
+            setRestockLoading(false);
+        }
     };
 
     const getNotificationIcon = (icon: string) => {
@@ -446,56 +498,12 @@ export default function AdminDashboard() {
                             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                             Refresh
                         </Button>
-                        <Button onClick={() => setShowNotifications(!showNotifications)} variant="outline" size="sm">
-                            {showNotifications ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
+                        <NotificationsDropdown
+                            notifications={safeAnalyticsData?.notifications || []}
+                            unreadCount={safeAnalyticsData?.notifications?.filter((n) => !n.is_read).length || 0}
+                        />
                     </div>
                 </div>
-
-                {/* Notifications Panel */}
-                {showNotifications && notifications.length > 0 && (
-                    <Card className="border-l-4 border-l-blue-500">
-                        <CardHeader>
-                            <CardTitle className="flex items-center">
-                                <Bell className="mr-2 h-5 w-5" />
-                                Recent Notifications
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-3">
-                                {Array.isArray(notifications) && notifications.length > 0
-                                    ? notifications.slice(0, 5).map((notification, index) => (
-                                          <div
-                                              key={index}
-                                              className={`flex items-center rounded-lg border p-3 ${getNotificationColor(notification.type)}`}
-                                          >
-                                              {getNotificationIcon(notification.icon)}
-                                              <div className="ml-3 flex-1">
-                                                  <h4 className="font-medium">{notification.title}</h4>
-                                                  <p className="text-sm">{notification.message}</p>
-                                                  <p className="text-xs opacity-75">{new Date(notification.timestamp).toLocaleString()}</p>
-                                              </div>
-                                          </div>
-                                      ))
-                                    : null}
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* Debug Section - Remove in production */}
-                {process.env.NODE_ENV === 'development' && (
-                    <Card className="border-l-4 border-l-red-500">
-                        <CardHeader>
-                            <CardTitle>Debug Data</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <pre className="max-h-40 overflow-auto text-xs">
-                                {JSON.stringify({ sales, inventory, profits, topEntities }, null, 2)}
-                            </pre>
-                        </CardContent>
-                    </Card>
-                )}
 
                 {/* Key Metrics */}
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -545,7 +553,7 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Charts and Analytics */}
-                <Tabs defaultValue="overview" className="space-y-4">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
                     <TabsList>
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="sales">Sales Analytics</TabsTrigger>
@@ -564,56 +572,92 @@ export default function AdminDashboard() {
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    {Array.isArray((sales as any)?.salesTrends) && (sales as any).salesTrends.length > 0 ? (
+                                    {Array.isArray(sales?.salesTrends) && sales.salesTrends.length > 0 ? (
                                         <div className="space-y-4">
-                                            <div className="grid grid-cols-3 gap-4 text-center">
+                                            <div className="mb-6 grid grid-cols-3 gap-4 text-center">
                                                 <div>
                                                     <p className="text-2xl font-bold text-green-600">
                                                         {formatCurrency(
-                                                            Array.isArray((sales as any).salesTrends)
-                                                                ? (sales as any).salesTrends.reduce(
-                                                                      (sum: number, day: any) => sum + (day.revenue || 0),
-                                                                      0,
-                                                                  )
-                                                                : 0,
+                                                            sales.salesTrends.reduce(
+                                                                (sum: number, day: { revenue: number }) => sum + (day.revenue || 0),
+                                                                0,
+                                                            ),
                                                         )}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">Total Revenue</p>
                                                 </div>
                                                 <div>
                                                     <p className="text-2xl font-bold text-blue-600">
-                                                        {Array.isArray((sales as any).salesTrends)
-                                                            ? (sales as any).salesTrends.reduce((sum: number, day: any) => sum + (day.orders || 0), 0)
-                                                            : 0}
+                                                        {sales.salesTrends.reduce(
+                                                            (sum: number, day: { orders: number }) => sum + (day.orders || 0),
+                                                            0,
+                                                        )}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">Total Orders</p>
                                                 </div>
                                                 <div>
                                                     <p className="text-2xl font-bold text-purple-600">
-                                                        {Array.isArray((sales as any).salesTrends) && (sales as any).salesTrends.length > 0
+                                                        {sales.salesTrends.length > 0
                                                             ? Math.round(
-                                                                  (sales as any).salesTrends.reduce(
-                                                                      (sum: number, day: any) => sum + (day.revenue || 0),
+                                                                  sales.salesTrends.reduce(
+                                                                      (sum: number, day: { revenue: number }) => sum + (day.revenue || 0),
                                                                       0,
-                                                                  ) / (sales as any).salesTrends.length,
+                                                                  ) / sales.salesTrends.length,
                                                               )
                                                             : 0}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">Avg Daily Revenue</p>
                                                 </div>
                                             </div>
-                                            <div className="space-y-2">
-                                                {(Array.isArray((sales as any).salesTrends) ? (sales as any).salesTrends.slice(-7) : []).map(
-                                                    (day: any, index: number) => (
-                                                        <div key={index} className="flex items-center justify-between rounded-lg border p-2">
-                                                            <span className="text-sm font-medium">{new Date(day.date).toLocaleDateString()}</span>
-                                                            <div className="flex items-center space-x-4">
-                                                                <span className="text-sm">{day.orders || 0} orders</span>
-                                                                <span className="text-sm font-medium">{formatCurrency(day.revenue || 0)}</span>
-                                                            </div>
-                                                        </div>
-                                                    ),
-                                                )}
+                                            <div className="h-64">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <AreaChart data={sales.salesTrends}>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                                        <XAxis
+                                                            dataKey="date"
+                                                            tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                                                            stroke="#888888"
+                                                            fontSize={12}
+                                                            axisLine={false}
+                                                            tickLine={false}
+                                                        />
+                                                        <YAxis
+                                                            stroke="#888888"
+                                                            fontSize={12}
+                                                            tickFormatter={(value) => formatCurrency(value)}
+                                                            axisLine={false}
+                                                            tickLine={false}
+                                                        />
+                                                        <Tooltip
+                                                            formatter={(value: number, name: string) => [
+                                                                name === 'revenue' ? formatCurrency(value) : value,
+                                                                name === 'revenue' ? 'Revenue' : 'Orders',
+                                                            ]}
+                                                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                                                            contentStyle={{
+                                                                backgroundColor: 'white',
+                                                                border: '1px solid #e5e7eb',
+                                                                borderRadius: '8px',
+                                                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                                                            }}
+                                                        />
+                                                        <Area
+                                                            type="monotone"
+                                                            dataKey="revenue"
+                                                            stroke="#10b981"
+                                                            fill="#10b981"
+                                                            fillOpacity={0.2}
+                                                            strokeWidth={3}
+                                                        />
+                                                        <Line
+                                                            type="monotone"
+                                                            dataKey="orders"
+                                                            stroke="#3b82f6"
+                                                            strokeWidth={2}
+                                                            dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                                                        />
+                                                    </AreaChart>
+                                                </ResponsiveContainer>
                                             </div>
                                         </div>
                                     ) : (
@@ -638,30 +682,22 @@ export default function AdminDashboard() {
                                 <CardContent>
                                     {Array.isArray(profits?.profitTrends) && profits.profitTrends.length > 0 ? (
                                         <div className="space-y-4">
-                                            <div className="grid grid-cols-3 gap-4 text-center">
+                                            <div className="mb-6 grid grid-cols-3 gap-4 text-center">
                                                 <div>
                                                     <p className="text-2xl font-bold text-green-600">
-                                                        {formatCurrency(
-                                                            Array.isArray(profits.profitTrends)
-                                                                ? profits.profitTrends.reduce((sum, day) => sum + (day.daily_profit || 0), 0)
-                                                                : 0,
-                                                        )}
+                                                        {formatCurrency(profits.profitTrends.reduce((sum, day) => sum + (day.daily_profit || 0), 0))}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">Total Profit</p>
                                                 </div>
                                                 <div>
                                                     <p className="text-2xl font-bold text-blue-600">
-                                                        {formatCurrency(
-                                                            Array.isArray(profits.profitTrends)
-                                                                ? profits.profitTrends.reduce((sum, day) => sum + (day.daily_revenue || 0), 0)
-                                                                : 0,
-                                                        )}
+                                                        {formatCurrency(profits.profitTrends.reduce((sum, day) => sum + (day.daily_revenue || 0), 0))}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">Total Revenue</p>
                                                 </div>
                                                 <div>
                                                     <p className="text-2xl font-bold text-purple-600">
-                                                        {Array.isArray(profits.profitTrends) && profits.profitTrends.length > 0
+                                                        {profits.profitTrends.length > 0
                                                             ? Math.round(
                                                                   profits.profitTrends.reduce((sum, day) => sum + (day.daily_profit || 0), 0) /
                                                                       profits.profitTrends.length,
@@ -671,20 +707,57 @@ export default function AdminDashboard() {
                                                     <p className="text-xs text-muted-foreground">Avg Daily Profit</p>
                                                 </div>
                                             </div>
-                                            <div className="space-y-2">
-                                                {(Array.isArray(profits.profitTrends) ? profits.profitTrends.slice(-7) : []).map((day, index) => (
-                                                    <div key={index} className="flex items-center justify-between rounded-lg border p-2">
-                                                        <span className="text-sm font-medium">{new Date(day.date).toLocaleDateString()}</span>
-                                                        <div className="flex items-center space-x-4">
-                                                            <span className="text-sm">{formatCurrency(day.daily_revenue || 0)}</span>
-                                                            <span
-                                                                className={`text-sm font-medium ${(day.daily_profit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}
-                                                            >
-                                                                {formatCurrency(day.daily_profit || 0)}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                            <div className="h-64">
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <LineChart data={profits.profitTrends}>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                                        <XAxis
+                                                            dataKey="date"
+                                                            tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                                                            stroke="#888888"
+                                                            fontSize={12}
+                                                            axisLine={false}
+                                                            tickLine={false}
+                                                        />
+                                                        <YAxis
+                                                            stroke="#888888"
+                                                            fontSize={12}
+                                                            tickFormatter={(value) => formatCurrency(value)}
+                                                            axisLine={false}
+                                                            tickLine={false}
+                                                        />
+                                                        <Tooltip
+                                                            formatter={(value: number, name: string) => [
+                                                                formatCurrency(value),
+                                                                name === 'daily_profit' ? 'Profit' : 'Revenue',
+                                                            ]}
+                                                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                                                            contentStyle={{
+                                                                backgroundColor: 'white',
+                                                                border: '1px solid #e5e7eb',
+                                                                borderRadius: '8px',
+                                                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                                                            }}
+                                                        />
+                                                        <Line
+                                                            type="monotone"
+                                                            dataKey="daily_profit"
+                                                            stroke="#10b981"
+                                                            strokeWidth={3}
+                                                            dot={{ fill: '#10b981', strokeWidth: 2, r: 5 }}
+                                                            name="Profit"
+                                                        />
+                                                        <Line
+                                                            type="monotone"
+                                                            dataKey="daily_revenue"
+                                                            stroke="#3b82f6"
+                                                            strokeWidth={2}
+                                                            strokeDasharray="5 5"
+                                                            dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                                                            name="Revenue"
+                                                        />
+                                                    </LineChart>
+                                                </ResponsiveContainer>
                                             </div>
                                         </div>
                                     ) : (
@@ -825,7 +898,7 @@ export default function AdminDashboard() {
                         </div>
 
                         {/* Restock Action */}
-                        {(inventory?.lowStockProducts?.length > 0 || inventory?.outOfStockProducts?.length > 0) && (
+                        {restockItems.length > 0 ? (
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="flex items-center">
@@ -890,7 +963,99 @@ export default function AdminDashboard() {
                                     </Dialog>
                                 </CardContent>
                             </Card>
+                        ) : (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center">
+                                        <Zap className="mr-2 h-5 w-5" />
+                                        Inventory Status
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="py-4 text-center">
+                                        <Package className="mx-auto mb-2 h-12 w-12 text-green-500" />
+                                        <p className="text-lg font-medium text-green-600">All Products Well Stocked!</p>
+                                        <p className="text-sm text-muted-foreground">No low stock or out of stock items found.</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         )}
+
+                        {/* Smart Restock Dialog */}
+                        <Dialog open={smartRestockDialogOpen} onOpenChange={setSmartRestockDialogOpen}>
+                            <DialogContent className="max-w-4xl">
+                                <DialogHeader>
+                                    <DialogTitle>Smart Restock - {restockRecommendations?.product_name || 'Product'}</DialogTitle>
+                                </DialogHeader>
+                                {selectedProductForRestock && !restockRecommendations && (
+                                    <div className="flex items-center justify-center py-8">
+                                        <RefreshCw className="h-6 w-6 animate-spin" />
+                                        <span className="ml-2">Loading recommendations...</span>
+                                    </div>
+                                )}
+                                {restockRecommendations && (
+                                    <div className="space-y-4">
+                                        <div className="grid gap-4">
+                                            {restockRecommendations.recommendations.map((rec: any, index: number) => (
+                                                <div key={index} className="flex items-center justify-between rounded-lg border p-4">
+                                                    <div className="flex-1">
+                                                        <p className="font-medium">{rec.variant_info}</p>
+                                                        <p className="text-sm text-muted-foreground">
+                                                            Current: {rec.current_quantity} | Recommended: {rec.recommended_quantity}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Cost: {formatCurrency(rec.cost_price)} | Price: {formatCurrency(rec.selling_price)}
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <Label htmlFor={`smart-quantity-${index}`}>Quantity:</Label>
+                                                        <Input
+                                                            id={`smart-quantity-${index}`}
+                                                            type="number"
+                                                            value={rec.recommended_quantity}
+                                                            onChange={(e) => {
+                                                                const newRecommendations = { ...restockRecommendations };
+                                                                newRecommendations.recommendations[index].recommended_quantity =
+                                                                    parseInt(e.target.value) || 0;
+                                                                setRestockRecommendations(newRecommendations);
+                                                            }}
+                                                            className="w-20"
+                                                            min="0"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <Separator />
+                                        <div className="flex justify-end space-x-2">
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setSmartRestockDialogOpen(false);
+                                                    setRestockRecommendations(null);
+                                                    setSelectedProductForRestock(null);
+                                                }}
+                                            >
+                                                Cancel
+                                            </Button>
+                                            <Button onClick={handleSmartRestock} disabled={restockLoading}>
+                                                {restockLoading ? (
+                                                    <>
+                                                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                                        Restocking...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Plus className="mr-2 h-4 w-4" />
+                                                        Restock with Recommendations
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </DialogContent>
+                        </Dialog>
                     </TabsContent>
 
                     <TabsContent value="performance" className="space-y-4">

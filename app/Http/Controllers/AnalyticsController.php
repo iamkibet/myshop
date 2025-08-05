@@ -319,70 +319,20 @@ class AnalyticsController extends Controller
      */
     private function getNotifications(): array
     {
+        // Use the NotificationService to get recent notifications
+        $notificationService = new \App\Services\NotificationService();
+        $recentNotifications = $notificationService->getRecentNotifications(10);
+
         $notifications = [];
-
-        // Low stock alerts
-        $lowStockCount = ProductVariant::where('quantity', '<=', 5)
-            ->where('quantity', '>', 0)
-            ->where('is_active', true)
-            ->count();
-
-        if ($lowStockCount > 0) {
+        foreach ($recentNotifications as $notification) {
             $notifications[] = [
-                'type' => 'warning',
-                'title' => 'Low Stock Alert',
-                'message' => "{$lowStockCount} products are running low on stock",
-                'timestamp' => now(),
-                'icon' => 'alert-triangle',
+                'type' => $notification->type,
+                'title' => $notification->title,
+                'message' => $notification->message,
+                'timestamp' => $notification->created_at,
+                'icon' => $notification->icon,
+                'action' => $notification->action_data,
             ];
-        }
-
-        // Out of stock alerts
-        $outOfStockCount = ProductVariant::where('quantity', 0)
-            ->where('is_active', true)
-            ->count();
-
-        if ($outOfStockCount > 0) {
-            $notifications[] = [
-                'type' => 'error',
-                'title' => 'Out of Stock Alert',
-                'message' => "{$outOfStockCount} products are out of stock",
-                'timestamp' => now(),
-                'icon' => 'x-circle',
-            ];
-        }
-
-        // Products not sold in 30 days
-        $unsoldProducts = ProductVariant::whereDoesntHave('saleItems', function ($query) {
-            $query->where('created_at', '>=', Carbon::now()->subDays(30));
-        })->where('is_active', true)->count();
-
-        if ($unsoldProducts > 0) {
-            $notifications[] = [
-                'type' => 'info',
-                'title' => 'Slow Moving Products',
-                'message' => "{$unsoldProducts} products haven't been sold in 30 days",
-                'timestamp' => now(),
-                'icon' => 'clock',
-            ];
-        }
-
-        // Sales spike detection (simplified)
-        $todaySales = Sale::whereDate('created_at', today())->sum('total_amount');
-        $yesterdaySales = Sale::whereDate('created_at', today()->subDay())->sum('total_amount');
-
-        if ($yesterdaySales > 0) {
-            $salesChange = (($todaySales - $yesterdaySales) / $yesterdaySales) * 100;
-
-            if (abs($salesChange) > 50) {
-                $notifications[] = [
-                    'type' => $salesChange > 0 ? 'success' : 'error',
-                    'title' => $salesChange > 0 ? 'Sales Spike' : 'Sales Drop',
-                    'message' => "Sales " . ($salesChange > 0 ? 'increased' : 'decreased') . " by " . abs(round($salesChange, 1)) . "% compared to yesterday",
-                    'timestamp' => now(),
-                    'icon' => $salesChange > 0 ? 'trending-up' : 'trending-down',
-                ];
-            }
         }
 
         return $notifications;
@@ -404,6 +354,25 @@ class AnalyticsController extends Controller
         }
 
         return !empty($parts) ? implode(' - ', $parts) : 'Standard';
+    }
+
+    /**
+     * Calculate recommended restock quantity based on historical sales
+     */
+    private function getRecommendedRestockQuantity($variantId): int
+    {
+        // Get sales data for the last 30 days
+        $recentSales = SaleItem::where('product_variant_id', $variantId)
+            ->where('created_at', '>=', Carbon::now()->subDays(30))
+            ->sum('quantity');
+
+        // Get average daily sales
+        $averageDailySales = $recentSales / 30;
+
+        // Recommend 2 weeks of inventory based on average daily sales
+        $recommendedQuantity = max(10, round($averageDailySales * 14));
+
+        return $recommendedQuantity;
     }
 
     /**
@@ -473,6 +442,44 @@ class AnalyticsController extends Controller
             'total_cost_value' => $totalCostValue,
             'total_retail_value' => $totalRetailValue,
             'low_stock_threshold' => $lowStockThreshold,
+        ]);
+    }
+
+    /**
+     * Get restock recommendations for a specific product
+     */
+    public function getRestockRecommendations(Request $request): JsonResponse
+    {
+        $productId = $request->get('product_id');
+
+        if (!$productId) {
+            return response()->json(['error' => 'Product ID is required'], 400);
+        }
+
+        $variants = ProductVariant::with(['product'])
+            ->where('product_id', $productId)
+            ->where('is_active', true)
+            ->get();
+
+        $recommendations = [];
+        foreach ($variants as $variant) {
+            $recommendedQuantity = $this->getRecommendedRestockQuantity($variant->id);
+
+            $recommendations[] = [
+                'variant_id' => $variant->id,
+                'variant_info' => $this->getVariantInfo($variant),
+                'current_quantity' => $variant->quantity,
+                'recommended_quantity' => $recommendedQuantity,
+                'cost_price' => $variant->cost_price,
+                'selling_price' => $variant->selling_price,
+                'last_restocked' => $variant->updated_at,
+            ];
+        }
+
+        return response()->json([
+            'product_id' => $productId,
+            'product_name' => $variants->first()->product->name ?? 'Unknown',
+            'recommendations' => $recommendations,
         ]);
     }
 }

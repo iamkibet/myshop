@@ -196,6 +196,14 @@ class CartController extends Controller
                 // Update variant stock
                 $variant = ProductVariant::find($variantId);
                 $variant->decrement('quantity', $item['quantity']);
+
+                // Check if product is now low stock or out of stock
+                $notificationService = new \App\Services\NotificationService();
+                if ($variant->quantity === 0) {
+                    $notificationService->createOutOfStockNotification($variant);
+                } elseif ($variant->quantity <= 5) {
+                    $notificationService->createLowStockNotification($variant);
+                }
             }
 
             // Clear cart
@@ -206,6 +214,10 @@ class CartController extends Controller
 
             // Fire event
             event(new SaleCreated($sale));
+
+            // Create notification for the sale
+            $notificationService = new \App\Services\NotificationService();
+            $notificationService->createSaleNotification($sale);
 
             DB::commit();
 
