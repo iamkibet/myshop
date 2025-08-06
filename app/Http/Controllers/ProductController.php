@@ -215,87 +215,118 @@ class ProductController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Product $product): JsonResponse
+    public function update(Request $request, Product $product): \Illuminate\Http\RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'brand' => 'nullable|string|max:100',
-            'category' => 'nullable|string|max:100',
-            'image_url' => 'nullable|url',
-            'features' => 'nullable|array',
-            'meta_title' => 'nullable|string|max:255',
-            'meta_description' => 'nullable|string',
-            'is_active' => 'boolean',
-            'variants' => 'required|array|min:1',
-            'variants.*.id' => 'nullable|integer|exists:product_variants,id',
-            'variants.*.color' => 'nullable|string|max:50',
-            'variants.*.size' => 'nullable|string|max:20',
-            'variants.*.sku' => 'required|string|max:100',
-            'variants.*.quantity' => 'required|integer|min:0',
-            'variants.*.cost_price' => 'required|numeric|min:0',
-            'variants.*.selling_price' => 'required|numeric|min:0',
-            'variants.*.discount_price' => 'nullable|numeric|min:0',
-            'variants.*.image_url' => 'nullable|url',
-            'variants.*.is_active' => 'boolean',
-            'variants.*.low_stock_threshold' => 'required|integer|min:0',
-        ]);
+        try {
+            Log::info('Product update request received', [
+                'product_id' => $product->id
+            ]);
 
-        // Custom SKU validation to handle updates
-        $variants = $validated['variants'];
-        foreach ($variants as $index => $variant) {
-            if (isset($variant['id'])) {
-                // For existing variants, check SKU uniqueness within the same product
-                $existingVariant = $product->variants()->find($variant['id']);
-                if ($existingVariant && $existingVariant->sku !== $variant['sku']) {
-                    // SKU changed, check if new SKU is unique within this product
-                    if ($product->variants()->where('sku', $variant['sku'])->where('id', '!=', $variant['id'])->exists()) {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'description' => 'nullable|string',
+                'brand' => 'nullable|string|max:100',
+                'category' => 'nullable|string|max:100',
+                'image_url' => 'nullable|string',
+                'features' => 'nullable|array',
+                'meta_title' => 'nullable|string|max:255',
+                'meta_description' => 'nullable|string',
+                'is_active' => 'boolean',
+                'variants' => 'required|array|min:1',
+                'variants.*.id' => 'nullable|integer|exists:product_variants,id',
+                'variants.*.color' => 'nullable|string|max:50',
+                'variants.*.size' => 'nullable|string|max:20',
+                'variants.*.sku' => 'required|string|max:100',
+                'variants.*.quantity' => 'required|integer|min:0',
+                'variants.*.cost_price' => 'required|numeric|min:0',
+                'variants.*.selling_price' => 'required|numeric|min:0',
+                'variants.*.discount_price' => 'nullable|numeric|min:0',
+                'variants.*.image_url' => 'nullable|string',
+                'variants.*.is_active' => 'boolean',
+                'variants.*.low_stock_threshold' => 'required|integer|min:0',
+            ]);
+
+            Log::info('Validation passed');
+
+            // Custom SKU validation to handle updates
+            $variants = $validated['variants'];
+            foreach ($variants as $index => $variant) {
+                if (isset($variant['id'])) {
+                    // For existing variants, check SKU uniqueness within the same product
+                    $existingVariant = $product->variants()->find($variant['id']);
+                    if ($existingVariant && $existingVariant->sku !== $variant['sku']) {
+                        // SKU changed, check if new SKU is unique within this product
+                        if ($product->variants()->where('sku', $variant['sku'])->where('id', '!=', $variant['id'])->exists()) {
+                            throw new \Illuminate\Validation\ValidationException(
+                                validator([], []),
+                                response()->json(['errors' => ['variants.' . $index . '.sku' => ['The SKU must be unique within this product.']]], 422)
+                            );
+                        }
+                    }
+                } else {
+                    // For new variants, check if SKU is unique within this product
+                    if ($product->variants()->where('sku', $variant['sku'])->exists()) {
                         throw new \Illuminate\Validation\ValidationException(
                             validator([], []),
                             response()->json(['errors' => ['variants.' . $index . '.sku' => ['The SKU must be unique within this product.']]], 422)
                         );
                     }
                 }
-            } else {
-                // For new variants, check if SKU is unique within this product
-                if ($product->variants()->where('sku', $variant['sku'])->exists()) {
-                    throw new \Illuminate\Validation\ValidationException(
-                        validator([], []),
-                        response()->json(['errors' => ['variants.' . $index . '.sku' => ['The SKU must be unique within this product.']]], 422)
-                    );
+            }
+
+            $variants = $validated['variants'];
+            unset($validated['variants']);
+
+            Log::info('Updating product');
+
+            $product->update($validated);
+
+            // Update or create variants
+            $existingVariantIds = [];
+            foreach ($variants as $index => $variantData) {
+                Log::info('Processing variant', ['index' => $index]);
+
+                if (isset($variantData['id'])) {
+                    // Update existing variant
+                    $variant = $product->variants()->find($variantData['id']);
+                    if ($variant) {
+                        Log::info('Updating existing variant', ['variant_id' => $variant->id]);
+                        $variant->update($variantData);
+                        $existingVariantIds[] = $variant->id;
+                    } else {
+                        Log::warning('Variant not found for update', ['variant_id' => $variantData['id']]);
+                    }
+                } else {
+                    // Create new variant
+                    Log::info('Creating new variant');
+                    $newVariant = $product->variants()->create($variantData);
+                    $existingVariantIds[] = $newVariant->id;
                 }
             }
+
+            // Delete variants that are no longer in the list
+            $deletedVariants = $product->variants()->whereNotIn('id', $existingVariantIds)->delete();
+            Log::info('Deleted variants', ['deleted_count' => $deletedVariants]);
+
+            Log::info('Product update completed successfully');
+
+            return redirect()->route('products.index')->with('success', 'Product updated successfully!');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Product update validation failed', [
+                'errors' => $e->errors(),
+                'product_id' => $product->id
+            ]);
+
+            return redirect()->back()->withInput()->withErrors($e->errors());
+        } catch (\Exception $e) {
+            Log::error('Product update failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'product_id' => $product->id
+            ]);
+
+            return redirect()->back()->withInput()->withErrors(['general' => 'Failed to update product: ' . $e->getMessage()]);
         }
-
-        $variants = $validated['variants'];
-        unset($validated['variants']);
-
-        $product->update($validated);
-
-        // Update or create variants
-        $existingVariantIds = [];
-        foreach ($variants as $variantData) {
-            if (isset($variantData['id'])) {
-                // Update existing variant
-                $variant = $product->variants()->find($variantData['id']);
-                if ($variant) {
-                    $variant->update($variantData);
-                    $existingVariantIds[] = $variant->id;
-                }
-            } else {
-                // Create new variant
-                $newVariant = $product->variants()->create($variantData);
-                $existingVariantIds[] = $newVariant->id;
-            }
-        }
-
-        // Delete variants that are no longer in the list
-        $product->variants()->whereNotIn('id', $existingVariantIds)->delete();
-
-        return response()->json([
-            'message' => 'Product updated successfully.',
-            'product' => $product->load('variants'),
-        ]);
     }
 
     /**

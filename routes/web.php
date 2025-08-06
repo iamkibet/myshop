@@ -159,6 +159,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/save-category', [ProductController::class, 'saveCategory'])->name('save.category');
         Route::post('/save-size', [ProductController::class, 'saveSize'])->name('save.size');
 
+        // Test route for debugging
+        Route::post('/test-product-update', function () {
+            return response()->json(['message' => 'Test route hit', 'data' => request()->all()]);
+        })->name('test.product.update');
+
         // Dashboard Analytics routes
         Route::get('/dashboard/analytics', [AnalyticsController::class, 'dashboard'])->name('dashboard.analytics');
         Route::get('/dashboard/sales-analytics', [AnalyticsController::class, 'salesAnalytics'])->name('dashboard.sales-analytics');

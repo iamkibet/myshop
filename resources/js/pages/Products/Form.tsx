@@ -1,4 +1,5 @@
 import InputError from '@/components/input-error';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BrandSelect } from '@/components/ui/brand-select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Package, Plus, Save, Trash2, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Package, Plus, Save, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 
 interface ProductVariant {
@@ -148,9 +149,6 @@ export default function ProductsForm({
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
-        console.log('Form submit triggered');
-        console.log('Current variants:', variants);
-        console.log('Variants length:', variants.length);
         e.preventDefault();
         setIsSubmitting(true);
         setErrors({});
@@ -166,10 +164,25 @@ export default function ProductsForm({
                 })),
             };
 
-            console.log('Submitting payload:', payload);
-
             if (isEditing && product?.id) {
-                await router.put(`/products/${product.id}`, payload);
+                await router.put(`/products/${product.id}`, payload, {
+                    onSuccess: () => {
+                        // Success will be handled by redirect
+                    },
+                    onError: (errors) => {
+                        // Convert Inertia error format to our format
+                        const formattedErrors: Record<string, string> = {};
+                        Object.entries(errors).forEach(([key, value]) => {
+                            if (Array.isArray(value)) {
+                                formattedErrors[key] = value[0];
+                            } else {
+                                formattedErrors[key] = value as string;
+                            }
+                        });
+
+                        setErrors(formattedErrors);
+                    },
+                });
             } else {
                 console.log('Submitting to /products with payload:', payload);
                 await router.post('/products', payload);
@@ -268,6 +281,14 @@ export default function ProductsForm({
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* General Error Display */}
+                    {errors.general && (
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>{errors.general}</AlertDescription>
+                        </Alert>
+                    )}
+
                     {/* Basic Product Information */}
                     <Card>
                         <CardHeader>

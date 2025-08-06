@@ -11,9 +11,10 @@ class Notification extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'type',
         'title',
-        'message',
+        'description',
         'icon',
         'action_data',
         'category',
@@ -29,6 +30,14 @@ class Notification extends Model
         'is_read' => 'boolean',
         'read_at' => 'datetime',
     ];
+
+    /**
+     * Get the user who owns this notification
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
 
     /**
      * Get the user who marked this notification as read
@@ -113,7 +122,7 @@ class Notification extends Model
         }
 
         $action = $this->action_data;
-        
+
         switch ($action['type'] ?? '') {
             case 'sale':
                 return isset($action['id']) ? "/receipts/{$action['id']}" : '/sales';
@@ -127,4 +136,4 @@ class Notification extends Model
                 return $action['url'] ?? null;
         }
     }
-} 
+}

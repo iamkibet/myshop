@@ -13,9 +13,10 @@ class NotificationService
     public function create(array $data): Notification
     {
         return Notification::create([
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
             'type' => $data['type'],
             'title' => $data['title'],
-            'message' => $data['message'],
+            'description' => $data['message'],
             'icon' => $data['icon'] ?? null,
             'action_data' => $data['action'] ?? null,
             'category' => $data['category'],

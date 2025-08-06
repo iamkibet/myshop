@@ -15,8 +15,15 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->string('type');
-            $table->json('payload');
+            $table->string('title');
+            $table->text('description');
+            $table->string('icon')->nullable();
+            $table->json('action_data')->nullable();
+            $table->string('category');
+            $table->json('metadata')->nullable();
             $table->boolean('is_read')->default(false);
+            $table->timestamp('read_at')->nullable();
+            $table->foreignId('read_by')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamps();
         });
     }
@@ -28,4 +35,4 @@ return new class extends Migration
     {
         Schema::dropIfExists('notifications');
     }
-}; 
+};
