@@ -6,7 +6,7 @@ import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { BarChart3, Calendar, Download, Eye, Filter, Package, Receipt, Search, TrendingUp, User } from 'lucide-react';
+import { BarChart3, Calendar, Check, Download, Eye, Filter, Package, Receipt, Search, TrendingUp, User, X } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -83,9 +83,15 @@ export default function SalesIndex() {
     const user = auth.user;
     const isAdmin = user.role === 'admin';
 
-    const [search, setSearch] = useState('');
-    const [dateFilter, setDateFilter] = useState('all');
-    const [statusFilter, setStatusFilter] = useState('all');
+    // Get initial values from URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialSearch = urlParams.get('search') || '';
+    const initialDateFilter = urlParams.get('date_filter') || 'all';
+    const initialStatusFilter = urlParams.get('status_filter') || 'all';
+
+    const [search, setSearch] = useState(initialSearch);
+    const [dateFilter, setDateFilter] = useState(initialDateFilter);
+    const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
 
     const handleSearch = (value: string) => {
         setSearch(value);
@@ -129,68 +135,91 @@ export default function SalesIndex() {
 
     const handleDownloadReceipt = async (saleId: number) => {
         try {
-            const response = await fetch(`/receipts/${saleId}/download`);
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `receipt-${saleId}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
+            const response = await fetch(`/receipts/${saleId}/download`, {
+                method: 'GET',
+                headers: {
+                    Accept: 'text/html',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to download receipt');
             }
+
+            const blob = await response.blob();
+
+            // Create a URL for the blob
+            const url = window.URL.createObjectURL(blob);
+
+            // Download the HTML file
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `receipt-${saleId}.html`;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            // Clean up the URL object after a delay
+            setTimeout(() => {
+                window.URL.revokeObjectURL(url);
+            }, 1000);
+
+            // Show instructions for converting to PDF
+            alert(
+                'Receipt downloaded! To convert to PDF:\n1. Open the HTML file in your browser\n2. Press Ctrl+P (or Cmd+P on Mac)\n3. Choose "Save as PDF" in the print dialog',
+            );
         } catch (error) {
             console.error('Failed to download receipt:', error);
+            alert('Failed to download receipt. Please try again.');
         }
-    };
-
-    const getVariantInfo = (variant: any) => {
-        const parts = [];
-        if (variant.color) parts.push(variant.color);
-        if (variant.size) parts.push(variant.size);
-        return parts.length > 0 ? parts.join(' - ') : 'Standard';
     };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Sales" />
-            <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
+            <Head title="Sales Dashboard" />
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
                 {/* Success/Error Messages */}
                 {flash?.success && (
-                    <div className="rounded-md border border-green-200 bg-green-50 p-4">
-                        <div className="flex">
-                            <div className="ml-3">
-                                <h3 className="text-sm font-medium text-green-800">Success!</h3>
-                                <p className="text-sm text-green-700">{flash.success}</p>
+                    <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-green-800">
+                        <div className="flex items-start gap-3">
+                            <Check className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600" />
+                            <div>
+                                <h3 className="font-medium">Success!</h3>
+                                <p className="text-sm">{flash.success}</p>
                             </div>
                         </div>
                     </div>
                 )}
 
                 {flash?.error && (
-                    <div className="rounded-md border border-red-200 bg-red-50 p-4">
-                        <div className="flex">
-                            <div className="ml-3">
-                                <h3 className="text-sm font-medium text-red-800">Error!</h3>
-                                <p className="text-sm text-red-700">{flash.error}</p>
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+                        <div className="flex items-start gap-3">
+                            <X className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
+                            <div>
+                                <h3 className="font-medium">Error!</h3>
+                                <p className="text-sm">{flash.error}</p>
                             </div>
                         </div>
                     </div>
                 )}
 
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold">Sales History</h1>
-                        <p className="text-muted-foreground">{isAdmin ? 'All sales across the store' : 'Your sales history'}</p>
+                        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Sales Dashboard</h1>
+                        <p className="mt-1 text-muted-foreground">
+                            {isAdmin ? 'Comprehensive sales analytics and history' : 'Your sales performance overview'}
+                        </p>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2">
                         <Link href="/dashboard">
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" className="hidden md:inline-flex">
                                 <Package className="mr-2 h-4 w-4" />
                                 Back to Shop
+                            </Button>
+                            <Button variant="outline" size="icon" className="md:hidden">
+                                <Package className="h-4 w-4" />
                             </Button>
                         </Link>
                     </div>
@@ -198,68 +227,72 @@ export default function SalesIndex() {
 
                 {/* Stats Cards */}
                 {stats && (
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-                        <Card>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <Card className="border-0 bg-gradient-to-br from-blue-50 to-blue-100 shadow-sm dark:from-blue-900/30 dark:to-blue-900/20">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
-                                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                                <CardTitle className="text-sm font-medium text-blue-600 dark:text-blue-400">Total Sales</CardTitle>
+                                <TrendingUp className="h-5 w-5 text-blue-400 dark:text-blue-300" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">{formatCurrency(stats.totalSales)}</div>
-                                <p className="text-xs text-muted-foreground">{stats.totalOrders} orders</p>
+                                <div className="text-2xl font-bold text-blue-800 dark:text-blue-100">{formatCurrency(stats.totalSales)}</div>
+                                <p className="text-xs text-blue-600 dark:text-blue-300">
+                                    {stats.totalOrders} {stats.totalOrders === 1 ? 'order' : 'orders'}
+                                </p>
                             </CardContent>
                         </Card>
 
-                        <Card>
+                        <Card className="border-0 bg-gradient-to-br from-purple-50 to-purple-100 shadow-sm dark:from-purple-900/30 dark:to-purple-900/20">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Average Order</CardTitle>
-                                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                                <CardTitle className="text-sm font-medium text-purple-600 dark:text-purple-400">Avg. Order Value</CardTitle>
+                                <BarChart3 className="h-5 w-5 text-purple-400 dark:text-purple-300" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">{formatCurrency(stats.averageOrderValue)}</div>
-                                <p className="text-xs text-muted-foreground">per order</p>
+                                <div className="text-2xl font-bold text-purple-800 dark:text-purple-100">
+                                    {formatCurrency(stats.averageOrderValue)}
+                                </div>
+                                <p className="text-xs text-purple-600 dark:text-purple-300">per transaction</p>
                             </CardContent>
                         </Card>
 
-                        <Card>
+                        <Card className="border-0 bg-gradient-to-br from-green-50 to-green-100 shadow-sm dark:from-green-900/30 dark:to-green-900/20">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">Today's Sales</CardTitle>
-                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <CardTitle className="text-sm font-medium text-green-600 dark:text-green-400">Today's Sales</CardTitle>
+                                <Calendar className="h-5 w-5 text-green-400 dark:text-green-300" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">{formatCurrency(stats.todaySales)}</div>
-                                <p className="text-xs text-muted-foreground">today</p>
+                                <div className="text-2xl font-bold text-green-800 dark:text-green-100">{formatCurrency(stats.todaySales)}</div>
+                                <p className="text-xs text-green-600 dark:text-green-300">24 hour period</p>
                             </CardContent>
                         </Card>
 
-                        <Card>
+                        <Card className="border-0 bg-gradient-to-br from-amber-50 to-amber-100 shadow-sm dark:from-amber-900/30 dark:to-amber-900/20">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">This Month</CardTitle>
-                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <CardTitle className="text-sm font-medium text-amber-600 dark:text-amber-400">Monthly Sales</CardTitle>
+                                <Calendar className="h-5 w-5 text-amber-400 dark:text-amber-300" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">{formatCurrency(stats.thisMonthSales)}</div>
-                                <p className="text-xs text-muted-foreground">this month</p>
+                                <div className="text-2xl font-bold text-amber-800 dark:text-amber-100">{formatCurrency(stats.thisMonthSales)}</div>
+                                <p className="text-xs text-amber-600 dark:text-amber-300">current month</p>
                             </CardContent>
                         </Card>
                     </div>
                 )}
 
                 {/* Filters */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center">
-                            <Filter className="mr-2 h-5 w-5" />
-                            Filters
+                <Card className="border-0 shadow-sm">
+                    <CardHeader className="px-4 py-4 md:px-6">
+                        <CardTitle className="flex items-center gap-2">
+                            <Filter className="h-5 w-5 text-muted-foreground" />
+                            <span>Filters</span>
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-4 pb-4 md:px-6">
                         <div className="flex flex-col gap-4 md:flex-row md:items-center">
                             <div className="flex-1">
                                 <div className="relative">
                                     <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                     <Input
-                                        placeholder="Search sales..."
+                                        placeholder="Search sales by ID, product, or manager..."
                                         value={search}
                                         onChange={(e) => handleSearch(e.target.value)}
                                         className="pl-10"
@@ -268,20 +301,21 @@ export default function SalesIndex() {
                             </div>
                             <div className="flex gap-2">
                                 <Select value={dateFilter} onValueChange={handleDateFilter}>
-                                    <SelectTrigger className="w-32">
-                                        <SelectValue />
+                                    <SelectTrigger className="w-[140px]">
+                                        <SelectValue placeholder="Date range" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">All Time</SelectItem>
                                         <SelectItem value="today">Today</SelectItem>
                                         <SelectItem value="week">This Week</SelectItem>
                                         <SelectItem value="month">This Month</SelectItem>
+                                        <SelectItem value="year">This Year</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 {isAdmin && (
                                     <Select value={statusFilter} onValueChange={handleStatusFilter}>
-                                        <SelectTrigger className="w-32">
-                                            <SelectValue />
+                                        <SelectTrigger className="w-[140px]">
+                                            <SelectValue placeholder="Manager" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="all">All Managers</SelectItem>
@@ -295,74 +329,98 @@ export default function SalesIndex() {
                 </Card>
 
                 {/* Sales List */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Sales History</CardTitle>
+                <Card className="border-0 shadow-sm">
+                    <CardHeader className="px-4 py-4 md:px-6">
+                        <CardTitle>Recent Transactions</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-0 pb-0">
                         {sales && sales.data.length > 0 ? (
-                            <div className="space-y-4">
+                            <div className="divide-y">
+                                <div className="grid grid-cols-12 gap-4 bg-gray-50 px-4 py-3 text-sm font-medium md:px-6 dark:bg-gray-800">
+                                    <div className="col-span-3 md:col-span-2">SALE ID</div>
+                                    <div className="col-span-4 md:col-span-3">ITEMS</div>
+                                    <div className="hidden md:col-span-3 md:block">DATE/TIME</div>
+                                    <div className="hidden md:col-span-2 md:block">MANAGER</div>
+                                    <div className="col-span-5 text-right md:col-span-2">TOTAL</div>
+                                </div>
                                 {sales.data.map((sale) => (
-                                    <div key={sale.id} className="rounded-lg border p-4">
-                                        <div className="mb-3 flex items-center justify-between">
-                                            <div className="flex items-center space-x-2">
-                                                <Receipt className="h-5 w-5 text-muted-foreground" />
-                                                <div>
-                                                    <h3 className="font-medium">Sale #{sale.id}</h3>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        {new Date(sale.created_at).toLocaleDateString()} at{' '}
-                                                        {new Date(sale.created_at).toLocaleTimeString()}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center space-x-2">
-                                                <span className="text-lg font-bold">{formatCurrency(sale.total_amount)}</span>
-                                                <div className="flex space-x-1">
-                                                    <Button variant="outline" size="sm" onClick={() => handleViewReceipt(sale.id)}>
-                                                        <Eye className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button variant="outline" size="sm" onClick={() => handleDownloadReceipt(sale.id)}>
-                                                        <Download className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </div>
+                                    <div
+                                        key={sale.id}
+                                        className="grid grid-cols-12 gap-4 px-4 py-4 transition-colors hover:bg-gray-50 md:px-6 dark:hover:bg-gray-800/50"
+                                    >
+                                        <div className="col-span-3 flex items-center md:col-span-2">
+                                            <Receipt className="mr-2 h-4 w-4 text-muted-foreground" />
+                                            <span className="font-medium">#{sale.id}</span>
                                         </div>
-
-                                        {/* Sale Items */}
-                                        <div className="space-y-2">
-                                            {sale.sale_items.map((item) => (
-                                                <div key={item.id} className="flex items-center justify-between rounded-md bg-muted p-2">
-                                                    <div className="flex items-center space-x-2">
-                                                        <Package className="h-4 w-4 text-muted-foreground" />
-                                                        <div>
-                                                            <p className="font-medium">{item.product_variant.product.name}</p>
-                                                            <p className="text-sm text-muted-foreground">
-                                                                {getVariantInfo(item.product_variant)} • Qty: {item.quantity}
-                                                            </p>
+                                        <div className="col-span-4 md:col-span-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex -space-x-2">
+                                                    {sale.sale_items.slice(0, 3).map((item, index) => (
+                                                        <div
+                                                            key={index}
+                                                            className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700"
+                                                        >
+                                                            <Package className="h-3 w-3 text-muted-foreground" />
                                                         </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="font-medium">{formatCurrency(item.total_price)}</p>
-                                                        <p className="text-sm text-muted-foreground">{formatCurrency(item.unit_price)} each</p>
-                                                    </div>
+                                                    ))}
+                                                    {sale.sale_items.length > 3 && (
+                                                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs dark:bg-gray-700">
+                                                            +{sale.sale_items.length - 3}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            ))}
-                                        </div>
-
-                                        {/* Manager Info (for admin) */}
-                                        {isAdmin && (
-                                            <div className="mt-3 flex items-center space-x-2 rounded-md bg-blue-50 p-2">
-                                                <User className="h-4 w-4 text-blue-600" />
-                                                <span className="text-sm text-blue-700">Sold by: {sale.manager.name}</span>
+                                                <span className="text-sm text-muted-foreground">
+                                                    {sale.sale_items.length} {sale.sale_items.length === 1 ? 'item' : 'items'}
+                                                </span>
                                             </div>
-                                        )}
+                                        </div>
+                                        <div className="hidden md:col-span-3 md:block">
+                                            <div className="text-sm">{new Date(sale.created_at).toLocaleDateString()}</div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </div>
+                                        </div>
+                                        <div className="hidden md:col-span-2 md:block">
+                                            <div className="flex items-center gap-2">
+                                                <User className="h-4 w-4 text-muted-foreground" />
+                                                <span className="text-sm">{sale.manager.name}</span>
+                                            </div>
+                                        </div>
+                                        <div className="col-span-5 flex items-center justify-end gap-2 md:col-span-2">
+                                            <span className="font-semibold">{formatCurrency(sale.total_amount)}</span>
+                                            <div className="flex gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                    onClick={() => handleViewReceipt(sale.id)}
+                                                    title="View receipt"
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                    onClick={() => handleDownloadReceipt(sale.id)}
+                                                    title="Download receipt"
+                                                >
+                                                    <Download className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <div className="py-8 text-center">
-                                <Receipt className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                                <p className="text-muted-foreground">No sales found.</p>
+                            <div className="py-12 text-center">
+                                <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+                                    <Receipt className="h-8 w-8 text-muted-foreground" />
+                                </div>
+                                <h3 className="mb-3 text-xl font-semibold">No sales found</h3>
+                                <p className="mx-auto max-w-md text-muted-foreground">
+                                    {search ? 'Try adjusting your search filters' : 'No sales have been recorded yet'}
+                                </p>
                             </div>
                         )}
                     </CardContent>

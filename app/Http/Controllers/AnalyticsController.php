@@ -18,26 +18,41 @@ class AnalyticsController extends Controller
     /**
      * Get comprehensive analytics for admin dashboard
      */
-    public function dashboard(): JsonResponse
+    public function dashboard(Request $request): JsonResponse
     {
         try {
+            $period = $request->get('period', 'month');
             $now = Carbon::now();
-            $startOfDay = $now->copy()->startOfDay();
-            $startOfWeek = $now->copy()->startOfWeek();
-            $startOfMonth = $now->copy()->startOfMonth();
-            $startOfYear = $now->copy()->startOfYear();
+
+            // Set start date based on period
+            switch ($period) {
+                case 'day':
+                    $startDate = $now->copy()->startOfDay();
+                    break;
+                case 'week':
+                    $startDate = $now->copy()->startOfWeek();
+                    break;
+                case 'month':
+                    $startDate = $now->copy()->startOfMonth();
+                    break;
+                case 'year':
+                    $startDate = $now->copy()->startOfYear();
+                    break;
+                default:
+                    $startDate = $now->copy()->startOfMonth();
+            }
 
             // Sales Analytics
-            $salesData = $this->getSalesAnalytics($startOfDay, $startOfWeek, $startOfMonth, $startOfYear);
+            $salesData = $this->getSalesAnalytics($startDate);
 
             // Inventory Analytics
             $inventoryData = $this->getInventoryAnalytics();
 
             // Top Entities
-            $topEntities = $this->getTopEntities();
+            $topEntities = $this->getTopEntities($startDate);
 
             // Profits
-            $profitData = $this->getProfitAnalytics();
+            $profitData = $this->getProfitAnalytics($startDate);
 
             // Notifications
             $notifications = $this->getNotifications();
@@ -66,39 +81,30 @@ class AnalyticsController extends Controller
     /**
      * Get sales analytics data
      */
-    private function getSalesAnalytics($startOfDay, $startOfWeek, $startOfMonth, $startOfYear): array
+    private function getSalesAnalytics($startDate): array
     {
-        // Daily sales
-        $dailySales = Sale::where('created_at', '>=', $startOfDay)
-            ->selectRaw('DATE(created_at) as date, COUNT(*) as orders, SUM(total_amount) as revenue')
-            ->groupBy('date')
-            ->get();
-
-        // Weekly sales
-        $weeklySales = Sale::where('created_at', '>=', $startOfWeek)
-            ->selectRaw('YEARWEEK(created_at) as week, COUNT(*) as orders, SUM(total_amount) as revenue')
-            ->groupBy('week')
-            ->get();
-
-        // Monthly sales
-        $monthlySales = Sale::where('created_at', '>=', $startOfMonth)
-            ->selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, COUNT(*) as orders, SUM(total_amount) as revenue')
-            ->groupBy('month')
-            ->get();
-
-        // Yearly sales
-        $yearlySales = Sale::where('created_at', '>=', $startOfYear)
-            ->selectRaw('YEAR(created_at) as year, COUNT(*) as orders, SUM(total_amount) as revenue')
-            ->groupBy('year')
-            ->get();
-
-        // Total sales for AOV calculation
-        $totalSales = Sale::sum('total_amount');
-        $totalOrders = Sale::count();
+        // Total sales for the period
+        $totalSales = Sale::where('created_at', '>=', $startDate)->sum('total_amount');
+        $totalOrders = Sale::where('created_at', '>=', $startDate)->count();
         $averageOrderValue = $totalOrders > 0 ? $totalSales / $totalOrders : 0;
 
-        // Best selling products
+        // Sales trends (last 30 days)
+        $salesTrends = Sale::where('created_at', '>=', Carbon::now()->subDays(30))
+            ->selectRaw('DATE(created_at) as date, COUNT(*) as orders, SUM(total_amount) as revenue')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'date' => $item->date,
+                    'orders' => (int) $item->orders,
+                    'revenue' => (float) $item->revenue,
+                ];
+            });
+
+        // Best selling products for the period
         $bestSellingProducts = SaleItem::with(['productVariant.product'])
+            ->where('sale_items.created_at', '>=', $startDate)
             ->selectRaw('product_variant_id, SUM(quantity) as total_sold, SUM(total_price) as total_revenue')
             ->groupBy('product_variant_id')
             ->orderByDesc('total_sold')
@@ -113,8 +119,9 @@ class AnalyticsController extends Controller
                 ];
             });
 
-        // Sales by category
+        // Sales by category for the period
         $salesByCategory = SaleItem::with(['productVariant.product'])
+            ->where('sale_items.created_at', '>=', $startDate)
             ->selectRaw('products.category, SUM(sale_items.quantity) as total_sold, SUM(sale_items.total_price) as total_revenue')
             ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
             ->join('products', 'product_variants.product_id', '=', 'products.id')
@@ -140,18 +147,9 @@ class AnalyticsController extends Controller
             ->orderByDesc('total_sold')
             ->get();
 
-        // Sales trends (last 30 days)
-        $salesTrends = Sale::where('created_at', '>=', Carbon::now()->subDays(30))
-            ->selectRaw('DATE(created_at) as date, COUNT(*) as orders, SUM(total_amount) as revenue')
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
+        // Sales trends (last 30 days) - duplicate, removing this one
 
         return [
-            'daily' => $dailySales,
-            'weekly' => $weeklySales,
-            'monthly' => $monthlySales,
-            'yearly' => $yearlySales,
             'totalSales' => $totalSales,
             'totalOrders' => $totalOrders,
             'averageOrderValue' => round($averageOrderValue, 2),
@@ -224,10 +222,11 @@ class AnalyticsController extends Controller
     /**
      * Get top entities data
      */
-    private function getTopEntities(): array
+    private function getTopEntities($startDate): array
     {
         // Top performing managers
         $topManagers = Sale::with(['manager'])
+            ->where('created_at', '>=', $startDate)
             ->selectRaw('manager_id, COUNT(*) as sales_count, SUM(total_amount) as total_revenue')
             ->groupBy('manager_id')
             ->orderByDesc('total_revenue')
@@ -242,8 +241,9 @@ class AnalyticsController extends Controller
                 ];
             });
 
-        // Top 5 best-selling products
+        // Top 5 best-selling products for the period
         $topProducts = SaleItem::with(['productVariant.product'])
+            ->where('sale_items.created_at', '>=', $startDate)
             ->selectRaw('product_variant_id, SUM(quantity) as total_sold, SUM(total_price) as total_revenue')
             ->groupBy('product_variant_id')
             ->orderByDesc('total_sold')
@@ -258,8 +258,9 @@ class AnalyticsController extends Controller
                 ];
             });
 
-        // Top product categories
+        // Top product categories for the period
         $topCategories = SaleItem::with(['productVariant.product'])
+            ->where('sale_items.created_at', '>=', $startDate)
             ->selectRaw('products.category, SUM(sale_items.quantity) as total_sold, SUM(sale_items.total_price) as total_revenue')
             ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
             ->join('products', 'product_variants.product_id', '=', 'products.id')
@@ -278,15 +279,16 @@ class AnalyticsController extends Controller
     /**
      * Get profit analytics data
      */
-    private function getProfitAnalytics(): array
+    private function getProfitAnalytics($startDate): array
     {
-        // Calculate profits per sale item
+        // Calculate profits per sale item for the period
         $profitData = SaleItem::with(['productVariant'])
             ->selectRaw('
                 sale_items.*,
                 (sale_items.unit_price - product_variants.cost_price) * sale_items.quantity as profit
             ')
             ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
+            ->where('sale_items.created_at', '>=', $startDate)
             ->get();
 
         $totalProfit = $profitData->sum('profit');
@@ -304,7 +306,14 @@ class AnalyticsController extends Controller
             ->where('sale_items.created_at', '>=', Carbon::now()->subDays(30))
             ->groupBy('date')
             ->orderBy('date')
-            ->get();
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'date' => $item->date,
+                    'daily_profit' => (float) $item->daily_profit,
+                    'daily_revenue' => (float) $item->daily_revenue,
+                ];
+            });
 
         return [
             'totalProfit' => round($totalProfit, 2),

@@ -40,6 +40,9 @@ class SalesController extends Controller
             case 'month':
                 $query->where('created_at', '>=', Carbon::now()->startOfMonth());
                 break;
+            case 'year':
+                $query->where('created_at', '>=', Carbon::now()->startOfYear());
+                break;
         }
 
         // Search functionality

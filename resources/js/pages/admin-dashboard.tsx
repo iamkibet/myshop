@@ -16,8 +16,6 @@ import {
     Activity,
     AlertTriangle,
     BarChart3,
-    Bell,
-    Clock,
     DollarSign,
     Package,
     Plus,
@@ -25,7 +23,6 @@ import {
     RefreshCw,
     ShoppingCart,
     Target,
-    TrendingDown,
     TrendingUp,
     User,
     Users,
@@ -34,6 +31,16 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+
+// Utility function to format large numbers for charts
+const formatChartNumber = (value: number): string => {
+    if (value >= 1000000) {
+        return `${(value / 1000000).toFixed(1)}M`;
+    } else if (value >= 1000) {
+        return `${(value / 1000).toFixed(1)}K`;
+    }
+    return value.toString();
+};
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -180,7 +187,17 @@ export default function AdminDashboard() {
     const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
     const [restockLoading, setRestockLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
-    const [restockRecommendations, setRestockRecommendations] = useState<any>(null);
+    const [restockRecommendations, setRestockRecommendations] = useState<{
+        product_name: string;
+        recommendations: Array<{
+            variant_id: number;
+            variant_info: string;
+            current_quantity: number;
+            recommended_quantity: number;
+            cost_price: number;
+            selling_price: number;
+        }>;
+    } | null>(null);
     const [selectedProductForRestock, setSelectedProductForRestock] = useState<number | null>(null);
     const [localNotifications, setLocalNotifications] = useState(analytics?.notifications || []);
     const [localUnreadCount, setLocalUnreadCount] = useState(analytics?.notifications?.filter((n) => !n.is_read).length || 0);
@@ -229,7 +246,7 @@ export default function AdminDashboard() {
     const fetchAnalytics = async () => {
         setLoading(true);
         try {
-            const response = await fetch('/dashboard/analytics');
+            const response = await fetch(`/dashboard/analytics?period=${dateRange}`);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -239,6 +256,9 @@ export default function AdminDashboard() {
                 console.error('Analytics error:', data.message);
                 setAnalyticsData(getDefaultAnalyticsData());
             } else {
+                console.log('Analytics data received:', data);
+                console.log('Profit trends:', data.profits?.profitTrends);
+                console.log('Sales trends:', data.sales?.salesTrends);
                 setAnalyticsData(data);
             }
         } catch (error) {
@@ -286,9 +306,16 @@ export default function AdminDashboard() {
         }
     }, []);
 
+    // Refetch analytics when date range changes
+    useEffect(() => {
+        if (analyticsData) {
+            fetchAnalytics();
+        }
+    }, [dateRange]);
+
     // Create safe analytics data with proper fallbacks
     const safeAnalyticsData = useMemo(() => {
-        return analyticsData
+        const data = analyticsData
             ? {
                   sales: {
                       totalSales: analyticsData.sales?.totalSales || 0,
@@ -322,6 +349,9 @@ export default function AdminDashboard() {
                   notifications: Array.isArray(analyticsData.notifications) ? analyticsData.notifications : [],
               }
             : null;
+
+        console.log('Safe analytics data:', data);
+        return data;
     }, [analyticsData]);
 
     // Prepare restock items
@@ -362,7 +392,7 @@ export default function AdminDashboard() {
         setRestockLoading(true);
         try {
             console.log('Restocking items:', restockItems);
-            await router.post('/restock', { items: restockItems as unknown });
+            await router.post('/restock', { items: restockItems as any });
             setRestockDialogOpen(false);
             // The page will refresh automatically due to the redirect
         } catch (error) {
@@ -393,12 +423,12 @@ export default function AdminDashboard() {
 
         setRestockLoading(true);
         try {
-            const items = restockRecommendations.recommendations.map((rec: any) => ({
+            const items = restockRecommendations.recommendations.map((rec: { variant_id: number; recommended_quantity: number }) => ({
                 product_variant_id: rec.variant_id,
                 new_quantity: rec.recommended_quantity,
             }));
 
-            await router.post('/restock', { items: items as unknown });
+            await router.post('/restock', { items: items as any });
             setSmartRestockDialogOpen(false);
             setRestockRecommendations(null);
             setSelectedProductForRestock(null);
@@ -406,23 +436,6 @@ export default function AdminDashboard() {
             console.error('Smart restock failed:', error);
         } finally {
             setRestockLoading(false);
-        }
-    };
-
-    const getNotificationIcon = (icon: string) => {
-        switch (icon) {
-            case 'alert-triangle':
-                return <AlertTriangle className="h-4 w-4" />;
-            case 'x-circle':
-                return <XCircle className="h-4 w-4" />;
-            case 'clock':
-                return <Clock className="h-4 w-4" />;
-            case 'trending-up':
-                return <TrendingUp className="h-4 w-4" />;
-            case 'trending-down':
-                return <TrendingDown className="h-4 w-4" />;
-            default:
-                return <Bell className="h-4 w-4" />;
         }
     };
 
@@ -460,7 +473,9 @@ export default function AdminDashboard() {
     };
     const profits = safeAnalyticsData?.profits || { totalProfit: 0, totalRevenue: 0, profitMargin: 0, profitTrends: [] };
     const topEntities = safeAnalyticsData?.topEntities || { topManagers: [], topProducts: [], topCategories: [] };
-    const notifications = safeAnalyticsData?.notifications || [];
+
+    console.log('Chart data - Sales trends:', sales.salesTrends);
+    console.log('Chart data - Profit trends:', profits.profitTrends);
 
     // If safeAnalyticsData is null, show loading state
     if (!safeAnalyticsData) {
@@ -507,14 +522,14 @@ export default function AdminDashboard() {
                 )}
 
                 {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="hidden sm:block">
+                        <h1 className="text-2xl font-bold sm:text-3xl">Admin Dashboard</h1>
                         <p className="text-muted-foreground">Comprehensive analytics and insights</p>
                     </div>
-                    <div className="flex items-center space-x-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-3">
                         <Select value={dateRange} onValueChange={setDateRange}>
-                            <SelectTrigger className="w-32">
+                            <SelectTrigger className="w-full sm:w-32">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -524,7 +539,7 @@ export default function AdminDashboard() {
                                 <SelectItem value="year">This Year</SelectItem>
                             </SelectContent>
                         </Select>
-                        <Button onClick={fetchAnalytics} disabled={loading} variant="outline" size="sm">
+                        <Button onClick={fetchAnalytics} disabled={loading} variant="outline" size="sm" className="w-full sm:w-auto">
                             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                             Refresh
                         </Button>
@@ -537,14 +552,14 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Key Metrics */}
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Card className="border-l-4 border-l-green-500">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
                             <DollarSign className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{formatCurrency(sales?.totalSales || 0)}</div>
+                            <div className="text-xl font-bold sm:text-2xl">{formatCurrency(sales?.totalSales || 0)}</div>
                             <p className="text-xs text-muted-foreground">{sales?.totalOrders || 0} orders completed</p>
                         </CardContent>
                     </Card>
@@ -555,7 +570,7 @@ export default function AdminDashboard() {
                             <TrendingUp className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{formatCurrency(profits?.totalProfit || 0)}</div>
+                            <div className="text-xl font-bold sm:text-2xl">{formatCurrency(profits?.totalProfit || 0)}</div>
                             <p className="text-xs text-muted-foreground">{(profits?.profitMargin || 0).toFixed(1)}% margin</p>
                         </CardContent>
                     </Card>
@@ -566,7 +581,7 @@ export default function AdminDashboard() {
                             <BarChart3 className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{formatCurrency(sales?.averageOrderValue || 0)}</div>
+                            <div className="text-xl font-bold sm:text-2xl">{formatCurrency(sales?.averageOrderValue || 0)}</div>
                             <p className="text-xs text-muted-foreground">per order</p>
                         </CardContent>
                     </Card>
@@ -577,7 +592,7 @@ export default function AdminDashboard() {
                             <Package className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{formatCurrency(inventory?.totalRetailValue || 0)}</div>
+                            <div className="text-xl font-bold sm:text-2xl">{formatCurrency(inventory?.totalRetailValue || 0)}</div>
                             <p className="text-xs text-muted-foreground">{inventory?.totalProducts || 0} products</p>
                         </CardContent>
                     </Card>
@@ -585,100 +600,143 @@ export default function AdminDashboard() {
 
                 {/* Charts and Analytics */}
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-                    <TabsList>
+                    <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
-                        <TabsTrigger value="sales">Sales Analytics</TabsTrigger>
+                        <TabsTrigger value="sales">Sales</TabsTrigger>
                         <TabsTrigger value="inventory">Inventory</TabsTrigger>
                         <TabsTrigger value="performance">Performance</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="overview" className="space-y-4">
-                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                             {/* Sales Trends Chart */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center">
-                                        <Activity className="mr-2 h-5 w-5" />
-                                        Sales Trends (Last 30 Days)
+                            <Card className="border-0 shadow-sm">
+                                <CardHeader className="px-4 py-4 md:px-6">
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Activity className="h-5 w-5 text-blue-600" />
+                                        <span>Sales Performance (30 Days) - KSH</span>
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent>
+                                <CardContent className="px-4 pb-6 md:px-6">
                                     {Array.isArray(sales?.salesTrends) && sales.salesTrends.length > 0 ? (
-                                        <div className="space-y-4">
-                                            <div className="mb-6 grid grid-cols-3 gap-4 text-center">
-                                                <div>
-                                                    <p className="text-2xl font-bold text-green-600">
-                                                        {formatCurrency(
+                                        <div className="space-y-6">
+                                            {/* Summary Cards */}
+                                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
+                                                <div className="rounded-lg border bg-gradient-to-br from-green-50 to-green-100 p-3 sm:p-4 dark:from-green-900/30 dark:to-green-900/20">
+                                                    <div className="mb-1 text-xs font-medium text-green-600 sm:text-sm dark:text-green-400">
+                                                        Total Revenue
+                                                    </div>
+                                                    <div className="text-lg font-bold text-green-800 sm:text-xl lg:text-2xl dark:text-green-100">
+                                                        {formatChartNumber(
                                                             sales.salesTrends.reduce(
                                                                 (sum: number, day: { revenue: number }) => sum + (day.revenue || 0),
                                                                 0,
                                                             ),
                                                         )}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">Total Revenue</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-2xl font-bold text-blue-600">
+
+                                                <div className="rounded-lg border bg-gradient-to-br from-blue-50 to-blue-100 p-3 sm:p-4 dark:from-blue-900/30 dark:to-blue-900/20">
+                                                    <div className="mb-1 text-xs font-medium text-blue-600 sm:text-sm dark:text-blue-400">
+                                                        Total Orders
+                                                    </div>
+                                                    <div className="text-lg font-bold text-blue-800 sm:text-xl lg:text-2xl dark:text-blue-100">
                                                         {sales.salesTrends.reduce(
                                                             (sum: number, day: { orders: number }) => sum + (day.orders || 0),
                                                             0,
                                                         )}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">Total Orders</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-2xl font-bold text-purple-600">
+
+                                                <div className="rounded-lg border bg-gradient-to-br from-purple-50 to-purple-100 p-3 sm:p-4 dark:from-purple-900/30 dark:to-purple-900/20">
+                                                    <div className="mb-1 text-xs font-medium text-purple-600 sm:text-sm dark:text-purple-400">
+                                                        Avg Daily Revenue
+                                                    </div>
+                                                    <div className="text-lg font-bold text-purple-800 sm:text-xl lg:text-2xl dark:text-purple-100">
                                                         {sales.salesTrends.length > 0
-                                                            ? Math.round(
-                                                                  sales.salesTrends.reduce(
-                                                                      (sum: number, day: { revenue: number }) => sum + (day.revenue || 0),
-                                                                      0,
-                                                                  ) / sales.salesTrends.length,
+                                                            ? formatChartNumber(
+                                                                  Math.round(
+                                                                      sales.salesTrends.reduce(
+                                                                          (sum: number, day: { revenue: number }) => sum + (day.revenue || 0),
+                                                                          0,
+                                                                      ) / sales.salesTrends.length,
+                                                                  ),
                                                               )
-                                                            : 0}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">Avg Daily Revenue</p>
+                                                            : formatChartNumber(0)}
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div className="h-64">
+
+                                            {/* Chart */}
+                                            <div className="h-48 sm:h-64 lg:h-80">
                                                 <ResponsiveContainer width="100%" height="100%">
-                                                    <AreaChart data={sales.salesTrends}>
-                                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                                    <AreaChart data={sales.salesTrends} margin={{ top: 10, right: 10, left: 0, bottom: 30 }}>
+                                                        <defs>
+                                                            <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                                            </linearGradient>
+                                                        </defs>
+                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                                                         <XAxis
                                                             dataKey="date"
-                                                            tickFormatter={(value) => new Date(value).toLocaleDateString()}
-                                                            stroke="#888888"
+                                                            tickFormatter={(value) =>
+                                                                new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                                            }
+                                                            stroke="#6b7280"
                                                             fontSize={12}
                                                             axisLine={false}
                                                             tickLine={false}
+                                                            tickMargin={10}
                                                         />
                                                         <YAxis
-                                                            stroke="#888888"
+                                                            stroke="#6b7280"
                                                             fontSize={12}
-                                                            tickFormatter={(value) => formatCurrency(value)}
+                                                            tickFormatter={(value) => formatChartNumber(value)}
                                                             axisLine={false}
                                                             tickLine={false}
+                                                            width={60}
                                                         />
                                                         <Tooltip
-                                                            formatter={(value: number, name: string) => [
-                                                                name === 'revenue' ? formatCurrency(value) : value,
-                                                                name === 'revenue' ? 'Revenue' : 'Orders',
-                                                            ]}
-                                                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                                                            contentStyle={{
-                                                                backgroundColor: 'white',
-                                                                border: '1px solid #e5e7eb',
-                                                                borderRadius: '8px',
-                                                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                                                            }}
+                                                            content={({ payload, label }) => (
+                                                                <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                                                                    <p className="mb-1 font-medium text-gray-900 dark:text-gray-100">
+                                                                        {label
+                                                                            ? new Date(label).toLocaleDateString('en-US', {
+                                                                                  weekday: 'short',
+                                                                                  month: 'short',
+                                                                                  day: 'numeric',
+                                                                              })
+                                                                            : ''}
+                                                                    </p>
+                                                                    {payload?.map((entry, index) => (
+                                                                        <div key={`tooltip-${index}`} className="flex items-center justify-between">
+                                                                            <div className="flex items-center">
+                                                                                <div
+                                                                                    className="mr-2 h-3 w-3 rounded-full"
+                                                                                    style={{ backgroundColor: entry.color }}
+                                                                                />
+                                                                                <span className="text-sm text-gray-600 dark:text-gray-300">
+                                                                                    {entry.name === 'revenue' ? 'Revenue' : 'Orders'}
+                                                                                </span>
+                                                                            </div>
+                                                                            <span className="ml-4 font-medium text-gray-900 dark:text-gray-100">
+                                                                                {entry.name === 'revenue'
+                                                                                    ? formatChartNumber(entry.value as number)
+                                                                                    : entry.value}
+                                                                            </span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
                                                         />
                                                         <Area
                                                             type="monotone"
                                                             dataKey="revenue"
                                                             stroke="#10b981"
-                                                            fill="#10b981"
-                                                            fillOpacity={0.2}
-                                                            strokeWidth={3}
+                                                            fill="url(#revenueGradient)"
+                                                            strokeWidth={2}
+                                                            activeDot={{ r: 6, strokeWidth: 2 }}
                                                         />
                                                         <Line
                                                             type="monotone"
@@ -686,16 +744,18 @@ export default function AdminDashboard() {
                                                             stroke="#3b82f6"
                                                             strokeWidth={2}
                                                             dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                                                            activeDot={{ r: 6, strokeWidth: 2 }}
                                                         />
                                                     </AreaChart>
                                                 </ResponsiveContainer>
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="flex h-64 items-center justify-center text-muted-foreground">
+                                        <div className="flex h-48 items-center justify-center text-muted-foreground sm:h-64 lg:h-80">
                                             <div className="text-center">
-                                                <BarChart3 className="mx-auto mb-2 h-12 w-12" />
-                                                <p>No sales data available</p>
+                                                <BarChart3 className="mx-auto mb-4 h-12 w-12" />
+                                                <p className="text-base font-medium">No sales data available</p>
+                                                <p className="mt-1 text-sm">Sales data will appear here once available</p>
                                             </div>
                                         </div>
                                     )}
@@ -703,72 +763,102 @@ export default function AdminDashboard() {
                             </Card>
 
                             {/* Profit Trends Chart */}
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center">
-                                        <TrendingUp className="mr-2 h-5 w-5" />
-                                        Profit Trends (Last 30 Days)
+                            <Card className="border-0 shadow-sm">
+                                <CardHeader className="px-4 py-4 md:px-6">
+                                    <CardTitle className="flex items-center gap-2">
+                                        <TrendingUp className="h-5 w-5 text-green-600" />
+                                        <span>Profit Analysis (30 Days) - KSH</span>
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent>
+                                <CardContent className="px-4 pb-6 md:px-6">
                                     {Array.isArray(profits?.profitTrends) && profits.profitTrends.length > 0 ? (
-                                        <div className="space-y-4">
-                                            <div className="mb-6 grid grid-cols-3 gap-4 text-center">
-                                                <div>
-                                                    <p className="text-2xl font-bold text-green-600">
-                                                        {formatCurrency(profits.profitTrends.reduce((sum, day) => sum + (day.daily_profit || 0), 0))}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">Total Profit</p>
+                                        <div className="space-y-6">
+                                            {/* Summary Cards */}
+                                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+                                                <div className="rounded-lg border bg-gradient-to-br from-green-50 to-green-100 p-3 sm:p-4 dark:from-green-900/30 dark:to-green-900/20">
+                                                    <div className="mb-1 text-xs font-medium text-green-600 sm:text-sm dark:text-green-400">
+                                                        Total Profit
+                                                    </div>
+                                                    <div className="text-lg font-bold text-green-800 sm:text-xl lg:text-2xl dark:text-green-100">
+                                                        {formatChartNumber(
+                                                            profits.profitTrends.reduce((sum, day) => sum + (day.daily_profit || 0), 0),
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-2xl font-bold text-blue-600">
-                                                        {formatCurrency(profits.profitTrends.reduce((sum, day) => sum + (day.daily_revenue || 0), 0))}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">Total Revenue</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-2xl font-bold text-purple-600">
+
+                                                <div className="rounded-lg border bg-gradient-to-br from-purple-50 to-purple-100 p-3 sm:p-4 dark:from-purple-900/30 dark:to-purple-900/20">
+                                                    <div className="mb-1 text-xs font-medium text-purple-600 sm:text-sm dark:text-purple-400">
+                                                        Avg Daily Profit
+                                                    </div>
+                                                    <div className="text-lg font-bold text-purple-800 sm:text-xl lg:text-2xl dark:text-purple-100">
                                                         {profits.profitTrends.length > 0
-                                                            ? Math.round(
-                                                                  profits.profitTrends.reduce((sum, day) => sum + (day.daily_profit || 0), 0) /
-                                                                      profits.profitTrends.length,
+                                                            ? formatChartNumber(
+                                                                  Math.round(
+                                                                      profits.profitTrends.reduce((sum, day) => sum + (day.daily_profit || 0), 0) /
+                                                                          profits.profitTrends.length,
+                                                                  ),
                                                               )
-                                                            : 0}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">Avg Daily Profit</p>
+                                                            : formatChartNumber(0)}
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div className="h-64">
+
+                                            {/* Chart */}
+                                            <div className="h-48 sm:h-64 lg:h-80">
                                                 <ResponsiveContainer width="100%" height="100%">
-                                                    <LineChart data={profits.profitTrends}>
-                                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                                    <LineChart data={profits.profitTrends} margin={{ top: 10, right: 10, left: 0, bottom: 30 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                                                         <XAxis
                                                             dataKey="date"
-                                                            tickFormatter={(value) => new Date(value).toLocaleDateString()}
-                                                            stroke="#888888"
+                                                            tickFormatter={(value) =>
+                                                                new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                                            }
+                                                            stroke="#6b7280"
                                                             fontSize={12}
                                                             axisLine={false}
                                                             tickLine={false}
+                                                            tickMargin={10}
                                                         />
                                                         <YAxis
-                                                            stroke="#888888"
+                                                            stroke="#6b7280"
                                                             fontSize={12}
-                                                            tickFormatter={(value) => formatCurrency(value)}
+                                                            tickFormatter={(value) => formatChartNumber(value)}
                                                             axisLine={false}
                                                             tickLine={false}
+                                                            width={60}
                                                         />
                                                         <Tooltip
-                                                            formatter={(value: number, name: string) => [
-                                                                formatCurrency(value),
-                                                                name === 'daily_profit' ? 'Profit' : 'Revenue',
-                                                            ]}
-                                                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                                                            contentStyle={{
-                                                                backgroundColor: 'white',
-                                                                border: '1px solid #e5e7eb',
-                                                                borderRadius: '8px',
-                                                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                                                            }}
+                                                            content={({ payload, label }) => (
+                                                                <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                                                                    <p className="mb-1 font-medium text-gray-900 dark:text-gray-100">
+                                                                        {label
+                                                                            ? new Date(label).toLocaleDateString('en-US', {
+                                                                                  weekday: 'short',
+                                                                                  month: 'short',
+                                                                                  day: 'numeric',
+                                                                              })
+                                                                            : ''}
+                                                                    </p>
+                                                                    {payload?.map((entry, index) => (
+                                                                        <div key={`tooltip-${index}`} className="flex items-center justify-between">
+                                                                            <div className="flex items-center">
+                                                                                <div
+                                                                                    className="mr-2 h-3 w-3 rounded-full"
+                                                                                    style={{
+                                                                                        backgroundColor: entry.color,
+                                                                                    }}
+                                                                                />
+                                                                                <span className="text-sm text-gray-600 dark:text-gray-300">
+                                                                                    Profit
+                                                                                </span>
+                                                                            </div>
+                                                                            <span className="ml-4 font-medium text-gray-900 dark:text-gray-100">
+                                                                                {formatChartNumber(entry.value as number)}
+                                                                            </span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
                                                         />
                                                         <Line
                                                             type="monotone"
@@ -776,26 +866,19 @@ export default function AdminDashboard() {
                                                             stroke="#10b981"
                                                             strokeWidth={3}
                                                             dot={{ fill: '#10b981', strokeWidth: 2, r: 5 }}
+                                                            activeDot={{ r: 6, strokeWidth: 2 }}
                                                             name="Profit"
-                                                        />
-                                                        <Line
-                                                            type="monotone"
-                                                            dataKey="daily_revenue"
-                                                            stroke="#3b82f6"
-                                                            strokeWidth={2}
-                                                            strokeDasharray="5 5"
-                                                            dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
-                                                            name="Revenue"
                                                         />
                                                     </LineChart>
                                                 </ResponsiveContainer>
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="flex h-64 items-center justify-center text-muted-foreground">
+                                        <div className="flex h-48 items-center justify-center text-muted-foreground sm:h-64 lg:h-80">
                                             <div className="text-center">
-                                                <TrendingUp className="mx-auto mb-2 h-12 w-12" />
-                                                <p>No profit data available</p>
+                                                <TrendingUp className="mx-auto mb-4 h-12 w-12" />
+                                                <p className="text-base font-medium">No profit data available</p>
+                                                <p className="mt-1 text-sm">Profit data will appear here once available</p>
                                             </div>
                                         </div>
                                     )}
@@ -805,7 +888,7 @@ export default function AdminDashboard() {
                     </TabsContent>
 
                     <TabsContent value="sales" className="space-y-4">
-                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                             {/* Best Selling Products */}
                             <Card>
                                 <CardHeader>
@@ -868,7 +951,7 @@ export default function AdminDashboard() {
                     </TabsContent>
 
                     <TabsContent value="inventory" className="space-y-4">
-                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                             {/* Low Stock Products */}
                             <Card>
                                 <CardHeader>
@@ -1027,7 +1110,7 @@ export default function AdminDashboard() {
                                 {restockRecommendations && (
                                     <div className="space-y-4">
                                         <div className="grid gap-4">
-                                            {restockRecommendations.recommendations.map((rec: any, index: number) => (
+                                            {restockRecommendations.recommendations.map((rec, index: number) => (
                                                 <div key={index} className="flex items-center justify-between rounded-lg border p-4">
                                                     <div className="flex-1">
                                                         <p className="font-medium">{rec.variant_info}</p>
@@ -1090,7 +1173,7 @@ export default function AdminDashboard() {
                     </TabsContent>
 
                     <TabsContent value="performance" className="space-y-4">
-                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                             {/* Top Managers */}
                             {topEntities?.topManagers && topEntities.topManagers.length > 0 && (
                                 <Card>
@@ -1170,7 +1253,7 @@ export default function AdminDashboard() {
                         <CardTitle>Quick Actions</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                             <Link href="/products">
                                 <Button className="w-full" variant="outline">
                                     <Package className="mr-2 h-4 w-4" />

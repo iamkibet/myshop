@@ -125,7 +125,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Get comprehensive analytics data using AnalyticsController
         $analyticsController = new \App\Http\Controllers\AnalyticsController();
-        $analyticsResponse = $analyticsController->dashboard();
+        $analyticsResponse = $analyticsController->dashboard(request());
         $analyticsData = json_decode($analyticsResponse->getContent(), true);
 
         $data = [
