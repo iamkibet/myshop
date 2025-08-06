@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthLayout from '@/layouts/auth-layout';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { Eye, EyeOff, Loader2, Mail, User, UserPlus } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
@@ -19,6 +19,8 @@ type RegisterForm = {
 export default function Register() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const { props } = usePage();
+    const appName = (props as any).app?.name || 'MyShop';
 
     const { data, setData, post, processing, errors } = useForm<RegisterForm>({
         name: '',
@@ -33,12 +35,11 @@ export default function Register() {
     };
 
     return (
-        <AuthLayout title="MyShop" description="Inventory & Sales Management System">
+        <AuthLayout title={appName} description="Inventory & Sales Management System">
             <Head title="Sign up" />
 
             {/* Register Card */}
             <Card className="border-0 shadow-2xl dark:bg-gray-800/50 dark:backdrop-blur-sm">
-                
                 <CardContent className="space-y-4">
                     <form onSubmit={submit} className="space-y-4">
                         <div className="space-y-2">

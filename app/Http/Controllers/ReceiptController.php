@@ -14,7 +14,7 @@ class ReceiptController extends Controller
      */
     public function show(Sale $sale)
     {
-        $user = auth()->user(); 
+        $user = auth()->user();
 
         // Check if user can view this receipt
         if (!$user->isAdmin() && $sale->manager_id !== $user->id) {
@@ -50,15 +50,15 @@ class ReceiptController extends Controller
             'saleItems.productVariant.product'
         ]);
 
-        // Generate PDF content
+        // Generate receipt content
         $receiptContent = $this->generateReceiptContent($sale);
 
-        // Return as PDF with proper headers
+        // Return as HTML that can be saved as PDF
         return response($receiptContent)
-            ->header('Content-Type', 'application/pdf')
-            ->header('Content-Disposition', 'attachment; filename="receipt-' . $sale->id . '.pdf"')
-            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
-            ->header('Pragma', 'no-cache')
+            ->header('Content-Type', 'text/html')
+            ->header('Content-Disposition', 'attachment; filename="receipt-' . $sale->id . '.html"')
+            ->header('Cache-Control', 'public, max-age=0')
+            ->header('Pragma', 'public')
             ->header('Expires', '0');
     }
 
@@ -72,92 +72,165 @@ class ReceiptController extends Controller
         <html>
         <head>
             <meta charset="UTF-8">
-            <title>Receipt #' . $sale->id . '</title>
+            <title>Receipt #' . $sale->id . ' - ' . config('app.name') . '</title>
             <style>
                 @page {
-                    margin: 20mm;
+                    margin: 15mm;
                     size: A4;
                 }
+                @media print {
+                    body { margin: 0; }
+                    .no-print { display: none; }
+                    .page-break { page-break-before: always; }
+                }
                 body { 
-                    font-family: Arial, sans-serif; 
+                    font-family: "Helvetica Neue", Arial, sans-serif; 
                     margin: 0; 
                     padding: 0;
                     font-size: 12px;
                     line-height: 1.4;
+                    color: #333;
+                    background: white;
                 }
                 .header { 
                     text-align: center; 
                     border-bottom: 2px solid #000; 
-                    padding-bottom: 10px; 
+                    padding-bottom: 15px; 
                     margin-bottom: 20px; 
+                }
+                .header h1 {
+                    margin: 0;
+                    font-size: 24px;
+                    font-weight: bold;
+                }
+                .header p {
+                    margin: 5px 0;
+                    font-size: 14px;
                 }
                 .receipt-info { 
                     margin-bottom: 20px; 
                     display: flex;
                     justify-content: space-between;
+                    flex-wrap: wrap;
+                }
+                .receipt-info div {
+                    margin-bottom: 10px;
                 }
                 .items-table { 
                     width: 100%; 
                     border-collapse: collapse; 
                     margin-bottom: 20px; 
-                    font-size: 10px;
+                    font-size: 11px;
                 }
                 .items-table th, .items-table td { 
                     border: 1px solid #ddd; 
-                    padding: 6px; 
+                    padding: 8px; 
                     text-align: left; 
+                    vertical-align: top;
                 }
                 .items-table th { 
-                    background-color: #f2f2f2; 
+                    background-color: #f8f9fa; 
                     font-weight: bold;
+                    font-size: 10px;
+                }
+                .items-table td {
+                    font-size: 10px;
                 }
                 .total { 
                     text-align: right; 
                     font-weight: bold; 
-                    font-size: 14px; 
+                    font-size: 16px; 
                     margin-top: 20px;
                     border-top: 2px solid #000;
-                    padding-top: 10px;
+                    padding-top: 15px;
                 }
                 .footer { 
                     margin-top: 30px; 
                     text-align: center; 
                     font-size: 10px; 
                     color: #666; 
+                    border-top: 1px solid #ddd;
+                    padding-top: 15px;
                 }
                 .manager-info {
                     background-color: #f8f9fa;
-                    padding: 10px;
+                    padding: 12px;
                     border-radius: 5px;
                     margin-bottom: 15px;
+                    border: 1px solid #e9ecef;
                 }
                 .company-info {
                     margin-bottom: 15px;
                 }
+                .receipt-meta {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 10px;
+                    margin-bottom: 20px;
+                }
+                .receipt-meta div {
+                    display: flex;
+                    justify-content: space-between;
+                }
+                .receipt-meta span:first-child {
+                    font-weight: bold;
+                }
+                .print-instructions {
+                    background: #f0f8ff;
+                    border: 1px solid #b3d9ff;
+                    padding: 10px;
+                    margin: 20px 0;
+                    border-radius: 5px;
+                    font-size: 11px;
+                }
+                .print-instructions h3 {
+                    margin: 0 0 5px 0;
+                    font-size: 12px;
+                }
+                .print-instructions ul {
+                    margin: 5px 0;
+                    padding-left: 20px;
+                }
             </style>
         </head>
         <body>
+            <div class="print-instructions no-print">
+                <h3>📄 Print Instructions:</h3>
+                <ul>
+                    <li>Press Ctrl+P (Windows) or Cmd+P (Mac) to print</li>
+                    <li>Select "Save as PDF" in the destination options</li>
+                    <li>Choose "A4" paper size and "Portrait" orientation</li>
+                    <li>Disable headers and footers for clean output</li>
+                </ul>
+            </div>
+            
             <div class="header">
-                <h1 style="margin: 0; font-size: 24px;">MyShop</h1>
+                <h1 style="margin: 0; font-size: 24px;">' . config('app.name') . '</h1>
                 <p style="margin: 5px 0; font-size: 14px;">Official Receipt</p>
                 <p style="margin: 5px 0; font-size: 12px;">Receipt #' . $sale->id . '</p>
             </div>
             
             <div class="company-info">
-                <p style="margin: 5px 0;"><strong>MyShop Store</strong></p>
-                <p style="margin: 5px 0;">123 Business Street</p>
-                <p style="margin: 5px 0;">Nairobi, Kenya</p>
-                <p style="margin: 5px 0;">Phone: +254 700 000 000</p>
+                <p style="margin: 5px 0;"><strong>' . config('app.name') . ' Store</strong></p>
+                <p style="margin: 5px 0;">Inventory & Sales Management System</p>
             </div>
             
-            <div class="receipt-info">
+            <div class="receipt-meta">
                 <div>
-                    <p style="margin: 5px 0;"><strong>Date:</strong> ' . $sale->created_at->format('F j, Y g:i A') . '</p>
-                    <p style="margin: 5px 0;"><strong>Receipt ID:</strong> ' . $sale->id . '</p>
+                    <span>Date:</span>
+                    <span>' . $sale->created_at->format('F j, Y') . '</span>
                 </div>
                 <div>
-                    <p style="margin: 5px 0;"><strong>Transaction Time:</strong> ' . $sale->created_at->format('H:i:s') . '</p>
-                    <p style="margin: 5px 0;"><strong>Payment Method:</strong> Cash</p>
+                    <span>Time:</span>
+                    <span>' . $sale->created_at->format('g:i A') . '</span>
+                </div>
+                <div>
+                    <span>Receipt ID:</span>
+                    <span>' . $sale->id . '</span>
+                </div>
+                <div>
+                    <span>Payment Method:</span>
+                    <span>Cash</span>
                 </div>
             </div>
             
@@ -210,7 +283,7 @@ class ReceiptController extends Controller
             
             <div class="footer">
                 <p style="margin: 5px 0;">Thank you for your purchase!</p>
-                <p style="margin: 5px 0;">This is an official receipt from MyShop</p>
+                <p style="margin: 5px 0;">This is an official receipt from ' . config('app.name') . '</p>
                 <p style="margin: 5px 0;">Generated on ' . now()->format('F j, Y g:i A') . '</p>
                 <p style="margin: 5px 0;">For any queries, please contact our support team</p>
             </div>

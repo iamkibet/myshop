@@ -1,5 +1,6 @@
 import AppLogoIcon from '@/components/app-logo-icon';
 import { useAppearance } from '@/hooks/use-appearance';
+import { usePage } from '@inertiajs/react';
 import { Moon, Sun } from 'lucide-react';
 import { type PropsWithChildren } from 'react';
 
@@ -11,6 +12,8 @@ interface AuthLayoutProps {
 
 export default function AuthSimpleLayout({ children, title, description }: PropsWithChildren<AuthLayoutProps>) {
     const { appearance, updateAppearance } = useAppearance();
+    const { props } = usePage();
+    const appName = (props as any).app?.name || 'MyShop';
 
     const toggleAppearance = () => {
         updateAppearance(appearance === 'dark' ? 'light' : 'dark');
@@ -34,10 +37,10 @@ export default function AuthSimpleLayout({ children, title, description }: Props
             <div className="w-full max-w-md">
                 {/* Logo and Brand */}
                 <div className="mb-8 text-center">
-                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 shadow-lg">
-                        <AppLogoIcon className="h-8 w-8 text-white" />
+                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 shadow-lg">
+                        <AppLogoIcon className="h-8 w-8 text-blue-600" />
                     </div>
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{title || 'MyShop'}</h1>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{title || appName}</h1>
                     <p className="mt-2 text-gray-600 dark:text-gray-400">{description || 'Inventory & Sales Management System'}</p>
                 </div>
 

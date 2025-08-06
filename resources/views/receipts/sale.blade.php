@@ -96,7 +96,7 @@
 <body>
     <div class="receipt">
         <div class="header">
-            <div class="business-name">MyShop</div>
+            <div class="business-name">{{ config('app.name') }}</div>
             <div>Inventory & Sales Management</div>
         </div>
 

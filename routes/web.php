@@ -56,6 +56,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 });
             }
 
+            // Add category filtering
+            if (request('category') && request('category') !== 'all') {
+                $query->where('category', request('category'));
+            }
+
             $products = $query->orderBy('name')->paginate(12);
 
             $cart = session('cart', []);

@@ -6,7 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthLayout from '@/layouts/auth-layout';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { Eye, EyeOff, Loader2, LogIn, Mail } from 'lucide-react';
 import { FormEventHandler, useState } from 'react';
 
@@ -23,6 +23,8 @@ interface LoginProps {
 
 export default function Login({ status, canResetPassword }: LoginProps) {
     const [showPassword, setShowPassword] = useState(false);
+    const { props } = usePage();
+    const appName = (props as any).app?.name || 'MyShop';
 
     const { data, setData, post, processing, errors } = useForm<LoginForm>({
         email: '',
@@ -36,12 +38,11 @@ export default function Login({ status, canResetPassword }: LoginProps) {
     };
 
     return (
-        <AuthLayout title="MyShop" description="Inventory & Sales Management System">
+        <AuthLayout title={appName} description="Inventory & Sales Management System">
             <Head title="Sign in" />
 
             {/* Login Card */}
             <Card className="border-0 shadow-2xl dark:bg-gray-800/50 dark:backdrop-blur-sm">
-                
                 <CardContent className="space-y-4">
                     {status && (
                         <div className="rounded-lg bg-green-50 p-4 text-sm text-green-800 dark:bg-green-900/20 dark:text-green-400">{status}</div>
@@ -130,7 +131,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                             <div className="w-full border-t border-gray-300 dark:border-gray-600" />
                         </div>
                         <div className="relative flex justify-center text-sm">
-                            <span className="bg-white px-2 text-gray-500 dark:bg-gray-800 dark:text-gray-400">New to MyShop?</span>
+                            <span className="bg-white px-2 text-gray-500 dark:bg-gray-800 dark:text-gray-400">New to {appName}?</span>
                         </div>
                     </div>
 
@@ -142,18 +143,7 @@ export default function Login({ status, canResetPassword }: LoginProps) {
                 </CardContent>
             </Card>
 
-            {/* Demo Accounts Info */}
-            <div className="mt-6 rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
-                <h3 className="mb-2 text-sm font-semibold text-blue-900 dark:text-blue-100">Demo Accounts</h3>
-                <div className="space-y-1 text-xs text-blue-800 dark:text-blue-200">
-                    <div>
-                        <strong>Admin:</strong> admin@myshop.com / password
-                    </div>
-                    <div>
-                        <strong>Manager:</strong> manager@myshop.com / password
-                    </div>
-                </div>
-            </div>
+           
         </AuthLayout>
     );
 }

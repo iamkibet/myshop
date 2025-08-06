@@ -426,21 +426,6 @@ export default function AdminDashboard() {
         }
     };
 
-    const getNotificationColor = (type: string) => {
-        switch (type) {
-            case 'success':
-                return 'border-green-200 bg-green-50 text-green-800';
-            case 'warning':
-                return 'border-yellow-200 bg-yellow-50 text-yellow-800';
-            case 'error':
-                return 'border-red-200 bg-red-50 text-red-800';
-            case 'info':
-                return 'border-blue-200 bg-blue-50 text-blue-800';
-            default:
-                return 'border-gray-200 bg-gray-50 text-gray-800';
-        }
-    };
-
     if (!analyticsData) {
         return (
             <AppLayout breadcrumbs={breadcrumbs}>

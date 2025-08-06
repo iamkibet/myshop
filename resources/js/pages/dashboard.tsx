@@ -1,15 +1,14 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { PlaceholderPattern } from '@/components/ui/placeholder-pattern';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { AlertTriangle, BarChart3, Check, Package, Plus, Search, ShoppingCart, Users, X } from 'lucide-react';
+import { AlertTriangle, BarChart3, Check, Package, Search, ShoppingCart, Users } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -143,13 +142,69 @@ const getAvailableSizesForColor = (product: Product | null, color: string): stri
     ];
 };
 
+// Helper function to convert color name to hex
+const getColorHex = (colorName: string): string => {
+    const colorMap: { [key: string]: string } = {
+        red: '#ef4444',
+        blue: '#3b82f6',
+        green: '#22c55e',
+        yellow: '#eab308',
+        purple: '#a855f7',
+        pink: '#ec4899',
+        orange: '#f97316',
+        brown: '#a16207',
+        black: '#000000',
+        white: '#ffffff',
+        gray: '#6b7280',
+        grey: '#6b7280',
+        navy: '#1e3a8a',
+        maroon: '#991b1b',
+        olive: '#65a30d',
+        lime: '#84cc16',
+        teal: '#14b8a6',
+        cyan: '#06b6d4',
+        indigo: '#6366f1',
+        violet: '#8b5cf6',
+        fuchsia: '#d946ef',
+        rose: '#f43f5e',
+        amber: '#f59e0b',
+        emerald: '#10b981',
+        sky: '#0ea5e9',
+        slate: '#64748b',
+        zinc: '#71717a',
+        neutral: '#737373',
+        stone: '#78716c',
+        'red-500': '#ef4444',
+        'blue-500': '#3b82f6',
+        'green-500': '#22c55e',
+        'yellow-500': '#eab308',
+        'purple-500': '#a855f7',
+        'pink-500': '#ec4899',
+        'orange-500': '#f97316',
+        'brown-500': '#a16207',
+        'black-500': '#000000',
+        'white-500': '#ffffff',
+        'gray-500': '#6b7280',
+        'grey-500': '#6b7280',
+    };
+
+    const normalizedColor = colorName.toLowerCase().trim();
+    return colorMap[normalizedColor] || '#6b7280'; // Default to gray if color not found
+};
+
 export default function Dashboard() {
     const { auth, products, cartCount = 0, flash } = usePage<PageProps>().props;
     const user = auth.user;
     const isAdmin = user.role === 'admin';
     const isManager = user.role === 'manager';
 
-    const [search, setSearch] = useState('');
+    // Get initial values from URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialSearch = urlParams.get('search') || '';
+    const initialCategory = urlParams.get('category') || 'all';
+
+    const [search, setSearch] = useState(initialSearch);
+    const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
     const [addingToCart, setAddingToCart] = useState<number | null>(null);
     const [localCartCount, setLocalCartCount] = useState(cartCount);
     const [soldItems, setSoldItems] = useState<Set<number>>(new Set());
@@ -162,11 +217,29 @@ export default function Dashboard() {
     const [quantity, setQuantity] = useState<number>(1);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
+    // Get unique categories from products
+    const categories = products?.data ? [...new Set(products.data.map((product) => product.category))].sort() : [];
+
     const handleSearch = (value: string) => {
         setSearch(value);
         router.get(
             '/dashboard',
-            { search: value },
+            { search: value, category: selectedCategory !== 'all' ? selectedCategory : '' },
+            {
+                preserveState: true,
+                preserveScroll: true,
+            },
+        );
+    };
+
+    const handleCategoryFilter = (category: string) => {
+        setSelectedCategory(category);
+        router.get(
+            '/dashboard',
+            {
+                search: search,
+                category: category !== 'all' ? category : '',
+            },
             {
                 preserveState: true,
                 preserveScroll: true,
@@ -344,7 +417,8 @@ export default function Dashboard() {
                         <Card>
                             <CardHeader>
                                 <CardTitle>Product Shop</CardTitle>
-                                <div className="flex items-center space-x-2">
+                                <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
+                                    {/* Search Input */}
                                     <div className="relative">
                                         <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                         <Input
@@ -353,6 +427,29 @@ export default function Dashboard() {
                                             onChange={(e) => handleSearch(e.target.value)}
                                             className="max-w-sm pl-10"
                                         />
+                                    </div>
+
+                                    {/* Category Filter Buttons */}
+                                    <div className="flex flex-wrap gap-2">
+                                        <Button
+                                            variant={selectedCategory === 'all' ? 'default' : 'outline'}
+                                            size="sm"
+                                            onClick={() => handleCategoryFilter('all')}
+                                            className="text-xs"
+                                        >
+                                            All Categories
+                                        </Button>
+                                        {categories.map((category) => (
+                                            <Button
+                                                key={category}
+                                                variant={selectedCategory === category ? 'default' : 'outline'}
+                                                size="sm"
+                                                onClick={() => handleCategoryFilter(category)}
+                                                className="text-xs"
+                                            >
+                                                {category}
+                                            </Button>
+                                        ))}
                                     </div>
                                 </div>
                             </CardHeader>
@@ -371,263 +468,292 @@ export default function Dashboard() {
                                         return (
                                             <Card
                                                 key={product.id}
-                                                className={`transition-all duration-300 hover:shadow-md ${
-                                                    isSold ? 'bg-green-50 ring-2 ring-green-500 dark:bg-green-950' : ''
+                                                className={`overflow-hidden transition-all duration-300 hover:shadow-lg ${
+                                                    isSold ? 'bg-green-50/70 ring-1 ring-green-400 dark:bg-green-900/30' : ''
                                                 }`}
                                             >
                                                 <CardHeader className="pb-3">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center space-x-2">
-                                                            <Package className="h-5 w-5 text-muted-foreground" />
-                                                            <CardTitle className="text-lg">{product.name}</CardTitle>
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="mb-1 flex items-center gap-2">
+                                                                <Package className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                                                                <CardTitle className="truncate text-base font-bold">{product.name}</CardTitle>
+                                                            </div>
+
+                                                            <div className="mb-2 flex flex-wrap gap-1">
+                                                                <Badge variant="secondary" className="px-1.5 py-0.5 text-xs font-medium">
+                                                                    {product.brand}
+                                                                </Badge>
+                                                                <Badge variant="secondary" className="px-1.5 py-0.5 text-xs font-medium">
+                                                                    {product.category}
+                                                                </Badge>
+                                                            </div>
                                                         </div>
-                                                        <Badge variant={stockStatus.color}>{stockStatus.status}</Badge>
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <p className="text-sm text-muted-foreground">Brand: {product.brand}</p>
-                                                        <p className="text-sm text-muted-foreground">Category: {product.category}</p>
-                                                        {product.description && (
-                                                            <p className="line-clamp-2 text-xs text-muted-foreground">{product.description}</p>
-                                                        )}
-                                                        {product.features && Array.isArray(product.features) && (
-                                                            <p className="line-clamp-1 text-xs text-muted-foreground">
-                                                                Features: {product.features.join(', ')}
-                                                            </p>
-                                                        )}
+
+                                                        <Badge variant={stockStatus.color} className="flex-shrink-0 px-2 py-1 text-xs font-medium">
+                                                            {stockStatus.status}
+                                                        </Badge>
                                                     </div>
                                                 </CardHeader>
-                                                <CardContent className="space-y-3">
+
+                                                <CardContent className="space-y-4">
                                                     {/* Product Image */}
-                                                    {product.image_url ? (
-                                                        <div className="relative h-32 w-full overflow-hidden rounded-md">
+                                                    <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-50 dark:bg-gray-800">
+                                                        {product.image_url ? (
                                                             <img
                                                                 src={product.image_url}
                                                                 alt={product.name}
-                                                                className="h-full w-full object-cover"
+                                                                className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 hover:scale-105"
                                                                 onError={(e) => {
                                                                     e.currentTarget.src =
                                                                         'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCAxMDBDODAgODkuNTQ0NCA4OS41NDQ0IDgwIDEwMCA4MEMxMTAuNDU2IDgwIDEyMCA4OS41NDQ0IDEyMCAxMEMxMjAgMTEwLjQ1NiAxMTAuNDU2IDEyMCAxMDAgMTIwQzg5LjU0NDQgMTIwIDgwIDExMC40NTYgODAgMTAwWiIgZmlsbD0iI0QxRDVFM0EiLz4KPC9zdmc+';
                                                                 }}
                                                             />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex h-32 w-full items-center justify-center rounded-md bg-muted">
-                                                            <Package className="h-8 w-8 text-muted-foreground" />
-                                                        </div>
-                                                    )}
+                                                        ) : (
+                                                            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-muted-foreground">
+                                                                <Package className="h-10 w-10" />
+                                                                <span className="mt-2 text-center text-xs">No image available</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Product Info */}
+                                                    <div className="space-y-3">
+                                                        {product.description && (
+                                                            <p className="line-clamp-2 text-xs text-muted-foreground">{product.description}</p>
+                                                        )}
+
+                                                        {product.features && Array.isArray(product.features) && (
+                                                            <div className="flex flex-wrap gap-1">
+                                                                {product.features.slice(0, 3).map((feature, index) => (
+                                                                    <Badge
+                                                                        key={index}
+                                                                        variant="outline"
+                                                                        className="px-1.5 py-0.5 text-xs font-normal text-muted-foreground"
+                                                                    >
+                                                                        {feature}
+                                                                    </Badge>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
 
                                                     {/* Variants Summary */}
                                                     {product.variants && product.variants.length > 0 && (
                                                         <div className="space-y-2">
-                                                            <div>
-                                                                <p className="text-xs font-medium text-muted-foreground">Available:</p>
-                                                                <div className="space-y-1">
-                                                                    {availableColors.length > 0 && (
-                                                                        <div className="flex flex-wrap gap-1">
-                                                                            <span className="text-xs text-muted-foreground">Colors:</span>
-                                                                            {availableColors.map((color) => (
-                                                                                <Badge key={color} variant="outline" className="text-xs">
-                                                                                    {color}
-                                                                                </Badge>
-                                                                            ))}
-                                                                        </div>
-                                                                    )}
-                                                                    {availableSizes.length > 0 && (
-                                                                        <div className="flex flex-wrap gap-1">
-                                                                            <span className="text-xs text-muted-foreground">Sizes:</span>
-                                                                            {availableSizes.map((size) => (
-                                                                                <Badge key={size} variant="outline" className="text-xs">
-                                                                                    {size}
-                                                                                </Badge>
-                                                                            ))}
-                                                                        </div>
-                                                                    )}
-                                                                    <div className="flex flex-wrap gap-1">
-                                                                        <span className="text-xs text-muted-foreground">Variants:</span>
-                                                                        <Badge variant="outline" className="text-xs">
-                                                                            {product.variants.filter((v) => v.is_active && v.quantity > 0).length}{' '}
-                                                                            available
-                                                                        </Badge>
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-xs font-medium text-muted-foreground">Available Variants</span>
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    {product.variants.filter((v) => v.is_active && v.quantity > 0).length} options
+                                                                </span>
+                                                            </div>
+
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {availableColors.slice(0, 4).map((color) => (
+                                                                    <div
+                                                                        key={color}
+                                                                        className="h-5 w-5 rounded-full border shadow-sm"
+                                                                        style={{ backgroundColor: getColorHex(color) }}
+                                                                        title={color}
+                                                                    />
+                                                                ))}
+                                                                {availableColors.length > 4 && (
+                                                                    <div className="flex items-center text-xs text-muted-foreground">
+                                                                        +{availableColors.length - 4} more
                                                                     </div>
-                                                                </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     )}
 
                                                     {/* Price and Stock */}
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-sm text-muted-foreground">Price:</span>
-                                                        <span className="text-lg font-semibold">{formatCurrency(minPrice)}</span>
-                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-4 pt-2">
+                                                        <div>
+                                                            <div className="mb-1 text-xs text-muted-foreground">Price</div>
+                                                            <div className="text-base font-bold">{formatCurrency(minPrice)}</div>
+                                                        </div>
 
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-sm text-muted-foreground">Stock:</span>
-                                                        <div className="flex items-center space-x-1">
-                                                            <span className="text-sm">{totalQuantity}</span>
-                                                            {product.variants?.some((v) => v.quantity > 0 && v.quantity <= v.low_stock_threshold) && (
-                                                                <AlertTriangle className="text-warning h-3 w-3" />
-                                                            )}
+                                                        <div>
+                                                            <div className="mb-1 text-xs text-muted-foreground">Stock</div>
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="text-base font-semibold">{totalQuantity}</span>
+                                                                {product.variants?.some(
+                                                                    (v) => v.quantity > 0 && v.quantity <= v.low_stock_threshold,
+                                                                ) && <AlertTriangle className="h-4 w-4 text-yellow-500" />}
+                                                            </div>
                                                         </div>
                                                     </div>
 
+                                                    {/* Sell Button */}
+                                                    <Button
+                                                        onClick={() => handleOpenVariantModal(product)}
+                                                        disabled={!hasStock || isAdding}
+                                                        className={`w-full transition-all duration-200 ${
+                                                            isSold
+                                                                ? 'bg-green-600 hover:bg-green-700'
+                                                                : 'bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800'
+                                                        }`}
+                                                        size="sm"
+                                                    >
+                                                        {isAdding ? (
+                                                            <>
+                                                                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                                                Adding...
+                                                            </>
+                                                        ) : isSold ? (
+                                                            <>
+                                                                <Check className="mr-2 h-4 w-4" />
+                                                                Added to Cart
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <ShoppingCart className="mr-2 h-4 w-4" />
+                                                                Sell Product
+                                                            </>
+                                                        )}
+                                                    </Button>
+
+                                                    {/* Variant selection modal */}
                                                     <Dialog open={isModalOpen && selectedProduct?.id === product.id} onOpenChange={setIsModalOpen}>
-                                                        <DialogTrigger asChild>
-                                                            <Button
-                                                                onClick={() => handleOpenVariantModal(product)}
-                                                                disabled={!hasStock || isAdding}
-                                                                className={`w-full transition-all duration-300 ${
-                                                                    isSold ? 'bg-green-600 hover:bg-green-700' : ''
-                                                                }`}
-                                                                size="sm"
-                                                            >
-                                                                {isAdding ? (
-                                                                    <>
-                                                                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                                                        Adding...
-                                                                    </>
-                                                                ) : isSold ? (
-                                                                    <>
-                                                                        <Check className="mr-2 h-4 w-4" />
-                                                                        Added to Cart
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <Plus className="mr-2 h-4 w-4" />
-                                                                        Sell
-                                                                    </>
-                                                                )}
-                                                            </Button>
-                                                        </DialogTrigger>
                                                         <DialogContent className="sm:max-w-md">
-                                                            <DialogHeader>
-                                                                <DialogTitle>Select Variant - {selectedProduct?.name || 'Product'}</DialogTitle>
-                                                            </DialogHeader>
-                                                            {selectedProduct && (
-                                                                <div className="space-y-4">
-                                                                    {/* Color Selection */}
-                                                                    {getAvailableColors(selectedProduct).length > 0 && (
+                                                            <div className="space-y-4">
+                                                                <div>
+                                                                    <h3 className="text-lg font-semibold">{selectedProduct?.name}</h3>
+                                                                    <p className="text-sm text-muted-foreground">{selectedProduct?.description}</p>
+                                                                </div>
+
+                                                                {/* Color Selection */}
+                                                                {getAvailableColors(selectedProduct).length > 0 && (
+                                                                    <div>
+                                                                        <label className="text-sm font-medium">Color</label>
+                                                                        <div className="mt-2 flex flex-wrap gap-2">
+                                                                            {getAvailableColors(selectedProduct).map((color) => (
+                                                                                <button
+                                                                                    key={color}
+                                                                                    onClick={() => handleColorChange(color)}
+                                                                                    className={`flex items-center gap-2 rounded-lg border p-2 text-sm transition-colors ${
+                                                                                        selectedColor === color
+                                                                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
+                                                                                            : 'border-gray-200 hover:border-gray-300'
+                                                                                    }`}
+                                                                                >
+                                                                                    <div
+                                                                                        className="h-4 w-4 rounded-full border shadow-sm"
+                                                                                        style={{ backgroundColor: getColorHex(color) }}
+                                                                                    />
+                                                                                    {color}
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Size Selection */}
+                                                                {selectedColor &&
+                                                                    getAvailableSizesForColor(selectedProduct, selectedColor).length > 0 && (
                                                                         <div>
-                                                                            <label className="text-sm font-medium">Color</label>
-                                                                            <Select value={selectedColor} onValueChange={handleColorChange}>
-                                                                                <SelectTrigger>
-                                                                                    <SelectValue placeholder="Select color" />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    {getAvailableColors(selectedProduct).map((color) => (
-                                                                                        <SelectItem key={color} value={color}>
-                                                                                            {color}
-                                                                                        </SelectItem>
-                                                                                    ))}
-                                                                                </SelectContent>
-                                                                            </Select>
+                                                                            <label className="text-sm font-medium">Size</label>
+                                                                            <div className="mt-2 flex flex-wrap gap-2">
+                                                                                {getAvailableSizesForColor(selectedProduct, selectedColor).map(
+                                                                                    (size) => (
+                                                                                        <button
+                                                                                            key={size}
+                                                                                            onClick={() => handleSizeChange(size)}
+                                                                                            className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
+                                                                                                selectedSize === size
+                                                                                                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
+                                                                                                    : 'border-gray-200 hover:border-gray-300'
+                                                                                            }`}
+                                                                                        >
+                                                                                            {size}
+                                                                                        </button>
+                                                                                    ),
+                                                                                )}
+                                                                            </div>
                                                                         </div>
                                                                     )}
 
-                                                                    {/* Size Selection */}
-                                                                    {selectedColor &&
-                                                                        getAvailableSizesForColor(selectedProduct, selectedColor).length > 0 && (
-                                                                            <div>
-                                                                                <label className="text-sm font-medium">Size</label>
-                                                                                <Select value={selectedSize} onValueChange={handleSizeChange}>
-                                                                                    <SelectTrigger>
-                                                                                        <SelectValue placeholder="Select size" />
-                                                                                    </SelectTrigger>
-                                                                                    <SelectContent>
-                                                                                        {getAvailableSizesForColor(
-                                                                                            selectedProduct,
-                                                                                            selectedColor,
-                                                                                        ).map((size) => (
-                                                                                            <SelectItem key={size} value={size}>
-                                                                                                {size}
-                                                                                            </SelectItem>
-                                                                                        ))}
-                                                                                    </SelectContent>
-                                                                                </Select>
+                                                                {/* Selected Variant Info */}
+                                                                {selectedVariant && (
+                                                                    <div className="space-y-3 rounded-lg border p-3">
+                                                                        <div className="flex justify-between">
+                                                                            <span className="font-medium">Price:</span>
+                                                                            <span className="font-semibold">
+                                                                                {formatCurrency(selectedVariant.selling_price)}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex justify-between">
+                                                                            <span className="font-medium">Stock:</span>
+                                                                            <Badge
+                                                                                variant={
+                                                                                    getStockColor(selectedVariant) as
+                                                                                        | 'destructive'
+                                                                                        | 'secondary'
+                                                                                        | 'default'
+                                                                                }
+                                                                            >
+                                                                                {getStockText(selectedVariant)}
+                                                                            </Badge>
+                                                                        </div>
+                                                                        {selectedVariant.discount_price && (
+                                                                            <div className="flex justify-between">
+                                                                                <span className="font-medium">Discount:</span>
+                                                                                <span className="font-semibold text-green-600">
+                                                                                    {formatCurrency(selectedVariant.discount_price)}
+                                                                                </span>
                                                                             </div>
                                                                         )}
 
-                                                                    {/* Selected Variant Info */}
-                                                                    {selectedVariant && (
-                                                                        <div className="space-y-3 rounded-lg border p-3">
-                                                                            <div className="flex justify-between">
-                                                                                <span className="font-medium">Price:</span>
-                                                                                <span className="font-semibold">
-                                                                                    {formatCurrency(selectedVariant.selling_price || 0)}
-                                                                                </span>
-                                                                            </div>
-                                                                            <div className="flex justify-between">
-                                                                                <span className="font-medium">Stock:</span>
-                                                                                <Badge
-                                                                                    variant={
-                                                                                        getStockColor(selectedVariant) as
-                                                                                            | 'destructive'
-                                                                                            | 'secondary'
-                                                                                            | 'default'
-                                                                                    }
-                                                                                >
-                                                                                    {getStockText(selectedVariant)}
-                                                                                </Badge>
-                                                                            </div>
-                                                                            {selectedVariant.discount_price && (
-                                                                                <div className="flex justify-between">
-                                                                                    <span className="font-medium">Discount:</span>
-                                                                                    <span className="font-semibold text-green-600">
-                                                                                        {formatCurrency(selectedVariant.discount_price)}
-                                                                                    </span>
-                                                                                </div>
-                                                                            )}
-
-                                                                            {/* Quantity Selection */}
-                                                                            <div>
-                                                                                <label className="text-sm font-medium">Quantity</label>
-                                                                                <Input
-                                                                                    type="number"
-                                                                                    min="1"
-                                                                                    max={selectedVariant.quantity}
-                                                                                    value={quantity}
-                                                                                    onChange={(e) =>
-                                                                                        setQuantity(
-                                                                                            Math.min(
-                                                                                                parseInt(e.target.value) || 1,
-                                                                                                selectedVariant.quantity,
-                                                                                            ),
-                                                                                        )
-                                                                                    }
-                                                                                    className="mt-1"
-                                                                                />
-                                                                            </div>
+                                                                        {/* Quantity Selection */}
+                                                                        <div>
+                                                                            <label className="text-sm font-medium">Quantity</label>
+                                                                            <Input
+                                                                                type="number"
+                                                                                min="1"
+                                                                                max={selectedVariant.quantity}
+                                                                                value={quantity}
+                                                                                onChange={(e) =>
+                                                                                    setQuantity(
+                                                                                        Math.min(
+                                                                                            parseInt(e.target.value) || 1,
+                                                                                            selectedVariant.quantity,
+                                                                                        ),
+                                                                                    )
+                                                                                }
+                                                                                className="mt-1"
+                                                                            />
                                                                         </div>
-                                                                    )}
-
-                                                                    {/* Action Buttons */}
-                                                                    <div className="flex space-x-2">
-                                                                        <Button
-                                                                            onClick={handleAddToCart}
-                                                                            disabled={!selectedVariant || isAdding}
-                                                                            className="flex-1"
-                                                                        >
-                                                                            {isAdding ? (
-                                                                                <>
-                                                                                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                                                                    Adding...
-                                                                                </>
-                                                                            ) : (
-                                                                                <>
-                                                                                    <Plus className="mr-2 h-4 w-4" />
-                                                                                    Add to Cart
-                                                                                </>
-                                                                            )}
-                                                                        </Button>
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            onClick={() => setIsModalOpen(false)}
-                                                                            disabled={isAdding}
-                                                                        >
-                                                                            <X className="h-4 w-4" />
-                                                                        </Button>
                                                                     </div>
+                                                                )}
+
+                                                                {/* Action Buttons */}
+                                                                <div className="flex space-x-2">
+                                                                    <Button
+                                                                        onClick={handleAddToCart}
+                                                                        disabled={!selectedVariant || isAdding}
+                                                                        className="flex-1"
+                                                                    >
+                                                                        {isAdding ? (
+                                                                            <>
+                                                                                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                                                                Adding...
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <ShoppingCart className="mr-2 h-4 w-4" />
+                                                                                Add to Cart
+                                                                            </>
+                                                                        )}
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        onClick={() => setIsModalOpen(false)}
+                                                                        disabled={isAdding}
+                                                                    >
+                                                                        Cancel
+                                                                    </Button>
                                                                 </div>
-                                                            )}
+                                                            </div>
                                                         </DialogContent>
                                                     </Dialog>
                                                 </CardContent>

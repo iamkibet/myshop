@@ -5,22 +5,23 @@ import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ArrowLeft, Download, Eye, EyeOff, Package, Receipt, User } from 'lucide-react';
+import { ArrowLeft, Download, Eye, EyeOff, Package, Printer, User } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Sales',
-        href: '/sales',
+        title: 'Receipts',
+        href: '/receipts',
     },
     {
-        title: 'Receipt',
+        title: 'View Receipt',
         href: '#',
     },
 ];
 
 interface SaleItem {
     id: number;
+    product_variant_id: number;
     quantity: number;
     unit_price: number;
     total_price: number;
@@ -33,7 +34,6 @@ interface SaleItem {
             id: number;
             name: string;
             brand: string;
-            category: string;
         };
     };
 }
@@ -42,24 +42,19 @@ interface Sale {
     id: number;
     total_amount: number;
     created_at: string;
-    sale_items: SaleItem[];
     manager: {
         id: number;
         name: string;
         email: string;
     };
+    sale_items: SaleItem[];
 }
 
 interface PageProps {
-    auth: {
-        user: {
-            id: number;
-            name: string;
-            email: string;
-            role: 'admin' | 'manager';
-        };
-    };
     sale: Sale;
+    app: {
+        name: string;
+    };
     flash?: {
         success?: string;
         error?: string;
@@ -67,27 +62,55 @@ interface PageProps {
     [key: string]: unknown;
 }
 
-export default function ReceiptShow() {
-    const { auth, sale, flash } = usePage<PageProps>().props;
-    const user = auth.user;
-    const [showManagerInfo, setShowManagerInfo] = useState(false);
+export default function ShowReceipt() {
+    const { props } = usePage<PageProps>();
+    const { sale } = props;
+    const appName = props.app?.name || 'MyShop';
+    const [showPassword, setShowPassword] = useState(false);
+
+    const handlePrintReceipt = () => {
+        window.print();
+    };
 
     const handleDownloadReceipt = async () => {
         try {
-            const response = await fetch(`/receipts/${sale.id}/download`);
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `receipt-${sale.id}.html`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
+            const response = await fetch(`/receipts/${sale.id}/download`, {
+                method: 'GET',
+                headers: {
+                    Accept: 'text/html',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to download receipt');
             }
+
+            const blob = await response.blob();
+
+            // Create a URL for the blob
+            const url = window.URL.createObjectURL(blob);
+
+            // Download the HTML file
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `receipt-${sale.id}.html`;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            // Clean up the URL object after a delay
+            setTimeout(() => {
+                window.URL.revokeObjectURL(url);
+            }, 1000);
+
+            // Show instructions for converting to PDF
+            alert(
+                'Receipt downloaded! To convert to PDF:\n1. Open the HTML file in your browser\n2. Press Ctrl+P (or Cmd+P on Mac)\n3. Choose "Save as PDF" in the print dialog',
+            );
         } catch (error) {
             console.error('Failed to download receipt:', error);
+            alert('Failed to download receipt. Please try again.');
         }
     };
 
@@ -101,26 +124,26 @@ export default function ReceiptShow() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Receipt #${sale.id}`} />
-            <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
+            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
                 {/* Success Message */}
-                {flash?.success && (
+                {props.flash?.success && (
                     <div className="rounded-md border border-green-200 bg-green-50 p-4">
                         <div className="flex">
                             <div className="ml-3">
                                 <h3 className="text-sm font-medium text-green-800">Success!</h3>
-                                <p className="text-sm text-green-700">{flash.success}</p>
+                                <p className="text-sm text-green-700">{props.flash.success}</p>
                             </div>
                         </div>
                     </div>
                 )}
 
                 {/* Error Message */}
-                {flash?.error && (
+                {props.flash?.error && (
                     <div className="rounded-md border border-red-200 bg-red-50 p-4">
                         <div className="flex">
                             <div className="ml-3">
                                 <h3 className="text-sm font-medium text-red-800">Error!</h3>
-                                <p className="text-sm text-red-700">{flash.error}</p>
+                                <p className="text-sm text-red-700">{props.flash.error}</p>
                             </div>
                         </div>
                     </div>
@@ -128,64 +151,136 @@ export default function ReceiptShow() {
 
                 {/* Header */}
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                        <Link href="/sales">
-                            <Button variant="outline" size="sm">
-                                <ArrowLeft className="mr-2 h-4 w-4" />
-                                Back to Sales
-                            </Button>
-                        </Link>
-                        <div>
-                            <h1 className="text-2xl font-bold">Receipt #{sale.id}</h1>
-                            <p className="text-muted-foreground">
-                                {new Date(sale.created_at).toLocaleDateString()} at {new Date(sale.created_at).toLocaleTimeString()}
-                            </p>
-                        </div>
+                    <div>
+                        <h1 className="text-2xl font-bold">Receipt #{sale.id}</h1>
+                        <p className="text-muted-foreground">
+                            {new Date(sale.created_at).toLocaleDateString()} at {new Date(sale.created_at).toLocaleTimeString()}
+                        </p>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2">
                         <Link href="/sales">
                             <Button variant="outline">
                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                 Back to Sales
                             </Button>
                         </Link>
+                        <Button onClick={handlePrintReceipt} variant="outline">
+                            <Printer className="mr-2 h-4 w-4" />
+                            Print Receipt
+                        </Button>
                         <Button onClick={handleDownloadReceipt} variant="outline">
                             <Download className="mr-2 h-4 w-4" />
-                            Download Receipt
+                            Download
                         </Button>
                     </div>
                 </div>
 
-                {/* Receipt Details */}
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                    {/* Receipt Info */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center">
-                                <Receipt className="mr-2 h-5 w-5" />
-                                Receipt Information
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Receipt ID:</span>
-                                <span className="font-medium">#{sale.id}</span>
+                {/* Receipt Container */}
+                <div className="print:p-0">
+                    <Card className="print:border-0 print:shadow-none">
+                        <CardContent className="p-0 print:p-0">
+                            {/* Receipt Header */}
+                            <div className="border-b bg-gray-50 p-6 text-center dark:bg-gray-800">
+                                <h2 className="text-2xl font-bold tracking-tight">{appName}</h2>
+                                <p className="text-muted-foreground">Inventory & Sales Management System</p>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Date:</span>
-                                <span className="font-medium">{new Date(sale.created_at).toLocaleDateString()}</span>
+
+                            {/* Receipt Meta */}
+                            <div className="space-y-2 border-b p-6">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Receipt #:</span>
+                                    <span className="font-medium">#{sale.id}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Date:</span>
+                                    <span className="font-medium">{new Date(sale.created_at).toLocaleDateString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Time:</span>
+                                    <span className="font-medium">
+                                        {new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Cashier:</span>
+                                    <span className="font-medium">{sale.manager.name}</span>
+                                </div>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Time:</span>
-                                <span className="font-medium">{new Date(sale.created_at).toLocaleTimeString()}</span>
+
+                            {/* Items List */}
+                            <div className="p-0">
+                                <div className="divide-y">
+                                    <div className="grid grid-cols-12 gap-2 bg-gray-50 px-6 py-3 text-sm font-medium dark:bg-gray-800">
+                                        <div className="col-span-6">ITEM</div>
+                                        <div className="col-span-2 text-right">QTY</div>
+                                        <div className="col-span-2 text-right">PRICE</div>
+                                        <div className="col-span-2 text-right">TOTAL</div>
+                                    </div>
+                                    {sale.sale_items.map((item) => (
+                                        <div key={item.id} className="grid grid-cols-12 gap-2 px-6 py-4">
+                                            <div className="col-span-6">
+                                                <h3 className="font-medium">{item.product_variant.product.name}</h3>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {getVariantInfo(item.product_variant)} • {item.product_variant.sku}
+                                                </p>
+                                            </div>
+                                            <div className="col-span-2 text-right">{item.quantity}</div>
+                                            <div className="col-span-2 text-right">{formatCurrency(item.unit_price)}</div>
+                                            <div className="col-span-2 text-right font-medium">{formatCurrency(item.total_price)}</div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Total Amount:</span>
-                                <span className="text-lg font-bold">{formatCurrency(sale.total_amount)}</span>
+
+                            {/* Totals */}
+                            <div className="border-t border-b p-6">
+                                <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                        <span>Subtotal:</span>
+                                        <span>{formatCurrency(sale.total_amount)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Tax:</span>
+                                        <span>{formatCurrency(0)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-lg font-bold">
+                                        <span>TOTAL:</span>
+                                        <span>{formatCurrency(sale.total_amount)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Payment Method */}
+                            <div className="border-b p-6">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Payment Method:</span>
+                                    <span className="font-medium">Cash</span>
+                                </div>
+                                <div className="mt-1 flex justify-between">
+                                    <span className="text-muted-foreground">Amount Tendered:</span>
+                                    <span className="font-medium">{formatCurrency(sale.total_amount)}</span>
+                                </div>
+                                <div className="mt-1 flex justify-between">
+                                    <span className="text-muted-foreground">Change:</span>
+                                    <span className="font-medium">{formatCurrency(0)}</span>
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="space-y-1 p-6 text-center text-xs text-muted-foreground">
+                                <p>Thank you for your purchase!</p>
+                                <p>Items can be exchanged within 14 days with original receipt</p>
+                                <p className="mt-4">Powered by Your POS System</p>
+                                <p>
+                                    {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
+                                </p>
                             </div>
                         </CardContent>
                     </Card>
+                </div>
 
+                {/* Additional Information (Non-printable) */}
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 print:hidden">
                     {/* Manager Info */}
                     <Card>
                         <CardHeader>
@@ -194,27 +289,22 @@ export default function ReceiptShow() {
                                     <User className="mr-2 h-5 w-5" />
                                     Manager Information
                                 </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setShowManagerInfo(!showManagerInfo)}
-                                    className="flex items-center space-x-1"
-                                >
-                                    {showManagerInfo ? (
+                                <Button variant="outline" size="sm" onClick={() => setShowPassword(!showPassword)}>
+                                    {showPassword ? (
                                         <>
-                                            <EyeOff className="h-4 w-4" />
-                                            <span>Hide</span>
+                                            <EyeOff className="mr-2 h-4 w-4" />
+                                            Hide
                                         </>
                                     ) : (
                                         <>
-                                            <Eye className="h-4 w-4" />
-                                            <span>Show</span>
+                                            <Eye className="mr-2 h-4 w-4" />
+                                            Show
                                         </>
                                     )}
                                 </Button>
                             </CardTitle>
                         </CardHeader>
-                        {showManagerInfo && (
+                        {showPassword && (
                             <CardContent className="space-y-3">
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Name:</span>
@@ -227,17 +317,6 @@ export default function ReceiptShow() {
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Manager ID:</span>
                                     <span className="font-medium">#{sale.manager.id}</span>
-                                </div>
-                            </CardContent>
-                        )}
-                        {!showManagerInfo && (
-                            <CardContent>
-                                <div className="py-4 text-center">
-                                    <div className="flex items-center justify-center space-x-2 text-muted-foreground">
-                                        <User className="h-4 w-4" />
-                                        <span className="text-sm">Manager details hidden</span>
-                                    </div>
-                                    <p className="mt-2 text-xs text-muted-foreground">Click "Show" to view manager information</p>
                                 </div>
                             </CardContent>
                         )}
@@ -267,57 +346,6 @@ export default function ReceiptShow() {
                         </CardContent>
                     </Card>
                 </div>
-
-                {/* Items List */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Order Items</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            {sale.sale_items.map((item) => (
-                                <div key={item.id} className="flex items-center justify-between rounded-lg border p-4">
-                                    <div className="flex items-center space-x-3">
-                                        <Package className="h-8 w-8 text-muted-foreground" />
-                                        <div>
-                                            <h3 className="font-medium">{item.product_variant.product.name}</h3>
-                                            <p className="text-sm text-muted-foreground">
-                                                {getVariantInfo(item.product_variant)} • SKU: {item.product_variant.sku}
-                                            </p>
-                                            <p className="text-sm text-muted-foreground">
-                                                {item.product_variant.product.brand} • {item.product_variant.product.category}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="flex items-center space-x-4">
-                                            <div className="text-center">
-                                                <p className="text-sm text-muted-foreground">Quantity</p>
-                                                <p className="font-medium">{item.quantity}</p>
-                                            </div>
-                                            <div className="text-center">
-                                                <p className="text-sm text-muted-foreground">Unit Price</p>
-                                                <p className="font-medium">{formatCurrency(item.unit_price)}</p>
-                                            </div>
-                                            <div className="text-center">
-                                                <p className="text-sm text-muted-foreground">Total</p>
-                                                <p className="font-bold">{formatCurrency(item.total_price)}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Total */}
-                        <div className="mt-6 border-t pt-4">
-                            <div className="flex items-center justify-between">
-                                <span className="text-lg font-medium">Total Amount:</span>
-                                <span className="text-2xl font-bold">{formatCurrency(sale.total_amount)}</span>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
             </div>
         </AppLayout>
     );
