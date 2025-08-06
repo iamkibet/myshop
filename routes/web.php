@@ -61,7 +61,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 $query->where('category', request('category'));
             }
 
-            $products = $query->orderBy('name')->paginate(12);
+            $products = $query->orderBy('name')->paginate(20);
 
             $cart = session('cart', []);
             $cartCount = count($cart);

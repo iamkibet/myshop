@@ -69,7 +69,7 @@ export function AppSidebar() {
     const managerNavItems: NavItem[] = [
         {
             title: 'Product Catalog',
-            href: '/products/catalog',
+            href: '/dashboard',
             icon: Package,
         },
         {

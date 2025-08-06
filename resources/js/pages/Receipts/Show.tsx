@@ -114,7 +114,7 @@ export default function ShowReceipt() {
         }
     };
 
-    const getVariantInfo = (variant: any) => {
+    const getVariantInfo = (variant: SaleItem['product_variant']) => {
         const parts = [];
         if (variant.color) parts.push(variant.color);
         if (variant.size) parts.push(variant.size);
@@ -150,27 +150,30 @@ export default function ShowReceipt() {
                 )}
 
                 {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold">Receipt #{sale.id}</h1>
-                        <p className="text-muted-foreground">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                        <h1 className="text-xl font-bold sm:text-2xl">Receipt #{sale.id}</h1>
+                        <p className="text-sm text-muted-foreground sm:text-base">
                             {new Date(sale.created_at).toLocaleDateString()} at {new Date(sale.created_at).toLocaleTimeString()}
                         </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                         <Link href="/sales">
-                            <Button variant="outline">
+                            <Button variant="outline" className="w-full sm:w-auto">
                                 <ArrowLeft className="mr-2 h-4 w-4" />
-                                Back to Sales
+                                <span className="hidden sm:inline">Back to Sales</span>
+                                <span className="sm:hidden">Back</span>
                             </Button>
                         </Link>
-                        <Button onClick={handlePrintReceipt} variant="outline">
+                        <Button onClick={handlePrintReceipt} variant="outline" className="w-full sm:w-auto">
                             <Printer className="mr-2 h-4 w-4" />
-                            Print Receipt
+                            <span className="hidden sm:inline">Print Receipt</span>
+                            <span className="sm:hidden">Print</span>
                         </Button>
-                        <Button onClick={handleDownloadReceipt} variant="outline">
+                        <Button onClick={handleDownloadReceipt} variant="outline" className="w-full sm:w-auto">
                             <Download className="mr-2 h-4 w-4" />
-                            Download
+                            <span className="hidden sm:inline">Download</span>
+                            <span className="sm:hidden">Download</span>
                         </Button>
                     </div>
                 </div>
@@ -180,28 +183,28 @@ export default function ShowReceipt() {
                     <Card className="print:border-0 print:shadow-none">
                         <CardContent className="p-0 print:p-0">
                             {/* Receipt Header */}
-                            <div className="border-b bg-gray-50 p-6 text-center dark:bg-gray-800">
-                                <h2 className="text-2xl font-bold tracking-tight">{appName}</h2>
-                                <p className="text-muted-foreground">Inventory & Sales Management System</p>
+                            <div className="border-b bg-gray-50 p-4 text-center sm:p-6 dark:bg-gray-800">
+                                <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{appName}</h2>
+                                <p className="text-sm text-muted-foreground sm:text-base">Inventory & Sales Management System</p>
                             </div>
 
                             {/* Receipt Meta */}
-                            <div className="space-y-2 border-b p-6">
-                                <div className="flex justify-between">
+                            <div className="space-y-2 border-b p-4 sm:p-6">
+                                <div className="flex justify-between text-sm sm:text-base">
                                     <span className="text-muted-foreground">Receipt #:</span>
                                     <span className="font-medium">#{sale.id}</span>
                                 </div>
-                                <div className="flex justify-between">
+                                <div className="flex justify-between text-sm sm:text-base">
                                     <span className="text-muted-foreground">Date:</span>
                                     <span className="font-medium">{new Date(sale.created_at).toLocaleDateString()}</span>
                                 </div>
-                                <div className="flex justify-between">
+                                <div className="flex justify-between text-sm sm:text-base">
                                     <span className="text-muted-foreground">Time:</span>
                                     <span className="font-medium">
                                         {new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                 </div>
-                                <div className="flex justify-between">
+                                <div className="flex justify-between text-sm sm:text-base">
                                     <span className="text-muted-foreground">Cashier:</span>
                                     <span className="font-medium">{sale.manager.name}</span>
                                 </div>
@@ -210,40 +213,62 @@ export default function ShowReceipt() {
                             {/* Items List */}
                             <div className="p-0">
                                 <div className="divide-y">
-                                    <div className="grid grid-cols-12 gap-2 bg-gray-50 px-6 py-3 text-sm font-medium dark:bg-gray-800">
+                                    <div className="hidden grid-cols-12 gap-2 bg-gray-50 px-4 py-3 text-sm font-medium sm:grid sm:px-6 dark:bg-gray-800">
                                         <div className="col-span-6">ITEM</div>
                                         <div className="col-span-2 text-right">QTY</div>
                                         <div className="col-span-2 text-right">PRICE</div>
                                         <div className="col-span-2 text-right">TOTAL</div>
                                     </div>
                                     {sale.sale_items.map((item) => (
-                                        <div key={item.id} className="grid grid-cols-12 gap-2 px-6 py-4">
-                                            <div className="col-span-6">
+                                        <div
+                                            key={item.id}
+                                            className="block space-y-2 px-4 py-4 sm:grid sm:grid-cols-12 sm:gap-2 sm:space-y-0 sm:px-6"
+                                        >
+                                            {/* Mobile Layout */}
+                                            <div className="flex items-center justify-between sm:hidden">
+                                                <div className="flex-1">
+                                                    <h3 className="text-sm font-medium">{item.product_variant.product.name}</h3>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {getVariantInfo(item.product_variant)} • {item.product_variant.sku}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="font-medium">{formatCurrency(item.total_price)}</div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {item.quantity} × {formatCurrency(item.unit_price)}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Desktop Layout */}
+                                            <div className="hidden sm:col-span-6 sm:block">
                                                 <h3 className="font-medium">{item.product_variant.product.name}</h3>
                                                 <p className="text-xs text-muted-foreground">
                                                     {getVariantInfo(item.product_variant)} • {item.product_variant.sku}
                                                 </p>
                                             </div>
-                                            <div className="col-span-2 text-right">{item.quantity}</div>
-                                            <div className="col-span-2 text-right">{formatCurrency(item.unit_price)}</div>
-                                            <div className="col-span-2 text-right font-medium">{formatCurrency(item.total_price)}</div>
+                                            <div className="hidden sm:col-span-2 sm:block sm:text-right">{item.quantity}</div>
+                                            <div className="hidden sm:col-span-2 sm:block sm:text-right">{formatCurrency(item.unit_price)}</div>
+                                            <div className="hidden sm:col-span-2 sm:block sm:text-right sm:font-medium">
+                                                {formatCurrency(item.total_price)}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
                             {/* Totals */}
-                            <div className="border-t border-b p-6">
+                            <div className="border-t border-b p-4 sm:p-6">
                                 <div className="space-y-2">
-                                    <div className="flex justify-between">
+                                    <div className="flex justify-between text-sm sm:text-base">
                                         <span>Subtotal:</span>
                                         <span>{formatCurrency(sale.total_amount)}</span>
                                     </div>
-                                    <div className="flex justify-between">
+                                    <div className="flex justify-between text-sm sm:text-base">
                                         <span>Tax:</span>
                                         <span>{formatCurrency(0)}</span>
                                     </div>
-                                    <div className="flex justify-between text-lg font-bold">
+                                    <div className="flex justify-between text-base font-bold sm:text-lg">
                                         <span>TOTAL:</span>
                                         <span>{formatCurrency(sale.total_amount)}</span>
                                     </div>
@@ -251,23 +276,23 @@ export default function ShowReceipt() {
                             </div>
 
                             {/* Payment Method */}
-                            <div className="border-b p-6">
-                                <div className="flex justify-between">
+                            <div className="border-b p-4 sm:p-6">
+                                <div className="flex justify-between text-sm sm:text-base">
                                     <span className="text-muted-foreground">Payment Method:</span>
                                     <span className="font-medium">Cash</span>
                                 </div>
-                                <div className="mt-1 flex justify-between">
+                                <div className="mt-1 flex justify-between text-sm sm:text-base">
                                     <span className="text-muted-foreground">Amount Tendered:</span>
                                     <span className="font-medium">{formatCurrency(sale.total_amount)}</span>
                                 </div>
-                                <div className="mt-1 flex justify-between">
+                                <div className="mt-1 flex justify-between text-sm sm:text-base">
                                     <span className="text-muted-foreground">Change:</span>
                                     <span className="font-medium">{formatCurrency(0)}</span>
                                 </div>
                             </div>
 
                             {/* Footer */}
-                            <div className="space-y-1 p-6 text-center text-xs text-muted-foreground">
+                            <div className="space-y-1 p-4 text-center text-xs text-muted-foreground sm:p-6">
                                 <p>Thank you for your purchase!</p>
                                 <p>Items can be exchanged within 14 days with original receipt</p>
                                 <p className="mt-4">Powered by Your POS System</p>
@@ -280,41 +305,41 @@ export default function ShowReceipt() {
                 </div>
 
                 {/* Additional Information (Non-printable) */}
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 print:hidden">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 print:hidden">
                     {/* Manager Info */}
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="px-4 py-4 sm:px-6">
                             <CardTitle className="flex items-center justify-between">
                                 <div className="flex items-center">
-                                    <User className="mr-2 h-5 w-5" />
-                                    Manager Information
+                                    <User className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                                    <span className="text-sm sm:text-base">Manager Information</span>
                                 </div>
                                 <Button variant="outline" size="sm" onClick={() => setShowPassword(!showPassword)}>
                                     {showPassword ? (
                                         <>
                                             <EyeOff className="mr-2 h-4 w-4" />
-                                            Hide
+                                            <span className="hidden sm:inline">Hide</span>
                                         </>
                                     ) : (
                                         <>
                                             <Eye className="mr-2 h-4 w-4" />
-                                            Show
+                                            <span className="hidden sm:inline">Show</span>
                                         </>
                                     )}
                                 </Button>
                             </CardTitle>
                         </CardHeader>
                         {showPassword && (
-                            <CardContent className="space-y-3">
-                                <div className="flex justify-between">
+                            <CardContent className="space-y-3 px-4 pb-4 sm:px-6">
+                                <div className="flex justify-between text-sm sm:text-base">
                                     <span className="text-muted-foreground">Name:</span>
                                     <span className="font-medium">{sale.manager.name}</span>
                                 </div>
-                                <div className="flex justify-between">
+                                <div className="flex justify-between text-sm sm:text-base">
                                     <span className="text-muted-foreground">Email:</span>
                                     <span className="font-medium">{sale.manager.email}</span>
                                 </div>
-                                <div className="flex justify-between">
+                                <div className="flex justify-between text-sm sm:text-base">
                                     <span className="text-muted-foreground">Manager ID:</span>
                                     <span className="font-medium">#{sale.manager.id}</span>
                                 </div>
@@ -324,22 +349,22 @@ export default function ShowReceipt() {
 
                     {/* Summary */}
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="px-4 py-4 sm:px-6">
                             <CardTitle className="flex items-center">
-                                <Package className="mr-2 h-5 w-5" />
-                                Order Summary
+                                <Package className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                                <span className="text-sm sm:text-base">Order Summary</span>
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-3">
-                            <div className="flex justify-between">
+                        <CardContent className="space-y-3 px-4 pb-4 sm:px-6">
+                            <div className="flex justify-between text-sm sm:text-base">
                                 <span className="text-muted-foreground">Items:</span>
                                 <span className="font-medium">{sale.sale_items.length}</span>
                             </div>
-                            <div className="flex justify-between">
+                            <div className="flex justify-between text-sm sm:text-base">
                                 <span className="text-muted-foreground">Total Quantity:</span>
                                 <span className="font-medium">{sale.sale_items.reduce((sum, item) => sum + item.quantity, 0)}</span>
                             </div>
-                            <div className="flex justify-between">
+                            <div className="flex justify-between text-sm sm:text-base">
                                 <span className="text-muted-foreground">Status:</span>
                                 <Badge variant="default">Completed</Badge>
                             </div>

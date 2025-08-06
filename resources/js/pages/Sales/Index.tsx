@@ -206,9 +206,9 @@ export default function SalesIndex() {
 
                 {/* Header */}
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Sales Dashboard</h1>
-                        <p className="mt-1 text-muted-foreground">
+                    <div className="min-w-0 flex-1">
+                        <h1 className="text-xl font-bold tracking-tight sm:text-2xl md:text-3xl">Sales Dashboard</h1>
+                        <p className="mt-1 text-sm text-muted-foreground sm:text-base">
                             {isAdmin ? 'Comprehensive sales analytics and history' : 'Your sales performance overview'}
                         </p>
                     </div>
@@ -299,9 +299,9 @@ export default function SalesIndex() {
                                     />
                                 </div>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex flex-col gap-2 sm:flex-row">
                                 <Select value={dateFilter} onValueChange={handleDateFilter}>
-                                    <SelectTrigger className="w-[140px]">
+                                    <SelectTrigger className="w-full sm:w-[140px]">
                                         <SelectValue placeholder="Date range" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -314,7 +314,7 @@ export default function SalesIndex() {
                                 </Select>
                                 {isAdmin && (
                                     <Select value={statusFilter} onValueChange={handleStatusFilter}>
-                                        <SelectTrigger className="w-[140px]">
+                                        <SelectTrigger className="w-full sm:w-[140px]">
                                             <SelectValue placeholder="Manager" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -336,23 +336,35 @@ export default function SalesIndex() {
                     <CardContent className="px-0 pb-0">
                         {sales && sales.data.length > 0 ? (
                             <div className="divide-y">
-                                <div className="grid grid-cols-12 gap-4 bg-gray-50 px-4 py-3 text-sm font-medium md:px-6 dark:bg-gray-800">
-                                    <div className="col-span-3 md:col-span-2">SALE ID</div>
-                                    <div className="col-span-4 md:col-span-3">ITEMS</div>
-                                    <div className="hidden md:col-span-3 md:block">DATE/TIME</div>
-                                    <div className="hidden md:col-span-2 md:block">MANAGER</div>
-                                    <div className="col-span-5 text-right md:col-span-2">TOTAL</div>
+                                <div className="hidden grid-cols-12 gap-4 bg-gray-50 px-4 py-3 text-sm font-medium md:grid md:px-6 dark:bg-gray-800">
+                                    <div className="col-span-2">SALE ID</div>
+                                    <div className="col-span-3">ITEMS</div>
+                                    <div className="col-span-3">DATE/TIME</div>
+                                    <div className="col-span-2">MANAGER</div>
+                                    <div className="col-span-2 text-right">TOTAL</div>
                                 </div>
                                 {sales.data.map((sale) => (
                                     <div
                                         key={sale.id}
-                                        className="grid grid-cols-12 gap-4 px-4 py-4 transition-colors hover:bg-gray-50 md:px-6 dark:hover:bg-gray-800/50"
+                                        className="block space-y-3 px-4 py-4 transition-colors hover:bg-gray-50 md:grid md:grid-cols-12 md:gap-4 md:space-y-0 md:px-6 dark:hover:bg-gray-800/50"
                                     >
-                                        <div className="col-span-3 flex items-center md:col-span-2">
+                                        {/* Mobile Layout */}
+                                        <div className="flex items-center justify-between md:hidden">
+                                            <div className="flex items-center gap-2">
+                                                <Receipt className="h-4 w-4 text-muted-foreground" />
+                                                <span className="font-medium">#{sale.id}</span>
+                                            </div>
+                                            <span className="font-semibold">{formatCurrency(sale.total_amount)}</span>
+                                        </div>
+
+                                        {/* Desktop Layout */}
+                                        <div className="hidden md:col-span-2 md:flex md:items-center">
                                             <Receipt className="mr-2 h-4 w-4 text-muted-foreground" />
                                             <span className="font-medium">#{sale.id}</span>
                                         </div>
-                                        <div className="col-span-4 md:col-span-3">
+
+                                        {/* Items - Mobile & Desktop */}
+                                        <div className="md:col-span-3">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex -space-x-2">
                                                     {sale.sale_items.slice(0, 3).map((item, index) => (
@@ -374,20 +386,39 @@ export default function SalesIndex() {
                                                 </span>
                                             </div>
                                         </div>
+
+                                        {/* Date/Time - Desktop Only */}
                                         <div className="hidden md:col-span-3 md:block">
                                             <div className="text-sm">{new Date(sale.created_at).toLocaleDateString()}</div>
                                             <div className="text-xs text-muted-foreground">
                                                 {new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </div>
                                         </div>
+
+                                        {/* Manager - Desktop Only */}
                                         <div className="hidden md:col-span-2 md:block">
                                             <div className="flex items-center gap-2">
                                                 <User className="h-4 w-4 text-muted-foreground" />
                                                 <span className="text-sm">{sale.manager.name}</span>
                                             </div>
                                         </div>
-                                        <div className="col-span-5 flex items-center justify-end gap-2 md:col-span-2">
-                                            <span className="font-semibold">{formatCurrency(sale.total_amount)}</span>
+
+                                        {/* Date/Time - Mobile Only */}
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground md:hidden">
+                                            <Calendar className="h-4 w-4" />
+                                            <span>{new Date(sale.created_at).toLocaleDateString()}</span>
+                                            <span>•</span>
+                                            <span>{new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                        </div>
+
+                                        {/* Manager - Mobile Only */}
+                                        <div className="flex items-center gap-2 text-sm text-muted-foreground md:hidden">
+                                            <User className="h-4 w-4" />
+                                            <span>{sale.manager.name}</span>
+                                        </div>
+
+                                        {/* Actions - Mobile & Desktop */}
+                                        <div className="flex items-center justify-end gap-2 md:col-span-2">
                                             <div className="flex gap-1">
                                                 <Button
                                                     variant="ghost"

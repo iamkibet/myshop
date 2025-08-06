@@ -123,12 +123,6 @@ const getAvailableColors = (product: Product | null): string[] => {
     return [...new Set(product.variants.map((v) => v.color).filter((color): color is string => Boolean(color)))];
 };
 
-// Helper function to get available sizes for a product
-const getAvailableSizes = (product: Product | null): string[] => {
-    if (!product || !product.variants) return [];
-    return [...new Set(product.variants.map((v) => v.size).filter((size): size is string => Boolean(size)))];
-};
-
 // Helper function to get available sizes for a specific color
 const getAvailableSizesForColor = (product: Product | null, color: string): string[] => {
     if (!product || !product.variants || !color) return [];
@@ -338,18 +332,23 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold">Welcome back, {user.name}!</h1>
-                        <p className="text-muted-foreground">
-                            You are logged in as a <Badge variant="outline">{user.role}</Badge>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                        <h1 className="text-lg font-bold sm:text-xl md:text-2xl">
+                            Welcome back, {user.role} {user.name}!
+                        </h1>
+                        <p className="mt-1 text-sm text-muted-foreground sm:text-base">
+                            You are logged in as a{' '}
+                            <Badge variant="outline" className="text-xs sm:text-sm">
+                                {user.role}
+                            </Badge>
                         </p>
                     </div>
                     {isManager && (
                         <Link href="/cart">
-                            <Button variant="outline" className="relative">
+                            <Button variant="outline" className="relative w-full sm:w-auto">
                                 <ShoppingCart className="mr-2 h-4 w-4" />
-                                Cart
+                                <span className="hidden sm:inline">Cart</span>
                                 {localCartCount > 0 && (
                                     <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs">
                                         {localCartCount}
@@ -361,7 +360,7 @@ export default function Dashboard() {
                 </div>
 
                 {isAdmin && (
-                    <div className="grid auto-rows-min gap-4 md:grid-cols-3">
+                    <div className="grid auto-rows-min gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium">Admin Dashboard</CardTitle>
@@ -419,23 +418,23 @@ export default function Dashboard() {
                                 <CardTitle>Product Shop</CardTitle>
                                 <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
                                     {/* Search Input */}
-                                    <div className="relative">
+                                    <div className="relative w-full sm:max-w-sm">
                                         <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                         <Input
                                             placeholder="Search products..."
                                             value={search}
                                             onChange={(e) => handleSearch(e.target.value)}
-                                            className="max-w-sm pl-10"
+                                            className="w-full pl-10"
                                         />
                                     </div>
 
                                     {/* Category Filter Buttons */}
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="flex flex-wrap gap-1 sm:gap-2">
                                         <Button
                                             variant={selectedCategory === 'all' ? 'default' : 'outline'}
                                             size="sm"
                                             onClick={() => handleCategoryFilter('all')}
-                                            className="text-xs"
+                                            className="px-2 py-1 text-xs sm:px-3 sm:py-2"
                                         >
                                             All Categories
                                         </Button>
@@ -445,7 +444,7 @@ export default function Dashboard() {
                                                 variant={selectedCategory === category ? 'default' : 'outline'}
                                                 size="sm"
                                                 onClick={() => handleCategoryFilter(category)}
-                                                className="text-xs"
+                                                className="px-2 py-1 text-xs sm:px-3 sm:py-2"
                                             >
                                                 {category}
                                             </Button>
@@ -454,7 +453,7 @@ export default function Dashboard() {
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                                     {products.data.map((product) => {
                                         const stockStatus = getProductStockStatus(product);
                                         const minPrice = getProductMinPrice(product);
@@ -463,7 +462,6 @@ export default function Dashboard() {
                                         const isAdding = addingToCart === product.id;
                                         const hasStock = totalQuantity > 0;
                                         const availableColors = getAvailableColors(product);
-                                        const availableSizes = getAvailableSizes(product);
 
                                         return (
                                             <Card
@@ -498,21 +496,21 @@ export default function Dashboard() {
 
                                                 <CardContent className="space-y-4">
                                                     {/* Product Image */}
-                                                    <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-50 dark:bg-gray-800">
+                                                    <div className="relative h-32 overflow-hidden rounded-lg bg-gray-50 dark:bg-gray-800">
                                                         {product.image_url ? (
                                                             <img
                                                                 src={product.image_url}
                                                                 alt={product.name}
-                                                                className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 hover:scale-105"
+                                                                className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
                                                                 onError={(e) => {
                                                                     e.currentTarget.src =
                                                                         'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCAxMDBDODAgODkuNTQ0NCA4OS41NDQ0IDgwIDEwMCA4MEMxMTAuNDU2IDgwIDEyMCA4OS41NDQ0IDEyMCAxMEMxMjAgMTEwLjQ1NiAxMTAuNDU2IDEyMCAxMDAgMTIwQzg5LjU0NDQgMTIwIDgwIDExMC40NTYgODAgMTAwWiIgZmlsbD0iI0QxRDVFM0EiLz4KPC9zdmc+';
                                                                 }}
                                                             />
                                                         ) : (
-                                                            <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-muted-foreground">
-                                                                <Package className="h-10 w-10" />
-                                                                <span className="mt-2 text-center text-xs">No image available</span>
+                                                            <div className="flex h-full flex-col items-center justify-center p-4 text-muted-foreground">
+                                                                <Package className="h-8 w-8" />
+                                                                <span className="mt-1 text-center text-xs">No image available</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -766,6 +764,49 @@ export default function Dashboard() {
                                     <div className="py-8 text-center">
                                         <Package className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
                                         <p className="text-muted-foreground">No products found.</p>
+                                    </div>
+                                )}
+
+                                {/* Pagination */}
+                                {products.data.length > 0 && (
+                                    <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="text-xs text-muted-foreground sm:text-sm">
+                                            Showing {(products.current_page - 1) * products.per_page + 1} to{' '}
+                                            {Math.min(products.current_page * products.per_page, products.total)} of {products.total} products
+                                        </div>
+                                        <div className="flex items-center justify-center space-x-2 sm:justify-end">
+                                            {products.current_page > 1 && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        const params = new URLSearchParams(window.location.search);
+                                                        params.set('page', String(products.current_page - 1));
+                                                        router.get('/dashboard', Object.fromEntries(params));
+                                                    }}
+                                                    className="px-2 py-1 text-xs sm:px-3 sm:py-2"
+                                                >
+                                                    Previous
+                                                </Button>
+                                            )}
+                                            <span className="text-xs text-muted-foreground sm:text-sm">
+                                                Page {products.current_page} of {products.last_page}
+                                            </span>
+                                            {products.current_page < products.last_page && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        const params = new URLSearchParams(window.location.search);
+                                                        params.set('page', String(products.current_page + 1));
+                                                        router.get('/dashboard', Object.fromEntries(params));
+                                                    }}
+                                                    className="px-2 py-1 text-xs sm:px-3 sm:py-2"
+                                                >
+                                                    Next
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                             </CardContent>
