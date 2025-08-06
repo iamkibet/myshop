@@ -55,6 +55,10 @@ class ProductController extends Controller
         return Inertia::render('Products/Index', [
             'products' => $products,
             'filters' => $request->only(['search', 'stock_filter']),
+            'flash' => [
+                'success' => session('success'),
+                'error' => session('error'),
+            ],
         ]);
     }
 
@@ -69,15 +73,29 @@ class ProductController extends Controller
             ->sort()
             ->values();
 
+        $existingBrands = Product::distinct()
+            ->whereNotNull('brand')
+            ->pluck('brand')
+            ->sort()
+            ->values();
+
+        $existingSizes = ProductVariant::distinct()
+            ->whereNotNull('size')
+            ->pluck('size')
+            ->sort()
+            ->values();
+
         return Inertia::render('Products/Create', [
             'existingCategories' => $existingCategories,
+            'existingBrands' => $existingBrands,
+            'existingSizes' => $existingSizes,
         ]);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request): JsonResponse
+    public function store(Request $request): \Illuminate\Http\RedirectResponse
     {
         try {
             Log::info('Product store request received', [
@@ -134,19 +152,14 @@ class ProductController extends Controller
 
             Log::info('Product created successfully', ['product_id' => $product->id]);
 
-            return response()->json([
-                'message' => 'Product created successfully.',
-                'product' => $product->load('variants'),
-            ]);
+            return redirect()->route('products.index')->with('success', 'Product created successfully!');
         } catch (\Exception $e) {
             Log::error('Product creation failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return response()->json([
-                'message' => 'Failed to create product: ' . $e->getMessage(),
-            ], 500);
+            return redirect()->back()->withInput()->withErrors(['general' => 'Failed to create product: ' . $e->getMessage()]);
         }
     }
 
@@ -179,9 +192,23 @@ class ProductController extends Controller
             ->sort()
             ->values();
 
+        $existingBrands = Product::distinct()
+            ->whereNotNull('brand')
+            ->pluck('brand')
+            ->sort()
+            ->values();
+
+        $existingSizes = ProductVariant::distinct()
+            ->whereNotNull('size')
+            ->pluck('size')
+            ->sort()
+            ->values();
+
         return Inertia::render('Products/Edit', [
             'product' => $product,
             'existingCategories' => $existingCategories,
+            'existingBrands' => $existingBrands,
+            'existingSizes' => $existingSizes,
         ]);
     }
 
@@ -364,6 +391,149 @@ class ProductController extends Controller
         return response()->json([
             'brands' => $brands,
         ]);
+    }
+
+    /**
+     * Save a new brand to the database.
+     */
+    public function saveBrand(Request $request): JsonResponse
+    {
+        $request->validate([
+            'brand' => 'required|string|max:100',
+        ]);
+
+        try {
+            // Check if brand already exists
+            $existingBrand = Product::where('brand', $request->brand)->first();
+            if ($existingBrand) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Brand already exists',
+                    'brand' => $request->brand,
+                ]);
+            }
+
+            // Create a temporary product with the new brand to ensure it's saved
+            // This is a workaround since we don't have a separate brands table
+            $tempProduct = Product::create([
+                'name' => 'Temporary Product for Brand: ' . $request->brand,
+                'brand' => $request->brand,
+                'category' => 'Temporary',
+                'is_active' => false,
+            ]);
+
+            // Delete the temporary product
+            $tempProduct->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Brand saved successfully',
+                'brand' => $request->brand,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to save brand: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Save a new category to the database.
+     */
+    public function saveCategory(Request $request): JsonResponse
+    {
+        $request->validate([
+            'category' => 'required|string|max:100',
+        ]);
+
+        try {
+            // Check if category already exists
+            $existingCategory = Product::where('category', $request->category)->first();
+            if ($existingCategory) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Category already exists',
+                    'category' => $request->category,
+                ]);
+            }
+
+            // Create a temporary product with the new category to ensure it's saved
+            $tempProduct = Product::create([
+                'name' => 'Temporary Product for Category: ' . $request->category,
+                'brand' => 'Temporary',
+                'category' => $request->category,
+                'is_active' => false,
+            ]);
+
+            // Delete the temporary product
+            $tempProduct->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Category saved successfully',
+                'category' => $request->category,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to save category: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Save a new size to the database.
+     */
+    public function saveSize(Request $request): JsonResponse
+    {
+        $request->validate([
+            'size' => 'required|string|max:20',
+        ]);
+
+        try {
+            // Check if size already exists
+            $existingSize = ProductVariant::where('size', $request->size)->first();
+            if ($existingSize) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Size already exists',
+                    'size' => $request->size,
+                ]);
+            }
+
+            // Create a temporary product and variant with the new size
+            $tempProduct = Product::create([
+                'name' => 'Temporary Product for Size: ' . $request->size,
+                'brand' => 'Temporary',
+                'category' => 'Temporary',
+                'is_active' => false,
+            ]);
+
+            $tempProduct->variants()->create([
+                'color' => 'Temporary',
+                'size' => $request->size,
+                'sku' => 'TEMP-' . $request->size,
+                'quantity' => 0,
+                'cost_price' => 0,
+                'selling_price' => 0,
+                'is_active' => false,
+            ]);
+
+            // Delete the temporary product (variants will be deleted via cascade)
+            $tempProduct->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Size saved successfully',
+                'size' => $request->size,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to save size: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**

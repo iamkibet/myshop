@@ -1,4 +1,5 @@
 import InputError from '@/components/input-error';
+import { BrandSelect } from '@/components/ui/brand-select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CategorySelect } from '@/components/ui/category-select';
@@ -6,6 +7,7 @@ import { ImageUpload } from '@/components/ui/image-upload';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SizeSelect } from '@/components/ui/size-select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
@@ -46,13 +48,19 @@ interface ProductsFormProps {
     product?: Product;
     isEditing?: boolean;
     existingCategories?: string[];
+    existingBrands?: string[];
+    existingSizes?: string[];
 }
 
-const CATEGORIES = ['Shoes', 'T-Shirts', 'Pants', 'Dresses', 'Jackets', 'Hats', 'Accessories', 'Electronics', 'Home & Garden', 'Sports', 'Other'];
-const COMMON_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 const COMMON_COLORS = ['Black', 'White', 'Red', 'Blue', 'Green', 'Yellow', 'Purple', 'Pink', 'Orange', 'Brown', 'Gray'];
 
-export default function ProductsForm({ product, isEditing = false, existingCategories = [] }: ProductsFormProps) {
+export default function ProductsForm({
+    product,
+    isEditing = false,
+    existingCategories = [],
+    existingBrands = [],
+    existingSizes = [],
+}: ProductsFormProps) {
     const [formData, setFormData] = useState({
         name: product?.name || '',
         description: product?.description || '',
@@ -167,8 +175,7 @@ export default function ProductsForm({ product, isEditing = false, existingCateg
                 await router.post('/products', payload);
             }
 
-            // Redirect to products list on success
-            router.visit('/products');
+            // Success feedback will be handled by the redirect
         } catch (error: unknown) {
             console.error('Form submission error:', error);
             if (error && typeof error === 'object' && 'response' in error) {
@@ -281,15 +288,14 @@ export default function ProductsForm({ product, isEditing = false, existingCateg
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="brand">Brand</Label>
-                                    <Input
-                                        id="brand"
+                                    <BrandSelect
                                         value={formData.brand}
-                                        onChange={(e) => handleInputChange('brand', e.target.value)}
-                                        placeholder="Enter brand name"
-                                        className="mt-1"
+                                        onChange={(value) => handleInputChange('brand', value)}
+                                        existingBrands={existingBrands}
+                                        label="Brand"
+                                        placeholder="Select or add brand"
+                                        error={errors.brand}
                                     />
-                                    {errors.brand && <InputError message={errors.brand} />}
                                 </div>
 
                                 <div>
@@ -430,20 +436,13 @@ export default function ProductsForm({ product, isEditing = false, existingCateg
                                                 </div>
 
                                                 <div>
-                                                    <Label>Size</Label>
-                                                    <Select value={variant.size || ''} onValueChange={(value) => updateVariant(index, 'size', value)}>
-                                                        <SelectTrigger className="mt-1">
-                                                            <SelectValue placeholder="Select size" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="none">No Size</SelectItem>
-                                                            {COMMON_SIZES.map((size) => (
-                                                                <SelectItem key={size} value={size}>
-                                                                    {size}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
+                                                    <SizeSelect
+                                                        value={variant.size || ''}
+                                                        onChange={(value) => updateVariant(index, 'size', value)}
+                                                        existingSizes={existingSizes}
+                                                        label="Size"
+                                                        placeholder="Select or add size"
+                                                    />
                                                 </div>
 
                                                 <div>

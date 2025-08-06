@@ -16,6 +16,7 @@ import {
     Activity,
     AlertTriangle,
     BarChart3,
+    Calendar,
     DollarSign,
     Package,
     Plus,
@@ -392,7 +393,7 @@ export default function AdminDashboard() {
         setRestockLoading(true);
         try {
             console.log('Restocking items:', restockItems);
-            await router.post('/restock', { items: restockItems as any });
+            await router.post('/restock', { items: restockItems } as any);
             setRestockDialogOpen(false);
             // The page will refresh automatically due to the redirect
         } catch (error) {
@@ -428,7 +429,7 @@ export default function AdminDashboard() {
                 new_quantity: rec.recommended_quantity,
             }));
 
-            await router.post('/restock', { items: items as any });
+            await router.post('/restock', { items: items });
             setSmartRestockDialogOpen(false);
             setRestockRecommendations(null);
             setSelectedProductForRestock(null);
@@ -522,27 +523,78 @@ export default function AdminDashboard() {
                 )}
 
                 {/* Header */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="hidden sm:block">
-                        <h1 className="text-2xl font-bold sm:text-3xl">Admin Dashboard</h1>
-                        <p className="text-muted-foreground">Comprehensive analytics and insights</p>
+                <div className="space-y-4">
+                    {/* Mobile Header - Compact and Creative */}
+                    <div className="sm:hidden">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg">
+                                    <BarChart3 className="h-5 w-5 text-white" />
+                                </div>
+                                <div>
+                                    <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
+                                    <p className="text-xs text-muted-foreground">Analytics Overview</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <Button
+                                    onClick={fetchAnalytics}
+                                    disabled={loading}
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+                                >
+                                    <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                                </Button>
+                                <NotificationsDropdown
+                                    notifications={localNotifications}
+                                    unreadCount={localUnreadCount}
+                                    onNotificationRead={handleNotificationRead}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Mobile Filter Bar */}
+                        <div className="mt-4 flex items-center justify-between rounded-xl border bg-gradient-to-r from-gray-50 to-white p-3 shadow-sm dark:border-gray-700 dark:from-gray-800 dark:to-gray-900">
+                            <div className="flex items-center space-x-2">
+                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Period:</span>
+                            </div>
+                            <Select value={dateRange} onValueChange={setDateRange}>
+                                <SelectTrigger className="h-8 w-32 border-0 bg-transparent p-0 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="day">Today</SelectItem>
+                                    <SelectItem value="week">This Week</SelectItem>
+                                    <SelectItem value="month">This Month</SelectItem>
+                                    <SelectItem value="year">This Year</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-3">
-                        <Select value={dateRange} onValueChange={setDateRange}>
-                            <SelectTrigger className="w-full sm:w-32">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="day">Today</SelectItem>
-                                <SelectItem value="week">This Week</SelectItem>
-                                <SelectItem value="month">This Month</SelectItem>
-                                <SelectItem value="year">This Year</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Button onClick={fetchAnalytics} disabled={loading} variant="outline" size="sm" className="w-full sm:w-auto">
-                            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                            Refresh
-                        </Button>
+
+                    {/* Desktop Header */}
+                    <div className="hidden sm:flex sm:items-center sm:justify-between">
+                        <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-3">
+                                <Select value={dateRange} onValueChange={setDateRange}>
+                                    <SelectTrigger className="w-40">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="day">Today</SelectItem>
+                                        <SelectItem value="week">This Week</SelectItem>
+                                        <SelectItem value="month">This Month</SelectItem>
+                                        <SelectItem value="year">This Year</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Button onClick={fetchAnalytics} disabled={loading} variant="outline" size="sm" className="shadow-sm">
+                                    <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                                    Refresh
+                                </Button>
+                            </div>
+                        </div>
                         <NotificationsDropdown
                             notifications={localNotifications}
                             unreadCount={localUnreadCount}
@@ -552,47 +604,47 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Key Metrics */}
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Card className="border-l-4 border-l-green-500">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                            <CardTitle className="text-xs font-medium sm:text-sm">Total Revenue</CardTitle>
                             <DollarSign className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-xl font-bold sm:text-2xl">{formatCurrency(sales?.totalSales || 0)}</div>
-                            <p className="text-xs text-muted-foreground">{sales?.totalOrders || 0} orders completed</p>
+                        <CardContent className="pb-3">
+                            <div className="text-lg font-bold sm:text-xl lg:text-2xl">{formatCurrency(sales?.totalSales || 0)}</div>
+                            <p className="text-xs text-muted-foreground">{sales?.totalOrders || 0} orders</p>
                         </CardContent>
                     </Card>
 
                     <Card className="border-l-4 border-l-blue-500">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Profit</CardTitle>
+                            <CardTitle className="text-xs font-medium sm:text-sm">Total Profit</CardTitle>
                             <TrendingUp className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-xl font-bold sm:text-2xl">{formatCurrency(profits?.totalProfit || 0)}</div>
+                        <CardContent className="pb-3">
+                            <div className="text-lg font-bold sm:text-xl lg:text-2xl">{formatCurrency(profits?.totalProfit || 0)}</div>
                             <p className="text-xs text-muted-foreground">{(profits?.profitMargin || 0).toFixed(1)}% margin</p>
                         </CardContent>
                     </Card>
 
                     <Card className="border-l-4 border-l-purple-500">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Average Order</CardTitle>
+                            <CardTitle className="text-xs font-medium sm:text-sm">Average Order</CardTitle>
                             <BarChart3 className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-xl font-bold sm:text-2xl">{formatCurrency(sales?.averageOrderValue || 0)}</div>
+                        <CardContent className="pb-3">
+                            <div className="text-lg font-bold sm:text-xl lg:text-2xl">{formatCurrency(sales?.averageOrderValue || 0)}</div>
                             <p className="text-xs text-muted-foreground">per order</p>
                         </CardContent>
                     </Card>
 
                     <Card className="border-l-4 border-l-orange-500">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Inventory Value</CardTitle>
+                            <CardTitle className="text-xs font-medium sm:text-sm">Inventory Value</CardTitle>
                             <Package className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-xl font-bold sm:text-2xl">{formatCurrency(inventory?.totalRetailValue || 0)}</div>
+                        <CardContent className="pb-3">
+                            <div className="text-lg font-bold sm:text-xl lg:text-2xl">{formatCurrency(inventory?.totalRetailValue || 0)}</div>
                             <p className="text-xs text-muted-foreground">{inventory?.totalProducts || 0} products</p>
                         </CardContent>
                     </Card>

@@ -154,6 +154,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Restock route
         Route::post('/restock', [ProductController::class, 'restock'])->name('restock');
 
+        // Save new brands, categories, and sizes
+        Route::post('/save-brand', [ProductController::class, 'saveBrand'])->name('save.brand');
+        Route::post('/save-category', [ProductController::class, 'saveCategory'])->name('save.category');
+        Route::post('/save-size', [ProductController::class, 'saveSize'])->name('save.size');
+
         // Dashboard Analytics routes
         Route::get('/dashboard/analytics', [AnalyticsController::class, 'dashboard'])->name('dashboard.analytics');
         Route::get('/dashboard/sales-analytics', [AnalyticsController::class, 'salesAnalytics'])->name('dashboard.sales-analytics');

@@ -28,9 +28,18 @@ interface PageProps {
         }>;
     };
     existingCategories?: string[];
+    existingBrands?: string[];
+    existingSizes?: string[];
+    [key: string]: any;
 }
 
 export default function Edit() {
-    const { product, existingCategories } = usePage<PageProps>().props;
-    return <ProductsForm product={product} isEditing={true} existingCategories={existingCategories || []} />;
+    const { product, existingCategories, existingBrands, existingSizes } = usePage<PageProps>().props;
+    return <ProductsForm 
+        product={product} 
+        isEditing={true} 
+        existingCategories={existingCategories || []} 
+        existingBrands={existingBrands || []}
+        existingSizes={existingSizes || []}
+    />;
 }
