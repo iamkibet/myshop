@@ -116,15 +116,16 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
                     </div>
                 )}
 
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold">Users</h1>
-                        <p className="text-muted-foreground">Manage user accounts and roles</p>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                        <h1 className="text-xl font-bold sm:text-2xl">Users</h1>
+                        <p className="text-sm text-muted-foreground sm:text-base">Manage user accounts and roles</p>
                     </div>
                     <Link href="/users/create">
-                        <Button>
+                        <Button className="w-full sm:w-auto">
                             <Icon iconNode={UserPlus} className="mr-2 h-4 w-4" />
-                            Add User
+                            <span className="hidden sm:inline">Add User</span>
+                            <span className="sm:hidden">Add</span>
                         </Button>
                     </Link>
                 </div>
@@ -132,12 +133,17 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
                 <Card>
                     <CardHeader>
                         <CardTitle>User Management</CardTitle>
-                        <div className="flex items-center space-x-2">
-                            <Input placeholder="Search users..." value={search} onChange={(e) => handleSearch(e.target.value)} className="max-w-sm" />
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-2">
+                            <Input
+                                placeholder="Search users..."
+                                value={search}
+                                onChange={(e) => handleSearch(e.target.value)}
+                                className="w-full sm:max-w-sm"
+                            />
                             <select
                                 value={roleFilter}
                                 onChange={(e) => handleRoleFilter(e.target.value)}
-                                className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:w-auto"
                             >
                                 <option value="">All Roles</option>
                                 <option value="admin">Admin</option>
@@ -148,7 +154,7 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
                     <CardContent>
                         <div className="overflow-x-auto">
                             <table className="w-full">
-                                <thead>
+                                <thead className="hidden md:table-header-group">
                                     <tr className="border-b">
                                         <th className="p-2 text-left">Name</th>
                                         <th className="p-2 text-left">Email</th>
@@ -160,13 +166,16 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
                                 <tbody>
                                     {users.data.map((user) => (
                                         <tr key={user.id} className="border-b hover:bg-muted/50">
-                                            <td className="p-2 font-medium">{user.name}</td>
-                                            <td className="p-2 text-sm text-muted-foreground">{user.email}</td>
-                                            <td className="p-2">
+                                            {/* Desktop Layout */}
+                                            <td className="hidden p-2 font-medium md:table-cell">{user.name}</td>
+                                            <td className="hidden p-2 text-sm text-muted-foreground md:table-cell">{user.email}</td>
+                                            <td className="hidden p-2 md:table-cell">
                                                 <Badge variant={getRoleBadgeVariant(user.role)}>{user.role}</Badge>
                                             </td>
-                                            <td className="p-2 text-sm text-muted-foreground">{new Date(user.created_at).toLocaleDateString()}</td>
-                                            <td className="p-2">
+                                            <td className="hidden p-2 text-sm text-muted-foreground md:table-cell">
+                                                {new Date(user.created_at).toLocaleDateString()}
+                                            </td>
+                                            <td className="hidden p-2 md:table-cell">
                                                 <div className="flex items-center space-x-2">
                                                     <Link href={`/users/${user.id}`}>
                                                         <Button variant="outline" size="sm">
@@ -181,6 +190,39 @@ export default function UsersIndex({ users, filters }: UsersIndexProps) {
                                                     <Button variant="outline" size="sm" onClick={() => handleDelete(user.id)}>
                                                         <Icon iconNode={Trash} className="h-4 w-4" />
                                                     </Button>
+                                                </div>
+                                            </td>
+
+                                            {/* Mobile Layout */}
+                                            <td className="block p-4 md:hidden">
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex-1">
+                                                            <h3 className="font-medium">{user.name}</h3>
+                                                            <p className="text-sm text-muted-foreground">{user.email}</p>
+                                                        </div>
+                                                        <Badge variant={getRoleBadgeVariant(user.role)} className="ml-2">
+                                                            {user.role}
+                                                        </Badge>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                                                        <span>Created: {new Date(user.created_at).toLocaleDateString()}</span>
+                                                        <div className="flex items-center space-x-1">
+                                                            <Link href={`/users/${user.id}`}>
+                                                                <Button variant="outline" size="sm">
+                                                                    <Icon iconNode={Eye} className="h-3 w-3" />
+                                                                </Button>
+                                                            </Link>
+                                                            <Link href={`/users/${user.id}/edit`}>
+                                                                <Button variant="outline" size="sm">
+                                                                    <Icon iconNode={Edit} className="h-3 w-3" />
+                                                                </Button>
+                                                            </Link>
+                                                            <Button variant="outline" size="sm" onClick={() => handleDelete(user.id)}>
+                                                                <Icon iconNode={Trash} className="h-3 w-3" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>

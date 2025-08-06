@@ -263,17 +263,20 @@ export default function ProductsForm({
 
             <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
                 {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
                         <Link href="/products">
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" className="w-full sm:w-auto sm:px-4 sm:py-2">
                                 <ArrowLeft className="mr-2 h-4 w-4" />
-                                Back to Products
+                                <span className="hidden sm:inline">Back to Products</span>
+                                <span className="sm:hidden">Back</span>
                             </Button>
                         </Link>
-                        <div>
-                            <h1 className="text-2xl font-bold">{isEditing ? 'Edit Product' : 'Create Product'}</h1>
-                            <p className="text-muted-foreground">
+                        <div className="min-w-0 flex-1 sm:border-l sm:border-border sm:pl-6">
+                            <h1 className="text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">
+                                {isEditing ? 'Edit Product' : 'Create Product'}
+                            </h1>
+                            <p className="mt-1 text-sm text-muted-foreground sm:text-base sm:leading-relaxed">
                                 {isEditing ? 'Update product information and variants' : 'Add a new product with variants'}
                             </p>
                         </div>
