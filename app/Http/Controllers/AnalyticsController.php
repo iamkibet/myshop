@@ -326,12 +326,15 @@ class AnalyticsController extends Controller
         $notifications = [];
         foreach ($recentNotifications as $notification) {
             $notifications[] = [
+                'id' => $notification->id,
                 'type' => $notification->type,
                 'title' => $notification->title,
                 'message' => $notification->message,
-                'timestamp' => $notification->created_at,
                 'icon' => $notification->icon,
-                'action' => $notification->action_data,
+                'action_data' => $notification->action_data,
+                'category' => $notification->category,
+                'is_read' => $notification->is_read,
+                'created_at' => $notification->created_at,
             ];
         }
 

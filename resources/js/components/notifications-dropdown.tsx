@@ -28,11 +28,14 @@ interface Notification {
 interface NotificationsDropdownProps {
     notifications: Notification[];
     unreadCount: number;
+    onNotificationRead?: (notificationId: number) => void;
 }
 
-export default function NotificationsDropdown({ notifications, unreadCount }: NotificationsDropdownProps) {
+export default function NotificationsDropdown({ notifications, unreadCount, onNotificationRead }: NotificationsDropdownProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [localNotifications, setLocalNotifications] = useState(notifications);
+    const [localUnreadCount, setLocalUnreadCount] = useState(unreadCount);
 
     const getNotificationIcon = (icon: string) => {
         switch (icon) {
@@ -68,7 +71,9 @@ export default function NotificationsDropdown({ notifications, unreadCount }: No
 
     const markAsRead = async (notificationId: number) => {
         try {
-            await fetch('/notifications/mark-read', {
+            setLoading(true);
+
+            const response = await fetch('/notifications/mark-read', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -77,10 +82,22 @@ export default function NotificationsDropdown({ notifications, unreadCount }: No
                 body: JSON.stringify({ notification_id: notificationId }),
             });
 
-            // Refresh the page to update the notification status
-            router.reload();
+            if (response.ok) {
+                // Update local state immediately
+                setLocalNotifications((prev) =>
+                    prev.map((notification) => (notification.id === notificationId ? { ...notification, is_read: true } : notification)),
+                );
+
+                // Update unread count
+                setLocalUnreadCount((prev) => Math.max(0, prev - 1));
+
+                // Notify parent component
+                onNotificationRead?.(notificationId);
+            }
         } catch (error) {
             console.error('Failed to mark notification as read:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -121,19 +138,19 @@ export default function NotificationsDropdown({ notifications, unreadCount }: No
         setIsOpen(false);
     };
 
-    const recentNotifications = notifications.slice(0, 5);
+    const recentNotifications = localNotifications.slice(0, 5);
 
     return (
         <Popover open={isOpen} onOpenChange={setIsOpen}>
             <PopoverTrigger asChild>
                 <Button variant="ghost" size="sm" className="relative h-9 w-9 rounded-md">
                     <Bell className="h-4 w-4" />
-                    {unreadCount > 0 && (
+                    {localUnreadCount > 0 && (
                         <Badge
                             variant="destructive"
                             className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full p-0 text-xs"
                         >
-                            {unreadCount > 9 ? '9+' : unreadCount}
+                            {localUnreadCount > 9 ? '9+' : localUnreadCount}
                         </Badge>
                     )}
                 </Button>

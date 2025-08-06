@@ -50,19 +50,22 @@ interface User {
 }
 
 interface Notification {
+    id: number;
     type: 'success' | 'warning' | 'error' | 'info';
     title: string;
     message: string;
-    timestamp: string;
     icon: string;
-    action?: {
-        type: 'sale' | 'low_stock' | 'out_of_stock' | 'product';
+    action_data?: {
+        type: string;
         url?: string;
         id?: number;
         product_id?: number;
         product_name?: string;
         variant_count?: number;
     };
+    category: string;
+    is_read: boolean;
+    created_at: string;
 }
 
 interface SalesData {
@@ -179,6 +182,48 @@ export default function AdminDashboard() {
     const [activeTab, setActiveTab] = useState('overview');
     const [restockRecommendations, setRestockRecommendations] = useState<any>(null);
     const [selectedProductForRestock, setSelectedProductForRestock] = useState<number | null>(null);
+    const [localNotifications, setLocalNotifications] = useState(analytics?.notifications || []);
+    const [localUnreadCount, setLocalUnreadCount] = useState(analytics?.notifications?.filter((n) => !n.is_read).length || 0);
+
+    // Update local notifications when analytics data changes
+    useEffect(() => {
+        if (analytics?.notifications) {
+            setLocalNotifications(analytics.notifications);
+            setLocalUnreadCount(analytics.notifications.filter((n) => !n.is_read).length);
+        }
+    }, [analytics?.notifications]);
+
+    // Fetch real-time notification data periodically
+    useEffect(() => {
+        const fetchNotifications = async () => {
+            try {
+                const response = await fetch('/notifications/recent');
+                if (response.ok) {
+                    const data = await response.json();
+                    setLocalNotifications(data.notifications || []);
+                    setLocalUnreadCount(data.unread_count || 0);
+                }
+            } catch (error) {
+                console.error('Failed to fetch notifications:', error);
+            }
+        };
+
+        // Fetch immediately
+        fetchNotifications();
+
+        // Set up interval to fetch every 30 seconds
+        const interval = setInterval(fetchNotifications, 30000);
+
+        return () => clearInterval(interval);
+    }, []);
+
+    // Callback to update local state when notifications are marked as read
+    const handleNotificationRead = (notificationId: number) => {
+        setLocalNotifications((prev) =>
+            prev.map((notification) => (notification.id === notificationId ? { ...notification, is_read: true } : notification)),
+        );
+        setLocalUnreadCount((prev) => Math.max(0, prev - 1));
+    };
 
     // Fetch analytics data
     const fetchAnalytics = async () => {
@@ -499,8 +544,9 @@ export default function AdminDashboard() {
                             Refresh
                         </Button>
                         <NotificationsDropdown
-                            notifications={safeAnalyticsData?.notifications || []}
-                            unreadCount={safeAnalyticsData?.notifications?.filter((n) => !n.is_read).length || 0}
+                            notifications={localNotifications}
+                            unreadCount={localUnreadCount}
+                            onNotificationRead={handleNotificationRead}
                         />
                     </div>
                 </div>
