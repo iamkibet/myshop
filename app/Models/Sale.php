@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Events\Created;
 
 class Sale extends Model
 {
@@ -48,4 +49,26 @@ class Sale extends Model
     {
         return $this->hasMany(SaleItem::class);
     }
-} 
+
+    /**
+     * Boot the model and register events.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::created(function ($sale) {
+            // Calculate commission and add to manager's wallet
+            $commission = Wallet::calculateCommission($sale->total_amount);
+
+            // Get or create wallet for the manager
+            $wallet = Wallet::firstOrCreate(
+                ['user_id' => $sale->manager_id],
+                ['balance' => 0, 'total_earned' => 0, 'total_paid_out' => 0]
+            );
+
+            // Add commission to wallet
+            $wallet->addEarnings($commission);
+        });
+    }
+}

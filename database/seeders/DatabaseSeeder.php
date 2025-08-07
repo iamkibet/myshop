@@ -23,6 +23,8 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             ProductSeeder::class,
             SalesSeeder::class,
+            WalletSeeder::class,
+            ExpenseSeeder::class,
         ]);
     }
 }

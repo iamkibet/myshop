@@ -2,10 +2,12 @@
 
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\CartController;
+use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\SalesController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\WalletController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -184,6 +186,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Manager stats route
         Route::get('/manager/{managerId}', [SalesController::class, 'managerStats'])->name('manager.stats');
+
+        // Wallet management routes
+        Route::prefix('wallets')->name('wallets.')->group(function () {
+            Route::get('/', [WalletController::class, 'adminIndex'])->name('index');
+            Route::get('/{manager}', [WalletController::class, 'show'])->name('show');
+            Route::post('/{manager}/payout', [WalletController::class, 'processPayout'])->name('payout');
+        });
+
+        // Expense management routes
+        Route::resource('expenses', ExpenseController::class);
+        Route::get('/expenses/{expense}/receipt', [ExpenseController::class, 'downloadReceipt'])->name('expenses.receipt');
     });
 
     // Sales routes - accessible to both managers and admins
@@ -201,6 +214,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/cart/items/{variantId}', [CartController::class, 'updateItem'])->name('cart.update-item');
     Route::delete('/cart/items/{variantId}', [CartController::class, 'removeItem'])->name('cart.remove-item');
     Route::post('/cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
+
+    // Wallet route for managers
+    Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index')->middleware('ensure.wallet');
 });
 
 require __DIR__ . '/settings.php';

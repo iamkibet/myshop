@@ -1318,6 +1318,18 @@ export default function AdminDashboard() {
                                     Manage Users
                                 </Button>
                             </Link>
+                            <Link href="/wallets">
+                                <Button className="w-full" variant="outline">
+                                    <DollarSign className="mr-2 h-4 w-4" />
+                                    Manager Wallets
+                                </Button>
+                            </Link>
+                            <Link href="/expenses">
+                                <Button className="w-full" variant="outline">
+                                    <Receipt className="mr-2 h-4 w-4" />
+                                    Manage Expenses
+                                </Button>
+                            </Link>
                             <Link href="/sales">
                                 <Button className="w-full" variant="outline">
                                     <Receipt className="mr-2 h-4 w-4" />

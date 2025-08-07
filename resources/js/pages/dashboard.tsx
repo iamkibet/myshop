@@ -8,7 +8,7 @@ import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { AlertTriangle, BarChart3, Check, Package, Search, ShoppingCart, Users } from 'lucide-react';
+import { AlertTriangle, BarChart3, Check, DollarSign, Package, Search, ShoppingCart, Users } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -345,17 +345,25 @@ export default function Dashboard() {
                         </p>
                     </div>
                     {isManager && (
-                        <Link href="/cart">
-                            <Button variant="outline" className="relative w-full sm:w-auto">
-                                <ShoppingCart className="mr-2 h-4 w-4" />
-                                <span className="hidden sm:inline">Cart</span>
-                                {localCartCount > 0 && (
-                                    <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs">
-                                        {localCartCount}
-                                    </Badge>
-                                )}
-                            </Button>
-                        </Link>
+                        <div className="flex items-center space-x-2">
+                            <Link href="/wallet">
+                                <Button variant="outline" className="relative w-full sm:w-auto">
+                                    <DollarSign className="mr-2 h-4 w-4" />
+                                    <span className="hidden sm:inline">My Wallet</span>
+                                </Button>
+                            </Link>
+                            <Link href="/cart">
+                                <Button variant="outline" className="relative w-full sm:w-auto">
+                                    <ShoppingCart className="mr-2 h-4 w-4" />
+                                    <span className="hidden sm:inline">Cart</span>
+                                    {localCartCount > 0 && (
+                                        <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs">
+                                            {localCartCount}
+                                        </Badge>
+                                    )}
+                                </Button>
+                            </Link>
+                        </div>
                     )}
                 </div>
 
