@@ -60,32 +60,74 @@ class SalesController extends Controller
         // Get sales with pagination
         $sales = $query->orderByDesc('created_at')->paginate(10);
 
-        // Calculate statistics
-        $statsQuery = Sale::query();
+        // Calculate ALL-TIME statistics (not filtered by date)
+        $allTimeStatsQuery = Sale::query();
         if (!$isAdmin) {
-            $statsQuery->where('manager_id', $user->id);
+            $allTimeStatsQuery->where('manager_id', $user->id);
         }
 
-        $totalSales = $statsQuery->sum('total_amount');
-        $totalOrders = $statsQuery->count();
+        // All-time totals (these should always show complete data)
+        $totalSales = $allTimeStatsQuery->sum('total_amount');
+        $totalOrders = $allTimeStatsQuery->count();
         $averageOrderValue = $totalOrders > 0 ? $totalSales / $totalOrders : 0;
 
-        // Today's sales
-        $todaySales = $statsQuery->whereDate('created_at', today())->sum('total_amount');
+        // Calculate period-specific stats for comparison
+        $periodStatsQuery = Sale::query();
+        if (!$isAdmin) {
+            $periodStatsQuery->where('manager_id', $user->id);
+        }
 
-        // This week's sales
-        $thisWeekSales = $statsQuery->where('created_at', '>=', Carbon::now()->startOfWeek())->sum('total_amount');
+        // Apply the date filter for period-specific stats
+        switch ($dateFilter) {
+            case 'today':
+                $periodStatsQuery->whereDate('created_at', today());
+                break;
+            case 'week':
+                $periodStatsQuery->where('created_at', '>=', Carbon::now()->startOfWeek());
+                break;
+            case 'month':
+                $periodStatsQuery->where('created_at', '>=', Carbon::now()->startOfMonth());
+                break;
+            case 'year':
+                $periodStatsQuery->where('created_at', '>=', Carbon::now()->startOfYear());
+                break;
+            // 'all' case - no date filter applied
+        }
 
-        // This month's sales
-        $thisMonthSales = $statsQuery->where('created_at', '>=', Carbon::now()->startOfMonth())->sum('total_amount');
+        $periodSales = $periodStatsQuery->sum('total_amount');
+        $periodOrders = $periodStatsQuery->count();
+
+        // Today's sales (always current day regardless of filter)
+        $todaySalesQuery = Sale::query();
+        if (!$isAdmin) {
+            $todaySalesQuery->where('manager_id', $user->id);
+        }
+        $todaySales = $todaySalesQuery->whereDate('created_at', today())->sum('total_amount');
+
+        // This week's sales (always current week regardless of filter)
+        $thisWeekSalesQuery = Sale::query();
+        if (!$isAdmin) {
+            $thisWeekSalesQuery->where('manager_id', $user->id);
+        }
+        $thisWeekSales = $thisWeekSalesQuery->where('created_at', '>=', Carbon::now()->startOfWeek())->sum('total_amount');
+
+        // This month's sales (always current month regardless of filter)
+        $thisMonthSalesQuery = Sale::query();
+        if (!$isAdmin) {
+            $thisMonthSalesQuery->where('manager_id', $user->id);
+        }
+        $thisMonthSales = $thisMonthSalesQuery->where('created_at', '>=', Carbon::now()->startOfMonth())->sum('total_amount');
 
         $stats = [
-            'totalSales' => $totalSales,
-            'totalOrders' => $totalOrders,
-            'averageOrderValue' => round($averageOrderValue, 2),
+            'totalSales' => $totalSales, // All-time total
+            'totalOrders' => $totalOrders, // All-time total
+            'averageOrderValue' => round($averageOrderValue, 2), // All-time average
+            'periodSales' => $periodSales, // Period-specific total
+            'periodOrders' => $periodOrders, // Period-specific total
             'todaySales' => $todaySales,
             'thisWeekSales' => $thisWeekSales,
             'thisMonthSales' => $thisMonthSales,
+            'currentFilter' => $dateFilter, // Track current filter
         ];
 
         return Inertia::render('Sales/Index', [

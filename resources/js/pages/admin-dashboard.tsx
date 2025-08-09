@@ -607,12 +607,25 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Card className="border-l-4 border-l-green-500">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-xs font-medium sm:text-sm">Total Revenue</CardTitle>
+                            <CardTitle className="text-xs font-medium sm:text-sm">
+                                {dateRange === 'day' ? 'Today\'s Revenue' : 
+                                 dateRange === 'week' ? 'This Week\'s Revenue' : 
+                                 dateRange === 'month' ? 'This Month\'s Revenue' : 
+                                 dateRange === 'year' ? 'This Year\'s Revenue' : 'Period Revenue'}
+                            </CardTitle>
                             <DollarSign className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent className="pb-3">
                             <div className="text-lg font-bold sm:text-xl lg:text-2xl">{formatCurrency(sales?.totalSales || 0)}</div>
-                            <p className="text-xs text-muted-foreground">{sales?.totalOrders || 0} orders</p>
+                            <p className="text-xs text-muted-foreground">
+                                {sales?.totalOrders || 0} orders
+                                <span className="block text-xs text-green-600 dark:text-green-400 mt-1">
+                                    {dateRange === 'day' ? 'Today only' : 
+                                     dateRange === 'week' ? 'This week only' : 
+                                     dateRange === 'month' ? 'This month only' : 
+                                     dateRange === 'year' ? 'This year only' : 'Selected period'}
+                                </span>
+                            </p>
                         </CardContent>
                     </Card>
 
@@ -629,12 +642,25 @@ export default function AdminDashboard() {
 
                     <Card className="border-l-4 border-l-purple-500">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-xs font-medium sm:text-sm">Average Order</CardTitle>
+                            <CardTitle className="text-xs font-medium sm:text-sm">
+                                {dateRange === 'day' ? 'Today\'s Avg Order' : 
+                                 dateRange === 'week' ? 'This Week\'s Avg Order' : 
+                                 dateRange === 'month' ? 'This Month\'s Avg Order' : 
+                                 dateRange === 'year' ? 'This Year\'s Avg Order' : 'Period Avg Order'}
+                            </CardTitle>
                             <BarChart3 className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent className="pb-3">
                             <div className="text-lg font-bold sm:text-xl lg:text-2xl">{formatCurrency(sales?.averageOrderValue || 0)}</div>
-                            <p className="text-xs text-muted-foreground">per order</p>
+                            <p className="text-xs text-muted-foreground">
+                                per order
+                                <span className="block text-xs text-purple-600 dark:text-purple-400 mt-1">
+                                    {dateRange === 'day' ? 'Today only' : 
+                                     dateRange === 'week' ? 'This week only' : 
+                                     dateRange === 'month' ? 'This month only' : 
+                                     dateRange === 'year' ? 'This year only' : 'Selected period'}
+                                </span>
+                            </p>
                         </CardContent>
                     </Card>
 

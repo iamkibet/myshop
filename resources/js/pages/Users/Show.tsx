@@ -1,10 +1,15 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link } from '@inertiajs/react';
-import { ArrowLeft, DollarSign, Edit, Receipt, ShoppingCart, TrendingUp } from 'lucide-react';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { ArrowLeft, ArrowRight, DollarSign, Edit, Receipt, ShoppingCart, TrendingUp, UserCheck, Calendar, Mail, Shield, Users, CreditCard, Target, Award } from 'lucide-react';
+import { useState } from 'react';
 
 interface SaleItem {
     id: number;
@@ -55,24 +60,66 @@ interface UsersShowProps {
     user: User;
     salesStats: SalesStats;
     recentSales?: Sale[];
+    // Commission data for managers
+    totalSales?: number;
+    qualifiedSales?: number;
+    carryForwardAmount?: number;
+    commissionBreakdown?: {
+        breakdown: Array<{
+            threshold: number;
+            commission_per_threshold: number;
+            multiplier: number;
+            commission_earned: number;
+            description: string | null;
+        }>;
+        total_commission: number;
+        remaining_sales: number;
+    };
+    nextMilestoneAmount?: number;
+    expectedCommission?: number;
+    commissionDifference?: number;
+    wallet?: {
+        balance: number;
+        total_earned: number;
+        total_paid_out: number;
+        paid_sales: number;
+    };
 }
 
-const breadcrumbs: BreadcrumbItem[] = [
-    {
-        title: 'Dashboard',
-        href: '/dashboard',
-    },
-    {
-        title: 'Users',
-        href: '/users',
-    },
-    {
-        title: 'User Profile',
-        href: '#',
-    },
-];
+export default function UsersShow({ 
+    user, 
+    salesStats, 
+    recentSales,
+    totalSales,
+    qualifiedSales,
+    carryForwardAmount,
+    commissionBreakdown,
+    nextMilestoneAmount,
+    expectedCommission,
+    commissionDifference,
+    wallet
+}: UsersShowProps) {
+    const [showPayoutDialog, setShowPayoutDialog] = useState(false);
 
-export default function UsersShow({ user, salesStats, recentSales }: UsersShowProps) {
+    const { data, setData, post, processing, errors } = useForm({
+        amount: '',
+        notes: '',
+    });
+
+    const breadcrumbs: BreadcrumbItem[] = [
+        {
+            title: 'Dashboard',
+            href: '/dashboard',
+        },
+        {
+            title: 'Users',
+            href: '/users',
+        },
+        {
+            title: user.name,
+            href: '#',
+        },
+    ];
     const getRoleBadgeVariant = (role: string) => {
         return role === 'admin' ? 'default' : 'secondary';
     };
@@ -97,167 +144,446 @@ export default function UsersShow({ user, salesStats, recentSales }: UsersShowPr
     // Ensure recentSales is always an array
     const safeRecentSales = recentSales || [];
 
+    const handlePayout = (e: React.FormEvent) => {
+        e.preventDefault();
+        post(`/wallets/${user.id}/payout`, {
+            onSuccess: () => {
+                setShowPayoutDialog(false);
+                setData({ amount: '', notes: '' });
+            },
+        });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`${user.name} - Profile`} />
 
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                        <Link href="/users">
-                            <Button variant="outline" size="sm">
-                                <ArrowLeft className="mr-2 h-4 w-4" />
-                                Back to Users
-                            </Button>
-                        </Link>
-                        <div>
-                            <h1 className="text-2xl font-bold">{user.name}</h1>
-                            <p className="text-muted-foreground">{user.email}</p>
+            <div className="flex h-full flex-1 flex-col gap-8 overflow-x-auto rounded-xl p-6">
+                {/* Hero Header */}
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950 dark:via-indigo-950 dark:to-purple-950 border border-blue-200 dark:border-blue-800">
+                    <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.1)_1px,transparent_0)] bg-[length:20px_20px]"></div>
+                    <div className="relative p-8">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-6">
+                                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg">
+                                    <span className="text-2xl font-bold">{user.name.charAt(0).toUpperCase()}</span>
+                                </div>
+                                <div>
+                                    <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{user.name}</h1>
+                                    <p className="text-lg text-gray-600 dark:text-gray-400">{user.email}</p>
+                                    <div className="mt-2 flex items-center space-x-3">
+                                        <Badge 
+                                            variant={getRoleBadgeVariant(user.role)}
+                                            className={user.role === 'admin' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'}
+                                        >
+                                            {user.role === 'admin' ? 'Administrator' : 'Manager'}
+                                        </Badge>
+                                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                                            Member since {new Date(user.created_at).toLocaleDateString()}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                                <Link href="/users">
+                                    <Button variant="outline" size="lg" className="border-gray-300 dark:border-gray-600">
+                                        <ArrowLeft className="mr-2 h-5 w-5" />
+                                        Back
+                                    </Button>
+                                </Link>
+                                <Link href={`/users/${user.id}/edit`}>
+                                    <Button variant="outline" size="lg" className="border-gray-300 dark:border-gray-600">
+                                        <Edit className="mr-2 h-5 w-5" />
+                                        Edit Profile
+                                    </Button>
+                                </Link>
+                                {user.role === 'manager' && wallet && wallet.balance > 0 && (
+                                    <Dialog open={showPayoutDialog} onOpenChange={setShowPayoutDialog}>
+                                        <DialogTrigger asChild>
+                                            <Button size="lg" className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
+                                                <CreditCard className="mr-2 h-5 w-5" />
+                                                Pay Manager
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="sm:max-w-md">
+                                            <DialogHeader>
+                                                <DialogTitle className="text-xl">Process Payout</DialogTitle>
+                                                <DialogDescription className="text-base">
+                                                    Process a payout for <span className="font-semibold">{user.name}</span>
+                                                </DialogDescription>
+                                            </DialogHeader>
+                                            <form onSubmit={handlePayout}>
+                                                <div className="space-y-6">
+                                                    <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-4">
+                                                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                                                            Available balance: <span className="font-bold text-blue-900 dark:text-blue-100">{formatCurrency(wallet.balance)}</span>
+                                                        </p>
+                                                    </div>
+                                                    
+                                                    <div>
+                                                        <Label htmlFor="amount" className="text-sm font-medium">Amount</Label>
+                                                        <Input
+                                                            id="amount"
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0.01"
+                                                            max={wallet.balance}
+                                                            value={data.amount}
+                                                            onChange={(e) => setData('amount', e.target.value)}
+                                                            placeholder="Enter payout amount"
+                                                            className="mt-2"
+                                                        />
+                                                        {errors.amount && <p className="mt-1 text-sm text-destructive">{errors.amount}</p>}
+                                                    </div>
+
+                                                    <div>
+                                                        <Label htmlFor="notes" className="text-sm font-medium">Notes (Optional)</Label>
+                                                        <Textarea
+                                                            id="notes"
+                                                            value={data.notes}
+                                                            onChange={(e) => setData('notes', e.target.value)}
+                                                            placeholder="Add any notes about this payout"
+                                                            className="mt-2"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <DialogFooter className="mt-6">
+                                                    <Button type="button" variant="outline" onClick={() => setShowPayoutDialog(false)}>
+                                                        Cancel
+                                                    </Button>
+                                                    <Button type="submit" disabled={processing || !data.amount} className="bg-green-600 hover:bg-green-700">
+                                                        {processing ? 'Processing...' : 'Process Payout'}
+                                                    </Button>
+                                                </DialogFooter>
+                                            </form>
+                                        </DialogContent>
+                                    </Dialog>
+                                )}
+                            </div>
                         </div>
                     </div>
-                    <div className="flex space-x-2">
-                        {user.role === 'manager' && (
-                            <Link href={`/manager/${user.id}`}>
-                                <Button variant="outline">
-                                    <TrendingUp className="mr-2 h-4 w-4" />
-                                    View Sales
-                                </Button>
-                            </Link>
-                        )}
-                        <Link href={`/users/${user.id}/edit`}>
-                            <Button>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit User
-                            </Button>
-                        </Link>
-                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                    {/* User Information */}
-                    <div className="lg:col-span-1">
-                        <Card>
+                {/* Sales Performance Overview */}
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                    <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border-blue-200 dark:border-blue-800">
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-lg font-semibold text-blue-900 dark:text-blue-100">Total Sales</CardTitle>
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-800">
+                                    <ShoppingCart className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-3xl font-bold text-blue-900 dark:text-blue-100 mb-2">
+                                {salesStats.total_sales}
+                            </div>
+                            <p className="text-sm text-blue-700 dark:text-blue-300">Transactions processed</p>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-200 dark:border-green-800">
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-lg font-semibold text-green-900 dark:text-green-100">Total Revenue</CardTitle>
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-800">
+                                    <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-3xl font-bold text-green-900 dark:text-green-100 mb-2">
+                                {formatCurrency(salesStats.total_revenue)}
+                            </div>
+                            <p className="text-sm text-green-700 dark:text-green-300">Revenue generated</p>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950 dark:to-violet-950 border-purple-200 dark:border-purple-800">
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-lg font-semibold text-purple-900 dark:text-purple-100">Products Sold</CardTitle>
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-800">
+                                    <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-3xl font-bold text-purple-900 dark:text-purple-100 mb-2">
+                                {salesStats.total_products_sold}
+                            </div>
+                            <p className="text-sm text-purple-700 dark:text-purple-300">Items sold</p>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950 dark:to-amber-950 border-orange-200 dark:border-orange-800">
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-lg font-semibold text-orange-900 dark:text-orange-100">Average Sale</CardTitle>
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-800">
+                                    <Receipt className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-3xl font-bold text-orange-900 dark:text-orange-100 mb-2">
+                                {formatCurrency(salesStats.average_sale_value)}
+                            </div>
+                            <p className="text-sm text-orange-700 dark:text-orange-300">Per transaction</p>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Manager Commission Section */}
+                {user.role === 'manager' && commissionBreakdown && expectedCommission !== undefined && (
+                    <div className="grid gap-6 lg:grid-cols-2">
+                        {/* Commission Overview */}
+                        <Card className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950 dark:to-green-950 border-emerald-200 dark:border-emerald-800">
                             <CardHeader>
-                                <CardTitle>User Information</CardTitle>
+                                <CardTitle className="text-xl font-semibold text-emerald-900 dark:text-emerald-100">Commission Overview</CardTitle>
+                                <CardDescription className="text-emerald-700 dark:text-emerald-300">Performance-based earnings breakdown</CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div>
-                                    <label className="text-sm font-medium text-muted-foreground">Name</label>
-                                    <p className="text-sm">{user.name}</p>
-                                </div>
-                                <div>
-                                    <label className="text-sm font-medium text-muted-foreground">Email</label>
-                                    <p className="text-sm">{user.email}</p>
-                                </div>
-                                <div>
-                                    <label className="text-sm font-medium text-muted-foreground">Role</label>
-                                    <div className="mt-1">
-                                        <Badge variant={getRoleBadgeVariant(user.role)}>{user.role}</Badge>
+                            <CardContent className="space-y-6">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="text-center">
+                                        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-800">
+                                            <Target className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                                        </div>
+                                        <p className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">{formatCurrency(qualifiedSales || 0)}</p>
+                                        <p className="text-sm text-emerald-700 dark:text-emerald-300">Commissionable Sales</p>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-800">
+                                            <Award className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                                        </div>
+                                        <p className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">{formatCurrency(expectedCommission || 0)}</p>
+                                        <p className="text-sm text-emerald-700 dark:text-emerald-300">Available Commission</p>
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="text-sm font-medium text-muted-foreground">Member Since</label>
-                                    <p className="text-sm">{formatDate(user.created_at)}</p>
+                                
+                                {commissionDifference && commissionDifference > 0 && (
+                                    <div className="rounded-lg bg-emerald-100 dark:bg-emerald-900 p-4">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Pending Amount</span>
+                                            <span className="text-lg font-bold text-emerald-900 dark:text-emerald-100">+{formatCurrency(commissionDifference)}</span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {nextMilestoneAmount && nextMilestoneAmount > 0 && (
+                                    <div className="rounded-lg border border-emerald-200 dark:border-emerald-700 p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Next Milestone</p>
+                                                <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                                                    {formatCurrency(nextMilestoneAmount)} more needed
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">
+                                                    {formatCurrency((qualifiedSales || 0) + nextMilestoneAmount)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Process Payment */}
+                        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border-blue-200 dark:border-blue-800">
+                            <CardHeader>
+                                <CardTitle className="text-xl font-semibold text-blue-900 dark:text-blue-100">Process Payment</CardTitle>
+                                <CardDescription className="text-blue-700 dark:text-blue-300">Manage commission payouts</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="text-center">
+                                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-800">
+                                        <CreditCard className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                    <p className="text-3xl font-bold text-blue-900 dark:text-blue-100 mb-2">
+                                        {formatCurrency(wallet?.balance || 0)}
+                                    </p>
+                                    <p className="text-sm text-blue-700 dark:text-blue-300">Current Balance</p>
+                                </div>
+
+                                {wallet && wallet.balance > 0 && (
+                                    <Dialog open={showPayoutDialog} onOpenChange={setShowPayoutDialog}>
+                                        <DialogTrigger asChild>
+                                            <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-12">
+                                                <CreditCard className="mr-2 h-5 w-5" />
+                                                Pay Manager
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="sm:max-w-md">
+                                            <DialogHeader>
+                                                <DialogTitle className="text-xl">Process Payout</DialogTitle>
+                                                <DialogDescription className="text-base">
+                                                    Process a payout for <span className="font-semibold">{user.name}</span>
+                                                </DialogDescription>
+                                            </DialogHeader>
+                                            <form onSubmit={handlePayout}>
+                                                <div className="space-y-6">
+                                                    <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-4">
+                                                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                                                            Available balance: <span className="font-bold text-blue-900 dark:text-blue-100">{formatCurrency(wallet.balance)}</span>
+                                                        </p>
+                                                    </div>
+                                                    
+                                                    <div>
+                                                        <Label htmlFor="amount" className="text-sm font-medium">Amount</Label>
+                                                        <Input
+                                                            id="amount"
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0.01"
+                                                            max={wallet.balance}
+                                                            value={data.amount}
+                                                            onChange={(e) => setData('amount', e.target.value)}
+                                                            placeholder="Enter payout amount"
+                                                            className="mt-2"
+                                                        />
+                                                        {errors.amount && <p className="mt-1 text-sm text-destructive">{errors.amount}</p>}
+                                                    </div>
+
+                                                    <div>
+                                                        <Label htmlFor="notes" className="text-sm font-medium">Notes (Optional)</Label>
+                                                        <Textarea
+                                                            id="notes"
+                                                            value={data.notes}
+                                                            onChange={(e) => setData('notes', e.target.value)}
+                                                            placeholder="Add any notes about this payout"
+                                                            className="mt-2"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <DialogFooter className="mt-6">
+                                                    <Button type="button" variant="outline" onClick={() => setShowPayoutDialog(false)}>
+                                                        Cancel
+                                                    </Button>
+                                                    <Button type="submit" disabled={processing || !data.amount} className="bg-green-600 hover:bg-green-700">
+                                                        {processing ? 'Processing...' : 'Process Payout'}
+                                                    </Button>
+                                                </DialogFooter>
+                                            </form>
+                                        </DialogContent>
+                                    </Dialog>
+                                )}
+
+                                <div className="space-y-3 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600 dark:text-gray-400">Total Earned:</span>
+                                        <span className="font-medium">{formatCurrency(wallet?.total_earned || 0)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600 dark:text-gray-400">Total Paid Out:</span>
+                                        <span className="font-medium">{formatCurrency(wallet?.total_paid_out || 0)}</span>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
                     </div>
+                )}
 
-                    {/* Sales Statistics */}
-                    <div className="lg:col-span-2">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Sales Performance</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                                    <div className="text-center">
-                                        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900">
-                                            <ShoppingCart className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                {/* Commission Breakdown Details */}
+                {user.role === 'manager' && commissionBreakdown && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-xl font-semibold">Earnings Breakdown</CardTitle>
+                            <CardDescription>Detailed commission calculation based on sales thresholds</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                {!commissionBreakdown?.breakdown || commissionBreakdown.breakdown.length === 0 ? (
+                                    <div className="py-8 text-center">
+                                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+                                            <Award className="h-8 w-8 text-gray-400" />
                                         </div>
-                                        <p className="text-2xl font-bold">{salesStats.total_sales}</p>
-                                        <p className="text-sm text-muted-foreground">Total Sales</p>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">No commission earned yet</p>
+                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Start making sales to earn commission</p>
                                     </div>
-                                    <div className="text-center">
-                                        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900">
-                                            <DollarSign className="h-6 w-6 text-green-600 dark:text-green-400" />
+                                ) : (
+                                    commissionBreakdown.breakdown.map((item, index) => (
+                                        <div key={index} className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors">
+                                            <div className="flex items-center space-x-4">
+                                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
+                                                    <Award className="h-5 w-5 text-green-600 dark:text-green-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium">
+                                                        Bonus for {formatCurrency(item.threshold)} sales
+                                                    </p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {item.multiplier} × {formatCurrency(item.threshold)} = {formatCurrency(item.commission_earned)}
+                                                    </p>
+                                                    {item.description && (
+                                                        <p className="text-xs text-muted-foreground italic">"{item.description}"</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-lg font-bold text-green-600 dark:text-green-400">{formatCurrency(item.commission_earned)}</p>
+                                                <Badge variant="outline" className="mt-1">{item.multiplier}×</Badge>
+                                            </div>
                                         </div>
-                                        <p className="text-2xl font-bold">{formatCurrency(salesStats.total_revenue)}</p>
-                                        <p className="text-sm text-muted-foreground">Total Revenue</p>
-                                    </div>
-                                    <div className="text-center">
-                                        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900">
-                                            <TrendingUp className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                                        </div>
-                                        <p className="text-2xl font-bold">{salesStats.total_products_sold}</p>
-                                        <p className="text-sm text-muted-foreground">Products Sold</p>
-                                    </div>
-                                    <div className="text-center">
-                                        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900">
-                                            <Receipt className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-                                        </div>
-                                        <p className="text-2xl font-bold">{formatCurrency(salesStats.average_sale_value)}</p>
-                                        <p className="text-sm text-muted-foreground">Avg. Sale</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                </div>
+                                    ))
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Recent Sales */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>Recent Sales</CardTitle>
+                        <CardTitle className="text-xl font-semibold">Recent Sales</CardTitle>
+                        <CardDescription>Latest transactions and sales history</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {safeRecentSales.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b">
-                                            <th className="p-2 text-left">Sale ID</th>
-                                            <th className="p-2 text-left">Date</th>
-                                            <th className="p-2 text-left">Items</th>
-                                            <th className="p-2 text-left">Total</th>
-                                            <th className="p-2 text-left">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {safeRecentSales.map((sale) => (
-                                            <tr key={sale.id} className="border-b">
-                                                <td className="p-2 font-medium">#{sale.id}</td>
-                                                <td className="p-2 text-sm">{formatDate(sale.created_at)}</td>
-                                                <td className="p-2 text-sm">{sale.sale_items?.length || 0} items</td>
-                                                <td className="p-2 font-medium">{formatCurrency(sale.total_amount)}</td>
-                                                <td className="p-2">
-                                                    <div className="flex space-x-1">
-                                                        <Link href={`/receipts/${sale.id}`}>
-                                                            <Button variant="outline" size="sm">
-                                                                <Receipt className="mr-1 h-3 w-3" />
-                                                                View Receipt
-                                                            </Button>
-                                                        </Link>
-                                                        {user.role === 'manager' && (
-                                                            <Link href={`/manager/${user.id}`}>
-                                                                <Button variant="outline" size="sm">
-                                                                    <TrendingUp className="mr-1 h-3 w-3" />
-                                                                    View Sales
-                                                                </Button>
-                                                            </Link>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div className="space-y-4">
+                                {safeRecentSales.map((sale) => (
+                                    <div key={sale.id} className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors">
+                                        <div className="flex items-center space-x-4">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
+                                                <Receipt className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold">Sale #{sale.id}</p>
+                                                <p className="text-sm text-muted-foreground">{formatDate(sale.created_at)}</p>
+                                                <p className="text-xs text-muted-foreground">{sale.sale_items?.length || 0} items</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-lg font-bold text-green-600 dark:text-green-400">{formatCurrency(sale.total_amount)}</p>
+                                            <div className="flex items-center space-x-2 mt-2">
+                                                <Link href={`/receipts/${sale.id}`}>
+                                                    <Button variant="outline" size="sm" className="h-8 px-3">
+                                                        <Receipt className="h-3 w-3 mr-1" />
+                                                        Receipt
+                                                    </Button>
+                                                </Link>
+                                                {user.role === 'manager' && (
+                                                    <Link href={`/manager/${user.id}`}>
+                                                        <Button variant="outline" size="sm" className="h-8 px-3">
+                                                            <TrendingUp className="h-3 w-3 mr-1" />
+                                                            Sales
+                                                        </Button>
+                                                    </Link>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         ) : (
-                            <div className="py-8 text-center">
-                                <Receipt className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                                <p className="text-muted-foreground">No sales found for this user.</p>
+                            <div className="py-12 text-center">
+                                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+                                    <Receipt className="h-8 w-8 text-gray-400" />
+                                </div>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">No sales found for this user</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Sales will appear here once transactions are made</p>
                             </div>
                         )}
                     </CardContent>

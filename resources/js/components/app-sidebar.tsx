@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import {  LayoutGrid, Package, Plus, Receipt, Users } from 'lucide-react';
+import {  LayoutGrid, Package, Plus, Receipt, Users, DollarSign, Receipt as ReceiptIcon, Percent } from 'lucide-react';
 import AppLogo from './app-logo';
 
 interface User {
@@ -62,6 +62,26 @@ export function AppSidebar() {
             title: 'Users',
             href: '/users',
             icon: Users,
+        },
+        {
+            title: 'Manager Wallets',
+            href: '/wallets',
+            icon: DollarSign,
+        },
+        {
+            title: 'Expenses',
+            href: '/expenses',
+            icon: ReceiptIcon,
+        },
+        {
+            title: 'View All Sales',
+            href: '/sales',
+            icon: Receipt,
+        },
+        {
+            title: 'Commission Rates',
+            href: '/commission-rates',
+            icon: Percent,
         },
     ];
 

@@ -192,7 +192,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/', [WalletController::class, 'adminIndex'])->name('index');
             Route::get('/{manager}', [WalletController::class, 'show'])->name('show');
             Route::post('/{manager}/payout', [WalletController::class, 'processPayout'])->name('payout');
+            Route::post('/{manager}/sync', [WalletController::class, 'syncWallet'])->name('sync');
+            Route::post('/sync-all', [WalletController::class, 'syncAllWallets'])->name('sync-all');
         });
+
+        // Commission rates management
+        Route::resource('commission-rates', \App\Http\Controllers\CommissionRateController::class);
+        Route::post('/commission-rates/{commissionRate}/toggle', [\App\Http\Controllers\CommissionRateController::class, 'toggleStatus'])->name('commission-rates.toggle');
+        Route::post('/commission-rates/preview', [\App\Http\Controllers\CommissionRateController::class, 'preview'])->name('commission-rates.preview');
 
         // Expense management routes
         Route::resource('expenses', ExpenseController::class);

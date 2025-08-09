@@ -85,10 +85,50 @@ class UserController extends Controller
         // Get recent sales for display
         $recentSales = $user->sales->take(10);
 
+        // Add commission data for managers
+        $commissionData = [];
+        if ($user->isManager()) {
+            $totalSales = $user->sales->sum('total_amount');
+            
+            $wallet = $user->wallet()->firstOrCreate([
+                'user_id' => $user->id,
+            ], [
+                'balance' => 0,
+                'total_earned' => 0,
+                'total_paid_out' => 0,
+                'paid_sales' => 0,
+            ]);
+
+            $qualifiedSales = $wallet->getQualifiedSales($totalSales);
+            $qualifiedCommission = $wallet->getQualifiedCommission($totalSales);
+            $qualifiedCommissionBreakdown = $wallet->getQualifiedCommissionBreakdown($totalSales);
+            $carryForwardAmount = $wallet->getCarryForwardAmount($totalSales);
+            $nextMilestoneAmount = $wallet->getNextMilestoneAmount($totalSales);
+            
+            $commissionDifference = $qualifiedCommission - $wallet->balance;
+
+            // Ensure commissionBreakdown has the required structure
+            if (!isset($qualifiedCommissionBreakdown['breakdown'])) {
+                $qualifiedCommissionBreakdown['breakdown'] = [];
+            }
+
+            $commissionData = [
+                'totalSales' => $totalSales,
+                'qualifiedSales' => $qualifiedSales,
+                'carryForwardAmount' => $carryForwardAmount,
+                'expectedCommission' => $qualifiedCommission,
+                'commissionBreakdown' => $qualifiedCommissionBreakdown,
+                'nextMilestoneAmount' => $nextMilestoneAmount,
+                'commissionDifference' => $commissionDifference,
+                'wallet' => $wallet,
+            ];
+        }
+
         return Inertia::render('Users/Show', [
             'user' => $user,
             'salesStats' => $salesStats,
             'recentSales' => $recentSales,
+            ...$commissionData,
         ]);
     }
 

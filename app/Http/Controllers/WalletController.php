@@ -30,21 +30,42 @@ class WalletController extends Controller
             'total_paid_out' => 0,
         ]);
 
+        // Calculate current sales and commission data
+        $totalSales = $user->sales()->sum('total_amount');
+        $qualifiedSales = $wallet->getQualifiedSales($totalSales);
+        $qualifiedCommission = $wallet->getQualifiedCommission($totalSales);
+        $qualifiedCommissionBreakdown = $wallet->getQualifiedCommissionBreakdown($totalSales);
+        $carryForwardAmount = $wallet->getCarryForwardAmount($totalSales);
+        $nextMilestoneAmount = $wallet->getNextMilestoneAmount($totalSales);
+        
+        // Calculate commission difference (what should be added to balance)
+        $commissionDifference = $qualifiedCommission - $wallet->balance;
+        
+        // Calculate total earned from qualified sales (not cumulative)
+        $totalEarnedFromQualifiedSales = $qualifiedCommission;
+
+        // Ensure commissionBreakdown has the required structure
+        if (!isset($qualifiedCommissionBreakdown['breakdown'])) {
+            $qualifiedCommissionBreakdown['breakdown'] = [];
+        }
+
         $recentPayouts = $user->payouts()
             ->with('processedBy')
             ->latest()
             ->take(10)
             ->get();
 
-        $recentSales = $user->sales()
-            ->latest()
-            ->take(10)
-            ->get();
-
         return Inertia::render('Wallet/Index', [
             'wallet' => $wallet,
+            'totalSales' => $totalSales,
+            'qualifiedSales' => $qualifiedSales,
+            'carryForwardAmount' => $carryForwardAmount,
+            'commissionBreakdown' => $qualifiedCommissionBreakdown,
+            'nextMilestoneAmount' => $nextMilestoneAmount,
+            'expectedCommission' => $qualifiedCommission,
+            'commissionDifference' => $commissionDifference,
+            'totalEarnedFromQualifiedSales' => $totalEarnedFromQualifiedSales,
             'recentPayouts' => $recentPayouts,
-            'recentSales' => $recentSales,
         ]);
     }
 
@@ -66,21 +87,38 @@ class WalletController extends Controller
             ->map(function ($manager) {
                 $totalSales = $manager->sales->sum('total_amount');
                 $wallet = $manager->wallet;
+                $qualifiedSales = $wallet->getQualifiedSales($totalSales);
+                $qualifiedCommission = $wallet->getQualifiedCommission($totalSales);
+                $qualifiedCommissionBreakdown = $wallet->getQualifiedCommissionBreakdown($totalSales);
+                $carryForwardAmount = $wallet->getCarryForwardAmount($totalSales);
+                $nextMilestoneAmount = $wallet->getNextMilestoneAmount($totalSales);
+
+                // Ensure commissionBreakdown has the required structure
+                if (!isset($qualifiedCommissionBreakdown['breakdown'])) {
+                    $qualifiedCommissionBreakdown['breakdown'] = [];
+                }
 
                 return [
                     'id' => $manager->id,
                     'name' => $manager->name,
                     'email' => $manager->email,
                     'total_sales' => $totalSales,
+                    'qualified_sales' => $qualifiedSales,
+                    'carry_forward_amount' => $carryForwardAmount,
                     'sales_count' => $manager->sales_count,
+                    'expected_commission' => $qualifiedCommission,
+                    'next_milestone_amount' => $nextMilestoneAmount,
+                    'commission_breakdown' => $qualifiedCommissionBreakdown,
                     'wallet' => $wallet ? [
                         'balance' => $wallet->balance,
                         'total_earned' => $wallet->total_earned,
                         'total_paid_out' => $wallet->total_paid_out,
+                        'paid_sales' => $wallet->paid_sales,
                     ] : [
                         'balance' => 0,
                         'total_earned' => 0,
                         'total_paid_out' => 0,
+                        'paid_sales' => 0,
                     ],
                 ];
             });
@@ -114,11 +152,6 @@ class WalletController extends Controller
             ->latest()
             ->paginate(15);
 
-        $recentSales = $manager->sales()
-            ->latest()
-            ->take(20)
-            ->get();
-
         return Inertia::render('Wallet/Show', [
             'manager' => [
                 'id' => $manager->id,
@@ -127,7 +160,6 @@ class WalletController extends Controller
             ],
             'wallet' => $wallet,
             'payouts' => $payouts,
-            'recentSales' => $recentSales,
         ]);
     }
 
@@ -172,8 +204,85 @@ class WalletController extends Controller
 
             // Update wallet balance
             $wallet->processPayout($request->amount);
+            
+            // Update paid sales
+            $totalSales = $manager->sales()->sum('total_amount');
+            $wallet->updatePaidSales($request->amount, $totalSales);
         });
 
         return back()->with('success', 'Payout processed successfully.');
+    }
+
+    /**
+     * Sync wallet balance based on current sales for a manager.
+     */
+    public function syncWallet(Request $request, User $manager)
+    {
+        $user = $request->user();
+
+        if (!$user->isAdmin() || !$manager->isManager()) {
+            abort(403);
+        }
+
+        $totalSales = $manager->sales()->sum('total_amount');
+        $expectedCommission = \App\Models\CommissionRate::calculateCommission($totalSales);
+
+        $wallet = $manager->wallet()->firstOrCreate([
+            'user_id' => $manager->id,
+        ], [
+            'balance' => 0,
+            'total_earned' => 0,
+            'total_paid_out' => 0,
+        ]);
+
+        // Calculate the difference and update
+        $qualifiedCommission = $wallet->getQualifiedCommission($totalSales);
+        $commissionDifference = $qualifiedCommission - $wallet->balance;
+        
+        if ($commissionDifference > 0) {
+            $wallet->increment('balance', $commissionDifference);
+            $wallet->increment('total_earned', $commissionDifference);
+        }
+
+        return back()->with('success', 'Wallet balance synced successfully.');
+    }
+
+    /**
+     * Sync all manager wallets based on current sales.
+     */
+    public function syncAllWallets(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user->isAdmin()) {
+            abort(403);
+        }
+
+        $managers = User::where('role', 'manager')->get();
+        $syncedCount = 0;
+
+        foreach ($managers as $manager) {
+            $totalSales = $manager->sales()->sum('total_amount');
+            $expectedCommission = \App\Models\CommissionRate::calculateCommission($totalSales);
+
+            $wallet = $manager->wallet()->firstOrCreate([
+                'user_id' => $manager->id,
+            ], [
+                'balance' => 0,
+                'total_earned' => 0,
+                'total_paid_out' => 0,
+            ]);
+
+            $qualifiedCommission = $wallet->getQualifiedCommission($totalSales);
+            $commissionDifference = $qualifiedCommission - $wallet->balance;
+            
+            if ($commissionDifference > 0) {
+                $wallet->increment('balance', $commissionDifference);
+                $wallet->increment('total_earned', $commissionDifference);
+                $syncedCount++;
+            }
+        }
+
+        return back()->with('success', "Successfully synced {$syncedCount} manager wallets.");
     }
 }

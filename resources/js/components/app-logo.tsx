@@ -2,7 +2,7 @@ import AppLogoIcon from './app-logo-icon';
 
 export default function AppLogo() {
     // Get app name from shared data or fallback to environment variable
-    const appName = window.__INERTIA_PROPS__?.app?.name || import.meta.env.VITE_APP_NAME || 'Laravel';
+    const appName = (typeof window !== 'undefined' && window.__INERTIA_PROPS__?.app?.name) || import.meta.env.VITE_APP_NAME || 'Laravel';
 
     return (
         <>
