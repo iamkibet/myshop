@@ -1,8 +1,10 @@
 import AppLogoIcon from './app-logo-icon';
+import { usePage } from '@inertiajs/react';
 
 export default function AppLogo() {
+    const { app } = usePage().props;
     // Get app name from shared data or fallback to environment variable
-    const appName = (typeof window !== 'undefined' && window.__INERTIA_PROPS__?.app?.name) || import.meta.env.VITE_APP_NAME || 'Laravel';
+    const appName = app?.name || import.meta.env.VITE_APP_NAME || 'MyShop';
 
     return (
         <>

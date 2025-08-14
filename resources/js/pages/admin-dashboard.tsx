@@ -188,6 +188,7 @@ export default function AdminDashboard() {
     const [restockItems, setRestockItems] = useState<RestockItem[]>([]);
     const [restockLoading, setRestockLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
+
     const [restockRecommendations, setRestockRecommendations] = useState<{
         product_name: string;
         recommendations: Array<{
@@ -498,7 +499,7 @@ export default function AdminDashboard() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Admin Dashboard" />
-            <div className="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4">
+            <div className="flex h-full flex-1 flex-col gap-4 sm:gap-6 overflow-x-auto rounded-xl p-2 sm:p-4 pb-20 sm:pb-4">
                 {/* Success/Error Messages */}
                 {flash?.success && (
                     <div className="rounded-md border border-green-200 bg-green-50 p-4">
@@ -523,17 +524,17 @@ export default function AdminDashboard() {
                 )}
 
                 {/* Header */}
-                <div className="space-y-4">
-                    {/* Mobile Header - Compact and Creative */}
+                <div className="space-y-3 sm:space-y-4">
+                    {/* Mobile Header - Professional Design */}
                     <div className="sm:hidden">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg">
-                                    <BarChart3 className="h-5 w-5 text-white" />
+                        <div className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-4 text-white shadow-lg">
+                            <div className="flex items-center space-x-3">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+                                    <BarChart3 className="h-6 w-6 text-white" />
                                 </div>
                                 <div>
-                                    <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
-                                    <p className="text-xs text-muted-foreground">Analytics Overview</p>
+                                    <h1 className="text-xl font-bold">Dashboard</h1>
+                                    <p className="text-sm text-blue-100">Inventory Management</p>
                                 </div>
                             </div>
                             <div className="flex items-center space-x-2">
@@ -542,9 +543,9 @@ export default function AdminDashboard() {
                                     disabled={loading}
                                     variant="ghost"
                                     size="icon"
-                                    className="h-9 w-9 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
+                                    className="h-10 w-10 rounded-full bg-white/20 hover:bg-white/30 text-white border-0"
                                 >
-                                    <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                                    <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
                                 </Button>
                                 <NotificationsDropdown
                                     notifications={localNotifications}
@@ -554,21 +555,21 @@ export default function AdminDashboard() {
                             </div>
                         </div>
 
-                        {/* Mobile Filter Bar */}
-                        <div className="mt-4 flex items-center justify-between rounded-xl border bg-gradient-to-r from-gray-50 to-white p-3 shadow-sm dark:border-gray-700 dark:from-gray-800 dark:to-gray-900">
+                        {/* Mobile Filter Bar - Compact */}
+                        <div className="mt-3 flex items-center justify-between rounded-xl border bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                             <div className="flex items-center space-x-2">
                                 <Calendar className="h-4 w-4 text-muted-foreground" />
                                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Period:</span>
                             </div>
                             <Select value={dateRange} onValueChange={setDateRange}>
-                                <SelectTrigger className="h-8 w-32 border-0 bg-transparent p-0 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+                                <SelectTrigger className="h-8 w-28 border-0 bg-transparent p-0 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="day">Today</SelectItem>
-                                    <SelectItem value="week">This Week</SelectItem>
-                                    <SelectItem value="month">This Month</SelectItem>
-                                    <SelectItem value="year">This Year</SelectItem>
+                                    <SelectItem value="week">Week</SelectItem>
+                                    <SelectItem value="month">Month</SelectItem>
+                                    <SelectItem value="year">Year</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -604,7 +605,7 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Key Metrics */}
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Card className="border-l-4 border-l-green-500">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-xs font-medium sm:text-sm">
@@ -677,29 +678,120 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Charts and Analytics */}
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-                    <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
-                        <TabsTrigger value="overview">Overview</TabsTrigger>
-                        <TabsTrigger value="sales">Sales</TabsTrigger>
-                        <TabsTrigger value="inventory">Inventory</TabsTrigger>
-                        <TabsTrigger value="performance">Performance</TabsTrigger>
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3 sm:space-y-4">
+                    {/* Mobile Tabs - Horizontal Scrollable */}
+                    <div className="sm:hidden">
+                        <div className="flex space-x-1 overflow-x-auto pb-2 scrollbar-hide">
+                            <button
+                                onClick={() => setActiveTab('overview')}
+                                className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                                    activeTab === 'overview'
+                                        ? 'bg-blue-600 text-white shadow-lg'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                                }`}
+                            >
+                                Overview
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('sales')}
+                                className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                                    activeTab === 'sales'
+                                        ? 'bg-blue-600 text-white shadow-lg'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                                }`}
+                            >
+                                Sales
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('inventory')}
+                                className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                                    activeTab === 'inventory'
+                                        ? 'bg-blue-600 text-white shadow-lg'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                                }`}
+                            >
+                                Inventory
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('performance')}
+                                className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                                    activeTab === 'performance'
+                                        ? 'bg-blue-600 text-white shadow-lg'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                                }`}
+                            >
+                                Performance
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Desktop Tabs */}
+                    <TabsList className="hidden sm:grid w-full grid-cols-2 lg:grid-cols-4 overflow-x-auto">
+                        <TabsTrigger value="overview" className="whitespace-nowrap">Overview</TabsTrigger>
+                        <TabsTrigger value="sales" className="whitespace-nowrap">Sales</TabsTrigger>
+                        <TabsTrigger value="inventory" className="whitespace-nowrap">Inventory</TabsTrigger>
+                        <TabsTrigger value="performance" className="whitespace-nowrap">Performance</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="overview" className="space-y-4">
-                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <TabsContent value="overview" className="space-y-3 sm:space-y-4">
+                        {/* Mobile Overview Summary Cards */}
+                        <div className="sm:hidden space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="rounded-xl bg-gradient-to-br from-green-50 to-green-100 p-4 dark:from-green-900/30 dark:to-green-900/20">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-800">
+                                            <Activity className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium text-green-600 dark:text-green-400">Revenue</p>
+                                            <p className="text-lg font-bold text-green-800 dark:text-green-100">
+                                                {Array.isArray(sales?.salesTrends) && sales.salesTrends.length > 0
+                                                    ? formatChartNumber(
+                                                          sales.salesTrends.reduce(
+                                                              (sum: number, day: { revenue: number }) => sum + (day.revenue || 0),
+                                                              0,
+                                                          ),
+                                                      )
+                                                    : '0'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 p-4 dark:from-blue-900/30 dark:to-blue-900/20">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-800">
+                                            <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Orders</p>
+                                            <p className="text-lg font-bold text-blue-800 dark:text-blue-100">
+                                                {Array.isArray(sales?.salesTrends) && sales.salesTrends.length > 0
+                                                    ? sales.salesTrends.reduce(
+                                                          (sum: number, day: { orders: number }) => sum + (day.orders || 0),
+                                                          0,
+                                                      )
+                                                    : '0'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-2">
                             {/* Sales Trends Chart */}
                             <Card className="border-0 shadow-sm">
                                 <CardHeader className="px-4 py-4 md:px-6">
                                     <CardTitle className="flex items-center gap-2">
                                         <Activity className="h-5 w-5 text-blue-600" />
-                                        <span>Sales Performance (30 Days) - KSH</span>
+                                        <span className="text-sm sm:text-base">Sales Performance (30 Days) - KSH</span>
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="px-4 pb-6 md:px-6">
                                     {Array.isArray(sales?.salesTrends) && sales.salesTrends.length > 0 ? (
-                                        <div className="space-y-6">
-                                            {/* Summary Cards */}
-                                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
+                                        <div className="space-y-4 sm:space-y-6">
+                                            {/* Summary Cards - Desktop Only */}
+                                            <div className="hidden sm:grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
                                                 <div className="rounded-lg border bg-gradient-to-br from-green-50 to-green-100 p-3 sm:p-4 dark:from-green-900/30 dark:to-green-900/20">
                                                     <div className="mb-1 text-xs font-medium text-green-600 sm:text-sm dark:text-green-400">
                                                         Total Revenue
@@ -730,7 +822,7 @@ export default function AdminDashboard() {
                                                     <div className="mb-1 text-xs font-medium text-purple-600 sm:text-sm dark:text-purple-400">
                                                         Avg Daily Revenue
                                                     </div>
-                                                    <div className="text-lg font-bold text-purple-800 sm:text-xl lg:text-2xl dark:text-purple-100">
+                                                    <div className="text-lg font-bold text-purple-800 sm:text-xl lg:text-2xl dark:text-green-100">
                                                         {sales.salesTrends.length > 0
                                                             ? formatChartNumber(
                                                                   Math.round(
@@ -746,7 +838,7 @@ export default function AdminDashboard() {
                                             </div>
 
                                             {/* Chart */}
-                                            <div className="h-48 sm:h-64 lg:h-80">
+                                            <div className="h-48 sm:h-64 lg:h-80 w-full overflow-hidden">
                                                 <ResponsiveContainer width="100%" height="100%">
                                                     <AreaChart data={sales.salesTrends} margin={{ top: 10, right: 10, left: 0, bottom: 30 }}>
                                                         <defs>
@@ -845,12 +937,12 @@ export default function AdminDashboard() {
                                 <CardHeader className="px-4 py-4 md:px-6">
                                     <CardTitle className="flex items-center gap-2">
                                         <TrendingUp className="h-5 w-5 text-green-600" />
-                                        <span>Profit Analysis (30 Days) - KSH</span>
+                                        <span className="text-sm sm:text-base">Profit Analysis (30 Days) - KSH</span>
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="px-4 pb-6 md:px-6">
                                     {Array.isArray(profits?.profitTrends) && profits.profitTrends.length > 0 ? (
-                                        <div className="space-y-6">
+                                        <div className="space-y-4 sm:space-y-6">
                                             {/* Summary Cards */}
                                             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
                                                 <div className="rounded-lg border bg-gradient-to-br from-green-50 to-green-100 p-3 sm:p-4 dark:from-green-900/30 dark:to-green-900/20">
@@ -882,7 +974,7 @@ export default function AdminDashboard() {
                                             </div>
 
                                             {/* Chart */}
-                                            <div className="h-48 sm:h-64 lg:h-80">
+                                            <div className="h-48 sm:h-64 lg:h-80 w-full overflow-hidden">
                                                 <ResponsiveContainer width="100%" height="100%">
                                                     <LineChart data={profits.profitTrends} margin={{ top: 10, right: 10, left: 0, bottom: 30 }}>
                                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
@@ -965,8 +1057,41 @@ export default function AdminDashboard() {
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="sales" className="space-y-4">
-                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <TabsContent value="sales" className="space-y-3 sm:space-y-4">
+                        {/* Mobile Sales Summary Cards */}
+                        <div className="sm:hidden space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="rounded-xl bg-gradient-to-br from-green-50 to-green-100 p-4 dark:from-green-900/30 dark:to-green-900/20">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-800">
+                                            <Target className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium text-green-600 dark:text-green-400">Top Products</p>
+                                            <p className="text-lg font-bold text-green-800 dark:text-green-100">
+                                                {Array.isArray(sales?.bestSellingProducts) ? sales.bestSellingProducts.length : 0}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 p-4 dark:from-blue-900/30 dark:to-blue-900/20">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-800">
+                                            <ShoppingCart className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Categories</p>
+                                            <p className="text-lg font-bold text-blue-800 dark:text-blue-100">
+                                                {Array.isArray(sales?.salesByCategory) ? sales.salesByCategory.length : 0}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Desktop Grid Layout */}
+                        <div className="hidden sm:grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-2">
                             {/* Best Selling Products */}
                             <Card>
                                 <CardHeader>
@@ -980,16 +1105,22 @@ export default function AdminDashboard() {
                                         {Array.isArray(sales?.bestSellingProducts)
                                             ? (Array.isArray(sales.bestSellingProducts) ? sales.bestSellingProducts.slice(0, 5) : []).map(
                                                   (product, index) => (
-                                                      <div key={index} className="flex items-center justify-between rounded-lg border p-3">
-                                                          <div>
-                                                              <p className="font-medium">{product.product_name}</p>
-                                                              <p className="text-sm text-muted-foreground">{product.variant_info}</p>
+                                                      <Link 
+                                                          key={index} 
+                                                          href={`/products?search=${encodeURIComponent(product.product_name)}`}
+                                                          className="block"
+                                                      >
+                                                          <div className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors cursor-pointer hover:border-green-300 hover:shadow-sm">
+                                                              <div>
+                                                                  <p className="font-medium hover:text-green-700 dark:hover:text-green-300">{product.product_name}</p>
+                                                                  <p className="text-sm text-muted-foreground">{product.variant_info}</p>
+                                                              </div>
+                                                              <div className="text-right">
+                                                                  <p className="font-medium">{product.total_sold} sold</p>
+                                                                  <p className="text-sm text-muted-foreground">{formatCurrency(product.total_revenue)}</p>
+                                                              </div>
                                                           </div>
-                                                          <div className="text-right">
-                                                              <p className="font-medium">{product.total_sold} sold</p>
-                                                              <p className="text-sm text-muted-foreground">{formatCurrency(product.total_revenue)}</p>
-                                                          </div>
-                                                      </div>
+                                                      </Link>
                                                   ),
                                               )
                                             : null}
@@ -1026,10 +1157,127 @@ export default function AdminDashboard() {
                                 </CardContent>
                             </Card>
                         </div>
+
+                        {/* Mobile Product Cards */}
+                        <div className="sm:hidden space-y-3">
+                            {/* Best Selling Products Mobile */}
+                            <Card>
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="flex items-center text-base">
+                                        <Target className="mr-2 h-5 w-5 text-green-600" />
+                                        Best Selling Products
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-0">
+                                    <div className="space-y-3">
+                                        {Array.isArray(sales?.bestSellingProducts)
+                                            ? (Array.isArray(sales.bestSellingProducts) ? sales.bestSellingProducts.slice(0, 3) : []).map(
+                                                  (product, index) => (
+                                                      <Link 
+                                                          key={index} 
+                                                          href={`/products?search=${encodeURIComponent(product.product_name)}`}
+                                                          className="block"
+                                                      >
+                                                          <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors cursor-pointer hover:border-green-300 hover:shadow-sm">
+                                                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-sm font-bold text-green-600 dark:bg-green-800 dark:text-green-400">
+                                                                {index + 1}
+                                                            </div>
+                                                              <div className="flex-1 min-w-0">
+                                                                  <p className="font-medium text-sm truncate hover:text-green-700 dark:hover:text-green-300">{product.product_name}</p>
+                                                                  <p className="text-xs text-muted-foreground truncate">{product.variant_info}</p>
+                                                              </div>
+                                                              <div className="text-right">
+                                                                  <p className="text-sm font-medium">{product.total_sold} sold</p>
+                                                                  <p className="text-xs text-muted-foreground">{formatCurrency(product.total_revenue)}</p>
+                                                              </div>
+                                                          </div>
+                                                      </Link>
+                                                  ),
+                                              )
+                                            : (
+                                                <div className="text-center py-6 text-muted-foreground">
+                                                    <Target className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                                                    <p className="text-sm">No sales data available</p>
+                                                </div>
+                                            )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Sales by Category Mobile */}
+                            <Card>
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="flex items-center text-base">
+                                        <ShoppingCart className="mr-2 h-5 w-5 text-blue-600" />
+                                        Sales by Category
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-0">
+                                    <div className="space-y-3">
+                                        {Array.isArray(sales?.salesByCategory)
+                                            ? (Array.isArray(sales.salesByCategory) ? sales.salesByCategory.slice(0, 3) : []).map(
+                                                  (category, index) => (
+                                                      <div key={index} className="flex items-center space-x-3 rounded-lg border p-3">
+                                                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-600 dark:bg-blue-800 dark:text-blue-400">
+                                                            {index + 1}
+                                                        </div>
+                                                          <div className="flex-1 min-w-0">
+                                                              <p className="font-medium text-sm truncate">{category.category}</p>
+                                                              <p className="text-xs text-muted-foreground">{category.total_sold} units sold</p>
+                                                          </div>
+                                                          <div className="text-right">
+                                                              <p className="text-sm font-medium">{formatCurrency(category.total_revenue)}</p>
+                                                          </div>
+                                                      </div>
+                                                  ),
+                                              )
+                                            : (
+                                                <div className="text-center py-6 text-muted-foreground">
+                                                    <ShoppingCart className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                                                    <p className="text-sm">No category data available</p>
+                                                </div>
+                                            )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
                     </TabsContent>
 
-                    <TabsContent value="inventory" className="space-y-4">
-                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <TabsContent value="inventory" className="space-y-3 sm:space-y-4">
+                        {/* Mobile Inventory Summary Cards */}
+                        <div className="sm:hidden space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="rounded-xl bg-gradient-to-br from-amber-50 to-amber-100 p-4 dark:from-amber-900/30 dark:to-amber-900/20">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-800">
+                                            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Low Stock</p>
+                                            <p className="text-lg font-bold text-amber-800 dark:text-amber-100">
+                                                {Array.isArray(inventory?.lowStockProducts) ? inventory.lowStockProducts.length : 0}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="rounded-xl bg-gradient-to-br from-red-50 to-red-100 p-4 dark:from-red-900/30 dark:to-red-900/20">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 dark:bg-red-800">
+                                            <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-medium text-red-600 dark:text-red-400">Out of Stock</p>
+                                            <p className="text-lg font-bold text-red-800 dark:text-red-100">
+                                                {Array.isArray(inventory?.outOfStockProducts) ? inventory.outOfStockProducts.length : 0}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Desktop Grid Layout */}
+                        <div className="hidden sm:grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-2">
                             {/* Low Stock Products */}
                             <Card>
                                 <CardHeader>
@@ -1089,89 +1337,168 @@ export default function AdminDashboard() {
                             </Card>
                         </div>
 
-                        {/* Restock Action */}
-                        {restockItems.length > 0 ? (
+                        {/* Mobile Inventory Cards */}
+                        <div className="sm:hidden space-y-3">
+                            {/* Low Stock Products Mobile */}
                             <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center">
-                                        <Zap className="mr-2 h-5 w-5" />
-                                        Quick Restock
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="flex items-center text-base">
+                                        <AlertTriangle className="mr-2 h-5 w-5 text-amber-600" />
+                                        Low Stock Products
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent>
-                                    <Dialog open={restockDialogOpen} onOpenChange={setRestockDialogOpen}>
-                                        <DialogTrigger asChild>
-                                            <Button className="w-full">
-                                                <Plus className="mr-2 h-4 w-4" />
-                                                Restock Low Stock Items
-                                            </Button>
-                                        </DialogTrigger>
-                                        <DialogContent className="max-w-2xl">
-                                            <DialogHeader>
-                                                <DialogTitle>Restock Inventory</DialogTitle>
-                                            </DialogHeader>
-                                            <div className="space-y-4">
-                                                {restockItems.map((item, index) => (
-                                                    <div key={index} className="flex items-center justify-between rounded-lg border p-3">
-                                                        <div className="flex-1">
-                                                            <p className="font-medium">{item.product_name}</p>
-                                                            <p className="text-sm text-muted-foreground">{item.variant_info}</p>
-                                                            <p className="text-xs text-muted-foreground">Current: {item.current_stock}</p>
+                                <CardContent className="pt-0">
+                                    <div className="space-y-3">
+                                        {Array.isArray(inventory?.lowStockProducts) && inventory.lowStockProducts.length > 0
+                                            ? (Array.isArray(inventory.lowStockProducts) ? inventory.lowStockProducts.slice(0, 3) : []).map(
+                                                  (product, index) => (
+                                                      <div key={index} className="flex items-center space-x-3 rounded-lg border p-3">
+                                                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-sm font-bold text-amber-600 dark:bg-amber-800 dark:text-amber-400">
+                                                            {index + 1}
                                                         </div>
-                                                        <div className="flex items-center space-x-2">
-                                                            <Label htmlFor={`quantity-${index}`}>New Quantity:</Label>
-                                                            <Input
-                                                                id={`quantity-${index}`}
-                                                                type="number"
-                                                                value={item.new_quantity}
-                                                                onChange={(e) => updateRestockQuantity(index, parseInt(e.target.value) || 0)}
-                                                                className="w-20"
-                                                                min="0"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                                <Separator />
-                                                <div className="flex justify-end space-x-2">
-                                                    <Button variant="outline" onClick={() => setRestockDialogOpen(false)}>
-                                                        Cancel
-                                                    </Button>
-                                                    <Button onClick={handleRestock} disabled={restockLoading}>
-                                                        {restockLoading ? (
-                                                            <>
-                                                                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                                                Restocking...
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Plus className="mr-2 h-4 w-4" />
-                                                                Restock Items
-                                                            </>
-                                                        )}
-                                                    </Button>
+                                                          <div className="flex-1 min-w-0">
+                                                              <p className="font-medium text-sm truncate">{product.product_name}</p>
+                                                              <p className="text-xs text-muted-foreground truncate">{product.variant_info}</p>
+                                                          </div>
+                                                          <div className="text-right">
+                                                              <Badge variant="secondary" className="text-xs">{product.current_stock} left</Badge>
+                                                          </div>
+                                                      </div>
+                                                  ),
+                                              )
+                                            : (
+                                                <div className="text-center py-6 text-muted-foreground">
+                                                    <AlertTriangle className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                                                    <p className="text-sm">No low stock products</p>
                                                 </div>
-                                            </div>
-                                        </DialogContent>
-                                    </Dialog>
-                                </CardContent>
-                            </Card>
-                        ) : (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center">
-                                        <Zap className="mr-2 h-5 w-5" />
-                                        Inventory Status
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="py-4 text-center">
-                                        <Package className="mx-auto mb-2 h-12 w-12 text-green-500" />
-                                        <p className="text-lg font-medium text-green-600">All Products Well Stocked!</p>
-                                        <p className="text-sm text-muted-foreground">No low stock or out of stock items found.</p>
+                                            )}
                                     </div>
                                 </CardContent>
                             </Card>
-                        )}
+
+                            {/* Out of Stock Products Mobile */}
+                            <Card>
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="flex items-center text-base">
+                                        <XCircle className="mr-2 h-5 w-5 text-red-600" />
+                                        Out of Stock Products
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-0">
+                                    <div className="space-y-3">
+                                        {Array.isArray(inventory?.outOfStockProducts) && inventory.outOfStockProducts.length > 0
+                                            ? (Array.isArray(inventory.outOfStockProducts) ? inventory.outOfStockProducts.slice(0, 3) : []).map(
+                                                  (product, index) => (
+                                                      <div key={index} className="flex items-center space-x-3 rounded-lg border p-3">
+                                                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-sm font-bold text-red-600 dark:bg-red-800 dark:text-red-400">
+                                                            {index + 1}
+                                                        </div>
+                                                          <div className="flex-1 min-w-0">
+                                                              <p className="font-medium text-sm truncate">{product.product_name}</p>
+                                                              <p className="text-xs text-muted-foreground truncate">{product.variant_info}</p>
+                                                          </div>
+                                                          <div className="text-right">
+                                                              <Badge variant="destructive" className="text-xs">Out of Stock</Badge>
+                                                          </div>
+                                                      </div>
+                                                  ),
+                                              )
+                                            : (
+                                                <div className="text-center py-6 text-muted-foreground">
+                                                    <XCircle className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                                                    <p className="text-sm">No out of stock products</p>
+                                                </div>
+                                            )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* Restock Action */}
+                        <div className="pb-4 sm:pb-0">
+                            {restockItems.length > 0 ? (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center">
+                                            <Zap className="mr-2 h-5 w-5" />
+                                            Quick Restock
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <Dialog open={restockDialogOpen} onOpenChange={setRestockDialogOpen}>
+                                            <DialogTrigger asChild>
+                                                <Button className="w-full">
+                                                    <Plus className="mr-2 h-4 w-4" />
+                                                    Restock Low Stock Items
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className="max-w-2xl">
+                                                <DialogHeader>
+                                                    <DialogTitle>Restock Inventory</DialogTitle>
+                                                </DialogHeader>
+                                                <div className="space-y-4">
+                                                    {restockItems.map((item, index) => (
+                                                        <div key={index} className="flex items-center justify-between rounded-lg border p-3">
+                                                            <div className="flex-1">
+                                                                <p className="font-medium">{item.product_name}</p>
+                                                                <p className="text-sm text-muted-foreground">{item.variant_info}</p>
+                                                                <p className="text-xs text-muted-foreground">Current: {item.current_stock}</p>
+                                                            </div>
+                                                            <div className="flex items-center space-x-2">
+                                                                <Label htmlFor={`quantity-${index}`}>New Quantity:</Label>
+                                                                <Input
+                                                                    id={`quantity-${index}`}
+                                                                    type="number"
+                                                                    value={item.new_quantity}
+                                                                    onChange={(e) => updateRestockQuantity(index, parseInt(e.target.value) || 0)}
+                                                                    className="w-20"
+                                                                    min="0"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    <Separator />
+                                                    <div className="flex justify-end space-x-2">
+                                                        <Button variant="outline" onClick={() => setRestockDialogOpen(false)}>
+                                                            Cancel
+                                                        </Button>
+                                                        <Button onClick={handleRestock} disabled={restockLoading}>
+                                                            {restockLoading ? (
+                                                                <>
+                                                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                                                    Restocking...
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Plus className="mr-2 h-4 w-4" />
+                                                                    Restock Items
+                                                                </>
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </CardContent>
+                                </Card>
+                            ) : (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center">
+                                            <Zap className="mr-2 h-5 w-5" />
+                                            Inventory Status
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="py-4 text-center">
+                                            <Package className="mx-auto mb-2 h-12 w-12 text-green-500" />
+                                            <p className="text-lg font-medium text-green-600">All Products Well Stocked!</p>
+                                            <p className="text-sm text-muted-foreground">No low stock or out of stock items found.</p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </div>
 
                         {/* Smart Restock Dialog */}
                         <Dialog open={smartRestockDialogOpen} onOpenChange={setSmartRestockDialogOpen}>
@@ -1250,39 +1577,139 @@ export default function AdminDashboard() {
                         </Dialog>
                     </TabsContent>
 
-                    <TabsContent value="performance" className="space-y-4">
-                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                            {/* Top Managers */}
+                    <TabsContent value="performance" className="space-y-3 sm:space-y-4">
+                        {/* Performance Overview Header */}
+                        <div className="text-center mb-6">
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Performance Analytics</h2>
+                            <p className="text-gray-600 dark:text-gray-400">Top performers across products, managers, and categories</p>
+                        </div>
+
+                        {/* Mobile Performance Summary Cards */}
+                        <div className="sm:hidden space-y-3">
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 dark:from-emerald-900/30 dark:to-emerald-900/20">
+                                    <div className="flex flex-col items-center text-center">
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-800 mb-2">
+                                            <Package className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                                        </div>
+                                        <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Top Products</p>
+                                        <p className="text-lg font-bold text-emerald-800 dark:text-emerald-100">
+                                            {topEntities?.topProducts?.length || 0}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 p-4 dark:from-purple-900/30 dark:to-purple-900/20">
+                                    <div className="flex flex-col items-center text-center">
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-800 mb-2">
+                                            <User className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                                        </div>
+                                        <p className="text-xs font-medium text-purple-600 dark:text-purple-400">Top Managers</p>
+                                        <p className="text-lg font-bold text-purple-800 dark:text-purple-100">
+                                            {topEntities?.topManagers?.length || 0}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 p-4 dark:from-indigo-900/30 dark:to-indigo-900/20">
+                                    <div className="flex flex-col items-center text-center">
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-800 mb-2">
+                                            <BarChart3 className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                                        </div>
+                                        <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">Top Categories</p>
+                                        <p className="text-lg font-bold text-indigo-800 dark:text-indigo-100">
+                                            {topEntities?.topCategories?.length || 0}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Desktop Performance Grid */}
+                        <div className="hidden sm:grid grid-cols-1 gap-6 xl:grid-cols-3">
+                            {/* Top Selling Products */}
+                            {topEntities?.topProducts && topEntities.topProducts.length > 0 && (
+                                <Card className="xl:col-span-1">
+                                    <CardHeader className="pb-4">
+                                        <CardTitle className="flex items-center text-lg">
+                                            <Package className="mr-2 h-5 w-5 text-emerald-600" />
+                                            Top Selling Products
+                                        </CardTitle>
+                                        <p className="text-sm text-muted-foreground">Best performing products by units sold</p>
+                                    </CardHeader>
+                                    <CardContent className="pt-0">
+                                        <div className="space-y-3">
+                                            {(Array.isArray(topEntities?.topProducts) ? topEntities.topProducts : []).slice(0, 5).map((product, index) => (
+                                                <div key={index} className="group relative">
+                                                    <Link 
+                                                        href={`/products?search=${encodeURIComponent(product.product_name)}`}
+                                                        className="block"
+                                                    >
+                                                        <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer group-hover:border-emerald-300 group-hover:shadow-sm">
+                                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-600 dark:bg-emerald-800 dark:text-emerald-400">
+                                                                {index + 1}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="font-medium text-sm truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-300">{product.product_name}</p>
+                                                                <p className="text-xs text-muted-foreground truncate">{product.variant_info}</p>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-sm font-semibold text-emerald-600">{product.total_sold} sold</p>
+                                                                <p className="text-xs text-muted-foreground">{formatCurrency(product.total_revenue)}</p>
+                                                            </div>
+                                                        </div>
+                                                    </Link>
+                                                    {index === 0 && (
+                                                        <div className="absolute -top-2 -right-2">
+                                                            <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 text-[10px] px-1.5 py-0.5 rounded-full font-bold shadow-sm border border-yellow-300">
+                                                                🏆
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Top Performing Managers */}
                             {topEntities?.topManagers && topEntities.topManagers.length > 0 && (
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center">
-                                            <User className="mr-2 h-5 w-5" />
+                                <Card className="xl:col-span-1">
+                                    <CardHeader className="pb-4">
+                                        <CardTitle className="flex items-center text-lg">
+                                            <User className="mr-2 h-5 w-5 text-purple-600" />
                                             Top Performing Managers
                                         </CardTitle>
+                                        <p className="text-sm text-muted-foreground">Managers with highest sales performance</p>
                                     </CardHeader>
-                                    <CardContent>
+                                    <CardContent className="pt-0">
                                         <div className="space-y-3">
-                                            {(Array.isArray(topEntities?.topManagers) ? topEntities.topManagers : []).map((manager, index) => (
-                                                <div key={index} className="flex items-center justify-between rounded-lg border p-3">
-                                                    <div className="flex items-center space-x-3">
-                                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
+                                            {(Array.isArray(topEntities?.topManagers) ? topEntities.topManagers : []).slice(0, 5).map((manager, index) => (
+                                                <div key={index} className="group relative">
+                                                    <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors">
+                                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-sm font-bold text-purple-600 dark:bg-purple-800 dark:text-purple-400">
                                                             {index + 1}
                                                         </div>
-                                                        <div>
-                                                            <p className="font-medium">{manager.manager_name}</p>
-                                                            <p className="text-sm text-muted-foreground">{manager.sales_count} sales</p>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-medium text-sm truncate">{manager.manager_name}</p>
+                                                            <p className="text-xs text-muted-foreground">{manager.sales_count} sales</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-sm font-semibold text-purple-600">{formatCurrency(manager.total_revenue)}</p>
+                                                            <Link
+                                                                href={`/manager/${manager.manager_id}`}
+                                                                className="text-xs text-blue-600 hover:underline block mt-1"
+                                                            >
+                                                                View Details
+                                                            </Link>
                                                         </div>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <p className="font-medium">{formatCurrency(manager.total_revenue)}</p>
-                                                        <Link
-                                                            href={`/manager/${manager.manager_id}`}
-                                                            className="text-sm text-blue-600 hover:underline"
-                                                        >
-                                                            View Sales
-                                                        </Link>
-                                                    </div>
+                                                    {index === 0 && (
+                                                        <div className="absolute -top-2 -right-2">
+                                                            <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 text-[10px] px-1.5 py-0.5 rounded-full font-bold shadow-sm border border-yellow-300">
+                                                                🏆
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -1291,32 +1718,217 @@ export default function AdminDashboard() {
                             )}
 
                             {/* Top Categories */}
-                            {topEntities?.topCategories?.length > 0 && (
+                            {topEntities?.topCategories && topEntities.topCategories.length > 0 && (
+                                <Card className="xl:col-span-1">
+                                    <CardHeader className="pb-4">
+                                        <CardTitle className="flex items-center text-lg">
+                                            <BarChart3 className="mr-2 h-5 w-5 text-indigo-600" />
+                                            Top Categories
+                                        </CardTitle>
+                                        <p className="text-sm text-muted-foreground">Categories with highest sales volume</p>
+                                    </CardHeader>
+                                    <CardContent className="pt-0">
+                                        <div className="space-y-3">
+                                            {(Array.isArray(topEntities?.topCategories) ? topEntities.topCategories : []).slice(0, 5).map((category, index) => (
+                                                <div key={index} className="group relative">
+                                                    <div className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors">
+                                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-600 dark:bg-indigo-800 dark:text-indigo-400">
+                                                            {index + 1}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-medium text-sm truncate">{category.category}</p>
+                                                            <p className="text-xs text-muted-foreground">{category.total_sold} units sold</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-sm font-semibold text-indigo-600">{formatCurrency(category.total_revenue)}</p>
+                                                        </div>
+                                                    </div>
+                                                    {index === 0 && (
+                                                        <div className="absolute -top-2 -right-2">
+                                                            <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 text-[10px] px-1.5 py-0.5 rounded-full font-bold shadow-sm border border-yellow-300">
+                                                                🏆
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </div>
+
+                        {/* Mobile Performance Cards */}
+                        <div className="sm:hidden space-y-3">
+                            {/* Top Products Mobile */}
+                            {topEntities?.topProducts && topEntities.topProducts.length > 0 ? (
                                 <Card>
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center">
-                                            <Package className="mr-2 h-5 w-5" />
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="flex items-center text-base">
+                                            <Package className="mr-2 h-5 w-5 text-emerald-600" />
+                                            Top Selling Products
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-0">
+                                        <div className="space-y-3">
+                                            {(Array.isArray(topEntities?.topProducts) ? topEntities.topProducts : []).slice(0, 3).map((product, index) => (
+                                                <div key={index} className="group relative">
+                                                    <Link 
+                                                        href={`/products?search=${encodeURIComponent(product.product_name)}`}
+                                                        className="block"
+                                                    >
+                                                        <div className="flex items-center space-x-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors cursor-pointer group-hover:border-emerald-300 group-hover:shadow-sm">
+                                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-600 dark:bg-emerald-800 dark:text-emerald-400">
+                                                                {index + 1}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="font-medium text-sm truncate group-hover:text-emerald-700 dark:group-hover:text-emerald-300">{product.product_name}</p>
+                                                                <p className="text-xs text-muted-foreground truncate">{product.variant_info}</p>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-sm font-medium text-emerald-600">{product.total_sold} sold</p>
+                                                                <p className="text-xs text-muted-foreground">{formatCurrency(product.total_revenue)}</p>
+                                                            </div>
+                                                        </div>
+                                                    </Link>
+                                                    {index === 0 && (
+                                                        <div className="absolute -top-2 -right-2">
+                                                            <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 text-[10px] px-1.5 py-0.5 rounded-full font-bold shadow-sm border border-yellow-300">
+                                                                🏆
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ) : (
+                                <Card>
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="flex items-center text-base">
+                                            <Package className="mr-2 h-5 w-5 text-emerald-600" />
+                                            Top Selling Products
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-0">
+                                        <div className="text-center py-6 text-muted-foreground">
+                                            <Package className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                                            <p className="text-sm">No product data available</p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Top Managers Mobile */}
+                            {topEntities?.topManagers && topEntities.topManagers.length > 0 ? (
+                                <Card>
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="flex items-center text-base">
+                                            <User className="mr-2 h-5 w-5 text-purple-600" />
+                                            Top Performing Managers
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-0">
+                                        <div className="space-y-3">
+                                            {(Array.isArray(topEntities?.topManagers) ? topEntities.topManagers : []).slice(0, 3).map((manager, index) => (
+                                                <div key={index} className="group relative">
+                                                    <div className="flex items-center space-x-3 rounded-lg border p-3">
+                                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 text-sm font-bold text-purple-600 dark:bg-purple-800 dark:text-purple-400">
+                                                            {index + 1}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-medium text-sm truncate">{manager.manager_name}</p>
+                                                            <p className="text-xs text-muted-foreground">{manager.sales_count} sales</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-sm font-medium">{formatCurrency(manager.total_revenue)}</p>
+                                                            <Link
+                                                                href={`/manager/${manager.manager_id}`}
+                                                                className="text-xs text-blue-600 hover:underline block mt-1"
+                                                            >
+                                                                View Sales
+                                                            </Link>
+                                                        </div>
+                                                    </div>
+                                                    {index === 0 && (
+                                                        <div className="absolute -top-2 -right-2">
+                                                            <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 text-[10px] px-1.5 py-0.5 rounded-full font-bold shadow-sm border border-yellow-300">
+                                                                🏆
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ) : (
+                                <Card>
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="flex items-center text-base">
+                                            <User className="mr-2 h-5 w-5 text-purple-600" />
+                                            Top Performing Managers
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-0">
+                                        <div className="text-center py-6 text-muted-foreground">
+                                            <User className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                                            <p className="text-sm">No manager data available</p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Top Categories Mobile */}
+                            {topEntities?.topCategories?.length > 0 ? (
+                                <Card>
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="flex items-center text-base">
+                                            <Package className="mr-2 h-5 w-5 text-indigo-600" />
                                             Top Categories
                                         </CardTitle>
                                     </CardHeader>
-                                    <CardContent>
+                                    <CardContent className="pt-0">
                                         <div className="space-y-3">
-                                            {(Array.isArray(topEntities?.topCategories) ? topEntities.topCategories : []).map((category, index) => (
-                                                <div key={index} className="flex items-center justify-between rounded-lg border p-3">
-                                                    <div className="flex items-center space-x-3">
-                                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-sm font-bold">
+                                            {(Array.isArray(topEntities?.topCategories) ? topEntities.topCategories : []).slice(0, 3).map((category, index) => (
+                                                <div key={index} className="group relative">
+                                                    <div className="flex items-center space-x-3 rounded-lg border p-3">
+                                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-600 dark:bg-indigo-800 dark:text-indigo-400">
                                                             {index + 1}
                                                         </div>
-                                                        <div>
-                                                            <p className="font-medium">{category.category}</p>
-                                                            <p className="text-sm text-muted-foreground">{category.total_sold} units sold</p>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-medium text-sm truncate">{category.category}</p>
+                                                            <p className="text-xs text-muted-foreground">{category.total_sold} units sold</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-sm font-medium">{formatCurrency(category.total_revenue)}</p>
                                                         </div>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <p className="font-medium">{formatCurrency(category.total_revenue)}</p>
-                                                    </div>
+                                                    {index === 0 && (
+                                                        <div className="absolute -top-2 -right-2">
+                                                            <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 text-[10px] px-1.5 py-0.5 rounded-full font-bold shadow-sm border border-yellow-300">
+                                                                🏆
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ) : (
+                                <Card>
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="flex items-center text-base">
+                                            <Package className="mr-2 h-5 w-5 text-indigo-600" />
+                                            Top Categories
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-0">
+                                        <div className="text-center py-6 text-muted-foreground">
+                                            <Package className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                                            <p className="text-sm">No category data available</p>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -1325,13 +1937,13 @@ export default function AdminDashboard() {
                     </TabsContent>
                 </Tabs>
 
-                {/* Quick Actions */}
-                <Card>
+                {/* Quick Actions - Desktop Only */}
+                <Card className="hidden sm:block mb-4">
                     <CardHeader>
                         <CardTitle>Quick Actions</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="grid grid-cols-1 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-4">
                             <Link href="/products">
                                 <Button className="w-full" variant="outline">
                                     <Package className="mr-2 h-4 w-4" />
@@ -1369,6 +1981,14 @@ export default function AdminDashboard() {
                         </div>
                     </CardContent>
                 </Card>
+
+
+
+
+
+
+
+
             </div>
         </AppLayout>
     );

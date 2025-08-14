@@ -472,12 +472,16 @@ export default function Dashboard() {
                                         const availableColors = getAvailableColors(product);
 
                                         return (
-                                            <Card
+                                            <Link 
                                                 key={product.id}
-                                                className={`overflow-hidden transition-all duration-300 hover:shadow-lg ${
-                                                    isSold ? 'bg-green-50/70 ring-1 ring-green-400 dark:bg-green-900/30' : ''
-                                                }`}
+                                                href={`/products/${product.id}`}
+                                                className="block"
                                             >
+                                                <Card
+                                                    className={`overflow-hidden transition-all duration-300 hover:shadow-lg ${
+                                                        isSold ? 'bg-green-50/70 ring-1 ring-green-400 dark:bg-green-900/30' : ''
+                                                    }`}
+                                                >
                                                 <CardHeader className="pb-3">
                                                     <div className="flex items-start justify-between gap-2">
                                                         <div className="min-w-0 flex-1">
@@ -764,8 +768,9 @@ export default function Dashboard() {
                                                     </Dialog>
                                                 </CardContent>
                                             </Card>
-                                        );
-                                    })}
+                                        </Link>
+                                    );
+                                })}
                                 </div>
 
                                 {products.data.length === 0 && (

@@ -261,10 +261,10 @@ export default function ProductsForm({
         >
             <Head title={isEditing ? 'Edit Product' : 'Create Product'} />
 
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
+            <div className="flex h-full flex-1 flex-col gap-3 sm:gap-4 rounded-xl p-2 sm:p-4">
                 {/* Header */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+                <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:gap-6">
                         <Link href="/products">
                             <Button variant="outline" size="sm" className="w-full sm:w-auto sm:px-4 sm:py-2">
                                 <ArrowLeft className="mr-2 h-4 w-4" />
@@ -283,7 +283,7 @@ export default function ProductsForm({
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
                     {/* General Error Display */}
                     {errors.general && (
                         <Alert variant="destructive">
@@ -297,8 +297,8 @@ export default function ProductsForm({
                         <CardHeader>
                             <CardTitle>Basic Information</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <CardContent className="space-y-3 sm:space-y-4">
+                            <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
                                 <div>
                                     <Label htmlFor="name">Product Name *</Label>
                                     <Input
@@ -361,15 +361,16 @@ export default function ProductsForm({
                             {/* Features */}
                             <div>
                                 <Label>Features</Label>
-                                <div className="mt-1 flex space-x-2">
+                                <div className="mt-1 flex flex-col sm:flex-row gap-2 sm:space-x-2">
                                     <Input
                                         value={newFeature}
                                         onChange={(e) => setNewFeature(e.target.value)}
                                         placeholder="Add a feature"
                                         onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
                                     />
-                                    <Button type="button" onClick={addFeature} disabled={!newFeature.trim()}>
+                                    <Button type="button" onClick={addFeature} disabled={!newFeature.trim()} className="sm:w-auto">
                                         <Plus className="h-4 w-4" />
+                                        <span className="sm:hidden">Add</span>
                                     </Button>
                                 </div>
                                 {formData.features.length > 0 && (
@@ -406,9 +407,9 @@ export default function ProductsForm({
                     {/* Product Variants */}
                     <Card>
                         <CardHeader>
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                 <CardTitle>Product Variants</CardTitle>
-                                <Button type="button" onClick={addVariant} variant="outline" size="sm">
+                                <Button type="button" onClick={addVariant} variant="outline" size="sm" className="w-full sm:w-auto">
                                     <Plus className="mr-2 h-4 w-4" />
                                     Add Variant
                                 </Button>
@@ -425,20 +426,21 @@ export default function ProductsForm({
                                 <div className="space-y-4">
                                     {variants.map((variant, index) => (
                                         <div key={index} className="rounded-lg border p-4">
-                                            <div className="mb-4 flex items-center justify-between">
+                                            <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                                 <h3 className="font-medium">Variant {index + 1}</h3>
                                                 <Button
                                                     type="button"
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => removeVariant(index)}
-                                                    className="text-destructive"
+                                                    className="text-destructive w-full sm:w-auto"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
+                                                    <span className="sm:hidden">Remove Variant</span>
                                                 </Button>
                                             </div>
 
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                            <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
                                                 <div>
                                                     <Label>Color</Label>
                                                     <Select
@@ -580,13 +582,13 @@ export default function ProductsForm({
                     </Card>
 
                     {/* Submit Button */}
-                    <div className="flex justify-end space-x-2">
+                    <div className="flex flex-col sm:flex-row justify-end gap-2 sm:space-x-2">
                         <Link href="/products">
-                            <Button type="button" variant="outline">
+                            <Button type="button" variant="outline" className="w-full sm:w-auto">
                                 Cancel
                             </Button>
                         </Link>
-                        <Button type="submit" disabled={isSubmitting || variants.length === 0}>
+                        <Button type="submit" disabled={isSubmitting || variants.length === 0} className="w-full sm:w-auto">
                             {isSubmitting ? (
                                 <>
                                     <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -601,6 +603,8 @@ export default function ProductsForm({
                         </Button>
                     </div>
                 </form>
+
+
             </div>
         </AppLayout>
     );

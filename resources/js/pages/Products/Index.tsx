@@ -2,11 +2,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertTriangle, Edit, Filter, Package, Plus, Search, Trash2 } from 'lucide-react';
+import { AlertTriangle, Edit, Filter, Package, Plus, Search, Trash2, MoreVertical } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -192,10 +193,10 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Products" />
 
-            <div className="flex h-full flex-1 flex-col gap-4 rounded-xl p-4">
+            <div className="flex h-full flex-1 flex-col gap-3 sm:gap-4 rounded-xl p-2 sm:p-4 pb-20 sm:pb-4">
                 {/* Success Message */}
                 {flash?.success && (
-                    <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                    <div className="rounded-lg border border-green-200 bg-green-50 p-3 sm:p-4">
                         <div className="flex items-center">
                             <div className="flex-shrink-0">
                                 <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
@@ -215,7 +216,7 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
 
                 {/* Error Message */}
                 {flash?.error && (
-                    <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 sm:p-4">
                         <div className="flex items-center">
                             <div className="flex-shrink-0">
                                 <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
@@ -233,7 +234,28 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
                     </div>
                 )}
 
-                <div className="flex items-center justify-between">
+                {/* Mobile Header */}
+                <div className="sm:hidden">
+                    <div className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-4 text-white shadow-lg">
+                        <div className="flex items-center space-x-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+                                <Package className="h-5 w-5 text-white" />
+                            </div>
+                            <div>
+                                <h1 className="text-lg font-bold">Products</h1>
+                                <p className="text-sm text-blue-100">{products.total} items</p>
+                            </div>
+                        </div>
+                        <Link href="/products/create">
+                            <Button variant="ghost" size="sm" className="bg-white/20 hover:bg-white/30 text-white border-0">
+                                <Plus className="h-5 w-5" />
+                            </Button>
+                        </Link>
+                    </div>
+                </div>
+
+                {/* Desktop Header */}
+                <div className="hidden sm:flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-bold">Products</h1>
                         <p className="text-muted-foreground">Manage your product inventory</p>
@@ -247,9 +269,37 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
                 </div>
 
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Product Inventory</CardTitle>
-                        <div className="flex items-center space-x-4">
+                    <CardHeader className="pb-3 sm:pb-6">
+                        <CardTitle className="hidden sm:block">Product Inventory</CardTitle>
+                        
+                        {/* Mobile Search and Filter */}
+                        <div className="sm:hidden space-y-3">
+                            <div className="relative">
+                                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    placeholder="Search products..."
+                                    value={search}
+                                    onChange={(e) => handleSearch(e.target.value)}
+                                    className="pl-10"
+                                />
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                <Select value={stockFilter || "all"} onValueChange={(value) => handleStockFilter(value === "all" ? "" : value)}>
+                                    <SelectTrigger className="flex-1">
+                                        <SelectValue placeholder="Filter by stock" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Products</SelectItem>
+                                        <SelectItem value="low_stock">Low Stock</SelectItem>
+                                        <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        {/* Desktop Search and Filter */}
+                        <div className="hidden sm:flex items-center space-x-4">
                             <div className="relative">
                                 <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
@@ -281,8 +331,109 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
                             </div>
                         </div>
                     </CardHeader>
-                    <CardContent>
-                        <div className="overflow-x-auto">
+                    <CardContent className="p-3 sm:p-6">
+                        {/* Mobile Card Layout */}
+                        <div className="sm:hidden space-y-3">
+                            {products.data.map((product) => {
+                                const stockStatus = getProductStockStatus(product);
+                                const totalQuantity = getProductTotalQuantity(product);
+                                const minPrice = getProductMinPrice(product);
+                                const maxPrice = getProductMaxPrice(product);
+                                const variantCount = getVariantCount(product);
+                                const hasStock = totalQuantity > 0;
+
+                                return (
+                                    <Card key={product.id} className="overflow-hidden">
+                                        <CardContent className="p-4">
+                                            <div className="flex space-x-3">
+                                                {/* Product Image */}
+                                                <div className="flex-shrink-0">
+                                                    {product.image_url ? (
+                                                        <img
+                                                            src={product.image_url}
+                                                            alt={product.name}
+                                                            className="h-16 w-16 rounded-lg border object-cover"
+                                                            onError={(e) => {
+                                                                e.currentTarget.src =
+                                                                    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCAxMDBDODAgODkuNTQ0NCA4OS41NDQ0IDgwIDEwMCA4MEMxMTAuNDU2IDgwIDEyMCA4OS41NDQ0IDEyMCAxMEMxMjAgMTEwLjQ1NiAxMTAuNDU2IDEyMCAxMDAgMTIwQzg5LjU0NDQgMTIwIDgwIDExMC40NTYgODAgMTAwWiIgZmlsbD0iI0QxRDVFQ0EiLz4KPC9zdmc+';
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-muted">
+                                                            <Package className="h-8 w-8 text-muted-foreground" />
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Product Info */}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex-1 min-w-0">
+                                                            <h3 className="font-semibold text-sm truncate">{product.name}</h3>
+                                                            <div className="flex items-center space-x-2 mt-1">
+                                                                <span className="text-xs text-muted-foreground">{product.brand}</span>
+                                                                <span className="text-xs text-muted-foreground">•</span>
+                                                                <span className="text-xs text-muted-foreground">{product.category}</span>
+                                                            </div>
+                                                        </div>
+                                                        <Badge variant={stockStatus.color} className="ml-2 text-xs">
+                                                            {stockStatus.status}
+                                                        </Badge>
+                                                    </div>
+
+                                                    <div className="mt-2 flex items-center justify-between">
+                                                        <div className="flex items-center space-x-4 text-sm">
+                                                            <div>
+                                                                <span className="font-medium">
+                                                                    {minPrice === maxPrice ? (
+                                                                        formatCurrency(minPrice)
+                                                                    ) : (
+                                                                        <>
+                                                                            {formatCurrency(minPrice)} - {formatCurrency(maxPrice)}
+                                                                        </>
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center space-x-1">
+                                                                <span className="text-muted-foreground">Stock:</span>
+                                                                <span className="font-medium">{totalQuantity}</span>
+                                                                {hasStock &&
+                                                                    product.variants?.some((v) => v.quantity > 0 && v.quantity <= v.low_stock_threshold) && (
+                                                                        <AlertTriangle className="h-3 w-3 text-amber-500" />
+                                                                    )}
+                                                            </div>
+                                                            <div className="text-muted-foreground">
+                                                                {variantCount} variants
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="mt-3 flex items-center space-x-2">
+                                                        <Link href={`/products/${product.id}/edit`} className="flex-1">
+                                                            <Button variant="outline" size="sm" className="w-full">
+                                                                <Edit className="h-4 w-4 mr-2" />
+                                                                Edit
+                                                            </Button>
+                                                        </Link>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => handleDelete(product.id)}
+                                                            className="text-destructive hover:text-destructive"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+
+                        {/* Desktop Table Layout */}
+                        <div className="hidden sm:block overflow-x-auto">
                             <table className="w-full">
                                 <thead>
                                     <tr className="border-b">
@@ -359,7 +510,7 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
                                                         <span className="text-sm">{totalQuantity}</span>
                                                         {hasStock &&
                                                             product.variants?.some((v) => v.quantity > 0 && v.quantity <= v.low_stock_threshold) && (
-                                                                <AlertTriangle className="text-warning h-3 w-3" />
+                                                                <AlertTriangle className="h-3 w-3 text-amber-500" />
                                                             )}
                                                     </div>
                                                 </td>
@@ -397,46 +548,100 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
                             </div>
                         )}
 
-                        {/* Pagination */}
+                        {/* Mobile Pagination */}
                         {products.last_page > 1 && (
-                            <div className="mt-6 flex items-center justify-between">
-                                <div className="text-sm text-muted-foreground">
-                                    Showing {products.from || 0} to {products.to || 0} of {products.total} results
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handlePageChange(products.current_page - 1)}
-                                        disabled={products.current_page === 1}
-                                    >
-                                        Previous
-                                    </Button>
-                                    <div className="flex items-center space-x-1">
-                                        {Array.from({ length: Math.min(5, products.last_page) }, (_, i) => {
-                                            const page = i + 1;
-                                            return (
-                                                <Button
-                                                    key={page}
-                                                    variant={page === products.current_page ? 'default' : 'outline'}
-                                                    size="sm"
-                                                    onClick={() => handlePageChange(page)}
-                                                >
-                                                    {page}
-                                                </Button>
-                                            );
-                                        })}
+                            <>
+                                {/* Mobile Pagination */}
+                                <div className="sm:hidden mt-4 space-y-3">
+                                    <div className="text-xs text-center text-muted-foreground">
+                                        Showing {products.from || 0} to {products.to || 0} of {products.total} results
                                     </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handlePageChange(products.current_page + 1)}
-                                        disabled={products.current_page === products.last_page}
-                                    >
-                                        Next
-                                    </Button>
+                                    <div className="flex items-center justify-center space-x-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handlePageChange(products.current_page - 1)}
+                                            disabled={products.current_page === 1}
+                                            className="px-3"
+                                        >
+                                            ←
+                                        </Button>
+                                        <div className="flex items-center space-x-1">
+                                            {/* Show current page and nearby pages */}
+                                            {Array.from({ length: Math.min(3, products.last_page) }, (_, i) => {
+                                                const startPage = Math.max(1, products.current_page - 1);
+                                                const page = startPage + i;
+                                                if (page > products.last_page) return null;
+                                                return (
+                                                    <Button
+                                                        key={page}
+                                                        variant={page === products.current_page ? 'default' : 'outline'}
+                                                        size="sm"
+                                                        onClick={() => handlePageChange(page)}
+                                                        className="w-10 h-8 p-0"
+                                                    >
+                                                        {page}
+                                                    </Button>
+                                                );
+                                            })}
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handlePageChange(products.current_page + 1)}
+                                            disabled={products.current_page === products.last_page}
+                                            className="px-3"
+                                        >
+                                            →
+                                        </Button>
+                                    </div>
+                                    <div className="text-center">
+                                        <span className="text-xs text-muted-foreground">
+                                            Page {products.current_page} of {products.last_page}
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
+
+                                {/* Desktop Pagination */}
+                                <div className="hidden sm:flex mt-6 items-center justify-between">
+                                    <div className="text-sm text-muted-foreground">
+                                        Showing {products.from || 0} to {products.to || 0} of {products.total} results
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handlePageChange(products.current_page - 1)}
+                                            disabled={products.current_page === 1}
+                                        >
+                                            Previous
+                                        </Button>
+                                        <div className="flex items-center space-x-1">
+                                            {Array.from({ length: Math.min(5, products.last_page) }, (_, i) => {
+                                                const page = i + 1;
+                                                return (
+                                                    <Button
+                                                        key={page}
+                                                        variant={page === products.current_page ? 'default' : 'outline'}
+                                                        size="sm"
+                                                        onClick={() => handlePageChange(page)}
+                                                    >
+                                                        {page}
+                                                    </Button>
+                                                );
+                                            })}
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handlePageChange(products.current_page + 1)}
+                                            disabled={products.current_page === products.last_page}
+                                        >
+                                            Next
+                                        </Button>
+                                    </div>
+                                </div>
+                            </>
                         )}
                     </CardContent>
                 </Card>
