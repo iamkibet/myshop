@@ -165,6 +165,12 @@ export function BottomNavigation() {
                                         <span className="text-sm font-medium">View Cart</span>
                                     </Button>
                                 </Link>
+                                <Link href="/expenses/create" onClick={() => setMobileActionDialogOpen(false)}>
+                                    <Button className="w-full h-20 flex-col space-y-2" variant="outline">
+                                        <Receipt className="h-6 w-6" />
+                                        <span className="text-sm font-medium">Add Expense</span>
+                                    </Button>
+                                </Link>
                                 <Link href="/sales" onClick={() => setMobileActionDialogOpen(false)}>
                                     <Button className="w-full h-20 flex-col space-y-2" variant="outline">
                                         <TrendingUp className="h-6 w-6" />
@@ -263,6 +269,18 @@ export function BottomNavigation() {
                                     <Button className="w-full justify-start" variant="ghost">
                                         <TrendingUp className="mr-3 h-4 w-4" />
                                         Sales History
+                                    </Button>
+                                </Link>
+                                <Link href="/expenses" onClick={() => setMobileSidebarOpen(false)}>
+                                    <Button className="w-full justify-start" variant="ghost">
+                                        <Receipt className="mr-3 h-4 w-4" />
+                                        My Expenses
+                                    </Button>
+                                </Link>
+                                <Link href="/expenses/create" onClick={() => setMobileSidebarOpen(false)}>
+                                    <Button className="w-full justify-start" variant="ghost">
+                                        <Plus className="mr-3 h-4 w-4" />
+                                        Add Expense
                                     </Button>
                                 </Link>
                                 <Link href="/wallets" onClick={() => setMobileSidebarOpen(false)}>

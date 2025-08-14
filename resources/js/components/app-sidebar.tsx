@@ -102,6 +102,11 @@ export function AppSidebar() {
             href: '/sales',
             icon: Receipt,
         },
+        {
+            title: 'My Expenses',
+            href: '/expenses',
+            icon: ReceiptIcon,
+        },
     ];
 
    

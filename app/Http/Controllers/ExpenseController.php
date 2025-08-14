@@ -17,11 +17,12 @@ class ExpenseController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->isAdmin()) {
+        // Allow both admins and managers to view expenses
+        if (!$user->isAdmin() && !$user->isManager()) {
             abort(403);
         }
 
-        $expenses = Expense::with('addedBy')
+        $expenses = Expense::with(['addedBy', 'approvedBy'])
             ->when($request->search, function ($query, $search) {
                 $query->where('title', 'like', "%{$search}%");
             })
@@ -34,23 +35,45 @@ class ExpenseController extends Controller
             ->when($request->date_to, function ($query, $dateTo) {
                 $query->where('expense_date', '<=', $dateTo);
             })
+            ->when($request->status, function ($query, $status) {
+                $query->where('status', $status);
+            })
+            // Managers can only see their own expenses, admins see all
+            ->when(!$user->isAdmin(), function ($query) use ($user) {
+                $query->where('added_by', $user->id);
+            })
             ->latest()
             ->paginate(15)
             ->withQueryString();
 
-        // Calculate summary statistics
-        $totalExpenses = Expense::sum('amount');
-        $totalSales = Sale::sum('total_amount');
+        // Calculate summary statistics - only approved expenses count towards totals
+        $totalExpenses = Expense::approved()->when(!$user->isAdmin(), function ($query) use ($user) {
+            $query->where('added_by', $user->id);
+        })->sum('amount');
+        
+        $totalSales = Sale::when(!$user->isAdmin(), function ($query) use ($user) {
+            $query->where('manager_id', $user->id);
+        })->sum('total_amount');
+        
         $totalProfit = $totalSales - $totalExpenses;
 
-        $monthlyExpenses = Expense::selectRaw('MONTH(expense_date) as month, SUM(amount) as total')
+        $monthlyExpenses = Expense::approved()->when(!$user->isAdmin(), function ($query) use ($user) {
+            $query->where('added_by', $user->id);
+        })
+            ->selectRaw('MONTH(expense_date) as month, SUM(amount) as total')
             ->whereYear('expense_date', date('Y'))
             ->groupBy('month')
             ->get();
 
-        $categoryTotals = Expense::selectRaw('category, SUM(amount) as total')
+        $categoryTotals = Expense::approved()->when(!$user->isAdmin(), function ($query) use ($user) {
+            $query->where('added_by', $user->id);
+        })
+            ->selectRaw('category, SUM(amount) as total')
             ->groupBy('category')
             ->get();
+
+        // Get pending expenses count for admins
+        $pendingExpensesCount = $user->isAdmin() ? Expense::pending()->count() : 0;
 
         return Inertia::render('Expenses/Index', [
             'expenses' => $expenses,
@@ -62,7 +85,9 @@ class ExpenseController extends Controller
                 'monthly_expenses' => $monthlyExpenses,
                 'category_totals' => $categoryTotals,
             ],
-            'filters' => $request->only(['search', 'category', 'date_from', 'date_to']),
+            'filters' => $request->only(['search', 'category', 'date_from', 'date_to', 'status']),
+            'userRole' => $user->role,
+            'pendingExpensesCount' => $pendingExpensesCount,
         ]);
     }
 
@@ -71,8 +96,16 @@ class ExpenseController extends Controller
      */
     public function create()
     {
+        $user = request()->user();
+        
+        // Allow both admins and managers to create expenses
+        if (!$user->isAdmin() && !$user->isManager()) {
+            abort(403);
+        }
+
         return Inertia::render('Expenses/Create', [
             'categories' => Expense::getCategories(),
+            'userRole' => $user->role,
         ]);
     }
 
@@ -83,7 +116,8 @@ class ExpenseController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->isAdmin()) {
+        // Allow both admins and managers to create expenses
+        if (!$user->isAdmin() && !$user->isManager()) {
             abort(403);
         }
 
@@ -93,7 +127,7 @@ class ExpenseController extends Controller
             'amount' => 'required|numeric|min:0.01',
             'category' => 'required|in:' . implode(',', array_keys(Expense::getCategories())),
             'expense_date' => 'required|date',
-            'receipt' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
+            'receipt' => $user->isManager() ? 'required|file|mimes:jpg,jpeg,png,pdf|max:5120' : 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
 
         $data = [
@@ -103,6 +137,8 @@ class ExpenseController extends Controller
             'category' => $request->category,
             'expense_date' => $request->expense_date,
             'added_by' => $user->id,
+            'status' => $user->isAdmin() ? 'approved' : 'pending',
+            'is_approved' => $user->isAdmin(),
         ];
 
         if ($request->hasFile('receipt')) {
@@ -120,10 +156,23 @@ class ExpenseController extends Controller
      */
     public function show(Expense $expense)
     {
+        $user = request()->user();
+        
+        // Allow both admins and managers to view expenses
+        if (!$user->isAdmin() && !$user->isManager()) {
+            abort(403);
+        }
+
+        // Managers can only view their own expenses
+        if ($user->isManager() && $expense->added_by !== $user->id) {
+            abort(403);
+        }
+
         $expense->load('addedBy');
 
         return Inertia::render('Expenses/Show', [
             'expense' => $expense,
+            'userRole' => $user->role,
         ]);
     }
 
@@ -132,9 +181,22 @@ class ExpenseController extends Controller
      */
     public function edit(Expense $expense)
     {
+        $user = request()->user();
+        
+        // Allow both admins and managers to edit expenses
+        if (!$user->isAdmin() && !$user->isManager()) {
+            abort(403);
+        }
+
+        // Managers can only edit their own expenses
+        if ($user->isManager() && $expense->added_by !== $user->id) {
+            abort(403);
+        }
+
         return Inertia::render('Expenses/Edit', [
             'expense' => $expense,
             'categories' => Expense::getCategories(),
+            'userRole' => $user->role,
         ]);
     }
 
@@ -145,7 +207,13 @@ class ExpenseController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->isAdmin()) {
+        // Allow both admins and managers to update expenses
+        if (!$user->isAdmin() && !$user->isManager()) {
+            abort(403);
+        }
+
+        // Managers can only update their own expenses
+        if ($user->isManager() && $expense->added_by !== $user->id) {
             abort(403);
         }
 
@@ -155,7 +223,7 @@ class ExpenseController extends Controller
             'amount' => 'required|numeric|min:0.01',
             'category' => 'required|in:' . implode(',', array_keys(Expense::getCategories())),
             'expense_date' => 'required|date',
-            'receipt' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
+            'receipt' => $user->isManager() ? 'required|file|mimes:jpg,jpeg,png,pdf|max:5120' : 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
 
         $data = [
@@ -188,7 +256,13 @@ class ExpenseController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->isAdmin()) {
+        // Allow both admins and managers to delete expenses
+        if (!$user->isAdmin() && !$user->isManager()) {
+            abort(403);
+        }
+
+        // Managers can only delete their own expenses
+        if ($user->isManager() && $expense->added_by !== $user->id) {
             abort(403);
         }
 
@@ -203,14 +277,118 @@ class ExpenseController extends Controller
     }
 
     /**
-     * Download receipt file.
+     * View or download receipt file.
      */
     public function downloadReceipt(Expense $expense)
     {
+        $user = request()->user();
+        
+        // Allow both admins and managers to view/download receipts
+        if (!$user->isAdmin() && !$user->isManager()) {
+            abort(403);
+        }
+
+        // Managers can only view/download receipts for their own expenses
+        if ($user->isManager() && $expense->added_by !== $user->id) {
+            abort(403);
+        }
+
         if (!$expense->receipt_path || !Storage::disk('public')->exists($expense->receipt_path)) {
             abort(404);
         }
 
-        return response()->download(storage_path('app/public/' . $expense->receipt_path));
+        $filePath = storage_path('app/public/' . $expense->receipt_path);
+        $fileName = basename($expense->receipt_path);
+        $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        
+        // Check if user wants to download the file
+        $forceDownload = request()->has('download') && request('download') === 'true';
+
+        // For images and PDFs, display in browser unless download is requested
+        if (in_array($fileExtension, ['jpg', 'jpeg', 'png', 'gif', 'pdf']) && !$forceDownload) {
+            $file = Storage::disk('public')->get($expense->receipt_path);
+            $mimeType = Storage::disk('public')->mimeType($expense->receipt_path);
+            
+            return response($file, 200, [
+                'Content-Type' => $mimeType,
+                'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+            ]);
+        } else {
+            // Force download for other file types or when download is requested
+            return response()->download($filePath, $fileName);
+        }
+    }
+
+    /**
+     * Approve an expense.
+     */
+    public function approve(Request $request, Expense $expense)
+    {
+        $user = request()->user();
+        
+        if (!$user->isAdmin()) {
+            abort(403);
+        }
+
+        $request->validate([
+            'approval_notes' => 'nullable|string|max:1000',
+        ]);
+
+        $expense->update([
+            'status' => 'approved',
+            'is_approved' => true,
+            'approved_at' => now(),
+            'approved_by' => $user->id,
+            'approval_notes' => $request->approval_notes,
+        ]);
+
+        return redirect()->back()->with('success', 'Expense approved successfully.');
+    }
+
+    /**
+     * Reject an expense.
+     */
+    public function reject(Request $request, Expense $expense)
+    {
+        $user = request()->user();
+        
+        if (!$user->isAdmin()) {
+            abort(403);
+        }
+
+        $request->validate([
+            'approval_notes' => 'required|string|max:1000',
+        ]);
+
+        $expense->update([
+            'status' => 'rejected',
+            'is_approved' => false,
+            'approved_at' => now(),
+            'approved_by' => $user->id,
+            'approval_notes' => $request->approval_notes,
+        ]);
+
+        return redirect()->back()->with('success', 'Expense rejected successfully.');
+    }
+
+    /**
+     * Get pending expenses for admin approval.
+     */
+    public function pending()
+    {
+        $user = request()->user();
+        
+        if (!$user->isAdmin()) {
+            abort(403);
+        }
+
+        $pendingExpenses = Expense::with(['addedBy', 'approvedBy'])
+            ->pending()
+            ->latest()
+            ->paginate(20);
+
+        return Inertia::render('Expenses/Pending', [
+            'pendingExpenses' => $pendingExpenses,
+        ]);
     }
 }

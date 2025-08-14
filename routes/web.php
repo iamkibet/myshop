@@ -201,9 +201,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/commission-rates/{commissionRate}/toggle', [\App\Http\Controllers\CommissionRateController::class, 'toggleStatus'])->name('commission-rates.toggle');
         Route::post('/commission-rates/preview', [\App\Http\Controllers\CommissionRateController::class, 'preview'])->name('commission-rates.preview');
 
-        // Expense management routes
-        Route::resource('expenses', ExpenseController::class);
-        Route::get('/expenses/{expense}/receipt', [ExpenseController::class, 'downloadReceipt'])->name('expenses.receipt');
+        // Commission rates management
+        Route::resource('commission-rates', \App\Http\Controllers\CommissionRateController::class);
+        Route::post('/commission-rates/{commissionRate}/toggle', [\App\Http\Controllers\CommissionRateController::class, 'toggleStatus'])->name('commission-rates.toggle');
+        Route::post('/commission-rates/preview', [\App\Http\Controllers\CommissionRateController::class, 'preview'])->name('commission-rates.preview');
     });
 
     // Sales routes - accessible to both managers and admins
@@ -224,6 +225,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Wallet route for managers
     Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index')->middleware('ensure.wallet');
+
+    // Expense management routes - accessible to both managers and admins
+    Route::resource('expenses', ExpenseController::class);
+    Route::get('/expenses/{expense}/receipt', [ExpenseController::class, 'downloadReceipt'])->name('expenses.receipt');
+    
+    // Admin-only expense approval routes
+    Route::middleware(['can:isAdmin'])->group(function () {
+        Route::post('/expenses/{expense}/approve', [ExpenseController::class, 'approve'])->name('expenses.approve');
+        Route::post('/expenses/{expense}/reject', [ExpenseController::class, 'reject'])->name('expenses.reject');
+        Route::get('/expenses/pending/approval', [ExpenseController::class, 'pending'])->name('expenses.pending');
+    });
 });
 
 require __DIR__ . '/settings.php';

@@ -23,6 +23,11 @@ class Expense extends Model
         'expense_date',
         'added_by',
         'receipt_path',
+        'is_approved',
+        'approved_at',
+        'approved_by',
+        'approval_notes',
+        'status',
     ];
 
     /**
@@ -35,6 +40,8 @@ class Expense extends Model
         return [
             'amount' => 'decimal:2',
             'expense_date' => 'date',
+            'is_approved' => 'boolean',
+            'approved_at' => 'datetime',
         ];
     }
 
@@ -44,6 +51,14 @@ class Expense extends Model
     public function addedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'added_by');
+    }
+
+    /**
+     * Get the user who approved this expense.
+     */
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     /**
@@ -60,6 +75,30 @@ class Expense extends Model
     public function scopeInDateRange($query, $startDate, $endDate)
     {
         return $query->whereBetween('expense_date', [$startDate, $endDate]);
+    }
+
+    /**
+     * Scope to get only approved expenses.
+     */
+    public function scopeApproved($query)
+    {
+        return $query->where('status', 'approved');
+    }
+
+    /**
+     * Scope to get only pending expenses.
+     */
+    public function scopePending($query)
+    {
+        return $query->where('status', 'pending');
+    }
+
+    /**
+     * Scope to get only rejected expenses.
+     */
+    public function scopeRejected($query)
+    {
+        return $query->where('status', 'rejected');
     }
 
     /**
