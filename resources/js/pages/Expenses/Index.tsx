@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PieChart } from '@/components/ui/pie-chart';
 import { formatCurrency } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/react';
 import { DollarSign, Edit, Eye, Plus, Receipt, TrendingUp, Filter, Calendar, Search, BarChart3 } from 'lucide-react';
@@ -66,8 +67,6 @@ interface Props {
 export default function ExpensesIndex({ expenses, categories, summary, filters, userRole, pendingExpensesCount }: Props) {
     const [search, setSearch] = useState(filters.search || '');
     const [category, setCategory] = useState(filters.category || 'all');
-    const [dateFrom, setDateFrom] = useState(filters.date_from || '');
-    const [dateTo, setDateTo] = useState(filters.date_to || '');
     const [status, setStatus] = useState(filters.status || 'all');
 
     const handleFilter = () => {
@@ -76,8 +75,6 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
             {
                 search,
                 category: category === 'all' ? undefined : category,
-                date_from: dateFrom || undefined,
-                date_to: dateTo || undefined,
                 status: status === 'all' ? undefined : status,
             },
             {
@@ -90,8 +87,6 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
     const handleReset = () => {
         setSearch('');
         setCategory('all');
-        setDateFrom('');
-        setDateTo('');
         setStatus('all');
         router.get('/expenses');
     };
@@ -119,6 +114,27 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
             other: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400',
         };
         return colors[category] || 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+    };
+
+    const getPieChartColors = (category: string) => {
+        const colors: Record<string, string> = {
+            rent: '#EF4444', // red-500
+            utilities: '#3B82F6', // blue-500
+            inventory: '#10B981', // green-500
+            maintenance: '#F59E0B', // yellow-500
+            marketing: '#8B5CF6', // purple-500
+            other: '#6B7280', // gray-500
+        };
+        return colors[category] || colors['other'];
+    };
+
+    const preparePieChartData = () => {
+        return summary.category_totals.map((item) => ({
+            category: categories[item.category] || item.category,
+            total: item.total,
+            percentage: (item.total / summary.total_expenses) * 100,
+            color: getPieChartColors(item.category),
+        }));
     };
 
     return (
@@ -277,36 +293,23 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                     </div>
                 )}
 
-                {/* Filters Section - Mobile Optimized */}
+                {/* Compact Filters Section - Mobile Optimized */}
                 <Card className="mb-6 sm:mb-8 border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800">
-                    <CardHeader className="pb-4">
-                        <div className="flex items-center gap-2">
-                            <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
-                            <CardTitle className="text-base sm:text-lg font-semibold">Filter Expenses</CardTitle>
-                        </div>
-                        <CardDescription className="text-sm">Refine your expense data by various criteria</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-                            <div className="space-y-2 sm:col-span-2 lg:col-span-1">
-                                <Label htmlFor="search" className="text-xs sm:text-sm font-medium flex items-center gap-2">
-                                    <Search className="h-3 w-3 sm:h-4 sm:w-4" />
-                                    Search
-                                </Label>
-                                <Input 
-                                    id="search" 
-                                    placeholder="Search expenses..." 
-                                    value={search} 
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="border-gray-200 dark:border-gray-700 text-sm"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="category" className="text-xs sm:text-sm font-medium">Category</Label>
+                    <CardContent className="p-4 sm:p-6">
+                        {/* Mobile: Compact inline filters */}
+                        <div className="sm:hidden">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="flex-1">
+                                    <Input 
+                                        placeholder="Search expenses..." 
+                                        value={search} 
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        className="h-9 text-sm border-gray-200 dark:border-gray-700"
+                                    />
+                                </div>
                                 <Select value={category} onValueChange={setCategory}>
-                                    <SelectTrigger className="border-gray-200 dark:border-gray-700 text-sm">
-                                        <SelectValue placeholder="All categories" />
+                                    <SelectTrigger className="w-32 h-9 border-gray-200 dark:border-gray-700">
+                                        <SelectValue placeholder="Category" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">All categories</SelectItem>
@@ -317,41 +320,9 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                         ))}
                                     </SelectContent>
                                 </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="date_from" className="text-xs sm:text-sm font-medium flex items-center gap-2">
-                                    <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-                                    From Date
-                                </Label>
-                                <Input 
-                                    id="date_from" 
-                                    type="date" 
-                                    value={dateFrom} 
-                                    onChange={(e) => setDateFrom(e.target.value)}
-                                    className="border-gray-200 dark:border-gray-700 text-sm"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="date_to" className="text-xs sm:text-sm font-medium flex items-center gap-2">
-                                    <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-                                    To Date
-                                </Label>
-                                <Input 
-                                    id="date_to" 
-                                    type="date" 
-                                    value={dateTo} 
-                                    onChange={(e) => setDateTo(e.target.value)}
-                                    className="border-gray-200 dark:border-gray-700 text-sm"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="status" className="text-xs sm:text-sm font-medium">Status</Label>
                                 <Select value={status} onValueChange={setStatus}>
-                                    <SelectTrigger className="border-gray-200 dark:border-gray-700 text-sm">
-                                        <SelectValue placeholder="All statuses" />
+                                    <SelectTrigger className="w-28 h-9 border-gray-200 dark:border-gray-700">
+                                        <SelectValue placeholder="Status" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">All statuses</SelectItem>
@@ -361,15 +332,79 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                     </SelectContent>
                                 </Select>
                             </div>
+                            <div className="flex gap-2">
+                                <Button onClick={handleFilter} size="sm" className="flex-1 h-9">
+                                    <Filter className="h-4 w-4 mr-2" />
+                                    Filter
+                                </Button>
+                                <Button onClick={handleReset} variant="outline" size="sm" className="h-9 px-4">
+                                    Reset
+                                </Button>
+                            </div>
                         </div>
 
-                        <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                            <Button onClick={handleFilter} size="sm" className="w-full sm:w-auto px-6">
-                                Apply Filters
-                            </Button>
-                            <Button onClick={handleReset} variant="outline" size="sm" className="w-full sm:w-auto px-6">
-                                Reset Filters
-                            </Button>
+                        {/* Desktop: Full filter layout */}
+                        <div className="hidden sm:block">
+                            <div className="flex items-center gap-2 mb-4">
+                                <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
+                                <h3 className="text-base sm:text-lg font-semibold">Filter Expenses</h3>
+                            </div>
+                            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-3">
+                                <div className="space-y-2">
+                                    <Label htmlFor="search-desktop" className="text-xs sm:text-sm font-medium flex items-center gap-2">
+                                        <Search className="h-3 w-3 sm:h-4 sm:w-4" />
+                                        Search
+                                    </Label>
+                                    <Input 
+                                        id="search-desktop" 
+                                        placeholder="Search expenses..." 
+                                        value={search} 
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        className="border-gray-200 dark:border-gray-700 text-sm"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="category-desktop" className="text-xs sm:text-sm font-medium">Category</Label>
+                                    <Select value={category} onValueChange={setCategory}>
+                                        <SelectTrigger className="border-gray-200 dark:border-gray-700 text-sm">
+                                            <SelectValue placeholder="All categories" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All categories</SelectItem>
+                                            {Object.entries(categories).map(([key, value]) => (
+                                                <SelectItem key={key} value={key}>
+                                                    {value}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="status-desktop" className="text-xs sm:text-sm font-medium">Status</Label>
+                                    <Select value={status} onValueChange={setStatus}>
+                                        <SelectTrigger className="border-gray-200 dark:border-gray-700 text-sm">
+                                            <SelectValue placeholder="All statuses" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All statuses</SelectItem>
+                                            <SelectItem value="pending">Pending</SelectItem>
+                                            <SelectItem value="approved">Approved</SelectItem>
+                                            <SelectItem value="rejected">Rejected</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 sm:mt-6 flex items-center gap-3">
+                                <Button onClick={handleFilter} size="sm" className="px-6">
+                                    Apply Filters
+                                </Button>
+                                <Button onClick={handleReset} variant="outline" size="sm" className="px-6">
+                                    Reset Filters
+                                </Button>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -385,31 +420,49 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                 </CardTitle>
                             </div>
                             <CardDescription className="text-sm">
-                                Breakdown of expenses by category
+                                Visual breakdown of expenses by category
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                                {summary.category_totals.map((item) => (
-                                    <div key={item.category} className="flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4 bg-gray-50/50 dark:bg-gray-800/50 space-y-2 sm:space-y-0">
-                                        <div className="text-center sm:text-left">
-                                            <p className="text-sm sm:text-base font-medium text-gray-900 dark:text-gray-100">
-                                                {categories[item.category] || item.category}
-                                            </p>
-                                            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                                {((item.total / summary.total_expenses) * 100).toFixed(1)}% of total
-                                            </p>
+                            <div className="grid gap-6 sm:gap-8 grid-cols-1 lg:grid-cols-2">
+                                {/* Pie Chart Section */}
+                                <div className="flex justify-center">
+                                    <PieChart 
+                                        data={preparePieChartData()} 
+                                        size={200} 
+                                        strokeWidth={35}
+                                    />
+                                </div>
+                                
+                                {/* Category Details Section */}
+                                <div className="space-y-3 sm:space-y-4">
+                                    {summary.category_totals.map((item) => (
+                                        <div key={item.category} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-100/50 dark:hover:bg-gray-700/50 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div 
+                                                    className="w-4 h-4 rounded-full" 
+                                                    style={{ backgroundColor: getPieChartColors(item.category) }}
+                                                />
+                                                <div>
+                                                    <p className="text-sm sm:text-base font-medium text-gray-900 dark:text-gray-100">
+                                                        {categories[item.category] || item.category}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                        {((item.total / summary.total_expenses) * 100).toFixed(1)}% of total
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                                    {formatCurrency(item.total)}
+                                                </p>
+                                                <Badge className={`mt-1 text-xs ${getCategoryColor(item.category)}`}>
+                                                    {item.category}
+                                                </Badge>
+                                            </div>
                                         </div>
-                                        <div className="text-center sm:text-right">
-                                            <p className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
-                                                {formatCurrency(item.total)}
-                                            </p>
-                                            <Badge className={`mt-1 text-xs ${getCategoryColor(item.category)}`}>
-                                                {item.category}
-                                            </Badge>
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
@@ -434,7 +487,7 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                         No expenses found
                                     </p>
                                     <p className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">
-                                        {search || category !== 'all' || dateFrom || dateTo 
+                                        {search || category !== 'all' || status !== 'all'
                                             ? 'Try adjusting your filters' 
                                             : 'Start by adding your first expense'
                                         }
@@ -481,31 +534,32 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                                             <>
                                                                 <span className="hidden sm:inline">•</span>
                                                                 <div className="flex items-center gap-2">
-                                                                    <Button 
-                                                                        variant="link" 
-                                                                        size="sm" 
-                                                                        className="h-auto p-0 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
-                                                                        onClick={() => window.open(`/expenses/${expense.id}/receipt`, '_blank')}
-                                                                    >
-                                                                        <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
-                                                                        View
-                                                                    </Button>
-                                                                    <Button 
-                                                                        variant="link" 
-                                                                        size="sm" 
-                                                                        className="h-auto p-0 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:underline"
-                                                                        onClick={() => {
-                                                                            const link = document.createElement('a');
-                                                                            link.href = `/expenses/${expense.id}/receipt?download=true`;
-                                                                            link.download = '';
-                                                                            link.click();
-                                                                        }}
-                                                                    >
-                                                                        <svg className="h-3 w-3 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                                        </svg>
-                                                                        Download
-                                                                    </Button>
+                                                                                                        <Button 
+                                        variant="link" 
+                                        size="sm" 
+                                        className="h-auto p-0 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
+                                        onClick={() => window.open(`/expenses/${expense.id}/receipt`, '_blank')}
+                                    >
+                                        <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+                                        View Proof
+                                    </Button>
+                                    <Button 
+                                        variant="link" 
+                                        size="sm" 
+                                        className="h-auto p-0 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:underline"
+                                        onClick={() => {
+                                            const link = document.createElement('a');
+                                            link.href = `/expenses/${expense.id}/receipt?download=true`;
+                                            link.download = '';
+                                            link.click();
+                                        }}
+                                    >
+                                        <svg className="h-3 w-3 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        <span className="hidden sm:inline">Download Proof</span>
+                                        <span className="sm:hidden">Download</span>
+                                    </Button>
                                                                 </div>
                                                             </>
                                                         )}
@@ -514,57 +568,57 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                             </div>
                                         </div>
 
-                                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                                            <div className="text-center sm:text-right">
-                                                <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                                    {formatCurrency(expense.amount)}
-                                                </p>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                    Added {new Date(expense.created_at).toLocaleDateString()}
-                                                </p>
-                                            </div>
-                                            <div className="flex items-center justify-center sm:justify-end gap-2">
-                                                {userRole === 'admin' && expense.status === 'pending' && (
-                                                    <>
-                                                        <Button 
-                                                            variant="outline" 
-                                                            size="sm" 
-                                                            className="h-8 px-3 text-xs bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
-                                                            onClick={() => handleApprove(expense.id)}
-                                                        >
-                                                            <svg className="h-3 w-3 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                            </svg>
-                                                            <span className="ml-1 sm:hidden">Approve</span>
-                                                        </Button>
-                                                        <Button 
-                                                            variant="outline" 
-                                                            size="sm" 
-                                                            className="h-8 px-3 text-xs bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
-                                                            onClick={() => handleReject(expense.id)}
-                                                        >
-                                                            <svg className="h-3 w-3 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                            </svg>
-                                                            <span className="ml-1 sm:hidden">Reject</span>
-                                                        </Button>
-                                                    </>
-                                                )}
-                                                
-                                                {/* View Button - Primary action for managers */}
-                                                <Link href={`/expenses/${expense.id}`}>
-                                                    <Button size="sm" className="h-8 px-3 text-xs bg-blue-600 hover:bg-blue-700 text-white">
-                                                        <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
-                                                        <span className="ml-1 sm:hidden">View Details</span>
+                                        {/* Amount and Date Section */}
+                                        <div className="text-center sm:text-right mb-4 sm:mb-0">
+                                            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
+                                                {formatCurrency(expense.amount)}
+                                            </p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                Added {new Date(expense.created_at).toLocaleDateString()}
+                                            </p>
+                                        </div>
+
+                                        {/* Action Buttons Section - Mobile Optimized */}
+                                        <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:gap-2">
+                                            {/* Admin Approval Buttons - Mobile Stacked, Desktop Inline */}
+                                            {userRole === 'admin' && expense.status === 'pending' && (
+                                                <div className="flex flex-col sm:flex-row gap-2">
+                                                    <Button 
+                                                        onClick={() => handleApprove(expense.id)}
+                                                        className="w-full sm:w-auto h-10 sm:h-8 px-4 sm:px-3 text-sm sm:text-xs bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm"
+                                                    >
+                                                        <svg className="h-4 w-4 sm:h-3 sm:w-3 mr-2 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                        </svg>
+                                                        <span>Approve</span>
+                                                    </Button>
+                                                    <Button 
+                                                        onClick={() => handleReject(expense.id)}
+                                                        variant="outline"
+                                                        className="w-full sm:w-auto h-10 sm:h-8 px-4 sm:px-3 text-sm sm:text-xs border-red-300 text-red-700 hover:bg-red-50 dark:border-red-600 dark:text-red-300 dark:hover:bg-red-900/20"
+                                                    >
+                                                        <svg className="h-4 w-4 sm:h-3 sm:w-3 mr-2 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                        <span>Reject</span>
+                                                    </Button>
+                                                </div>
+                                            )}
+                                            
+                                            {/* View and Edit Buttons */}
+                                            <div className="flex flex-col sm:flex-row gap-2">
+                                                <Link href={`/expenses/${expense.id}`} className="w-full sm:w-auto">
+                                                    <Button size="sm" className="w-full sm:w-auto h-10 sm:h-8 px-4 sm:px-3 text-sm sm:text-xs bg-blue-600 hover:bg-blue-700 text-white">
+                                                        <Eye className="h-4 w-4 sm:h-3 sm:w-3 mr-2 sm:mr-1" />
+                                                        <span>View Details</span>
                                                     </Button>
                                                 </Link>
                                                 
-                                                {/* Edit Button - Only for pending expenses or admins */}
                                                 {(expense.status === 'pending' || userRole === 'admin') && (
-                                                    <Link href={`/expenses/${expense.id}/edit`}>
-                                                        <Button variant="outline" size="sm" className="h-8 px-3 text-xs">
-                                                            <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
-                                                            <span className="ml-1 sm:hidden">Edit</span>
+                                                    <Link href={`/expenses/${expense.id}/edit`} className="w-full sm:w-auto">
+                                                        <Button variant="outline" size="sm" className="w-full sm:w-auto h-10 sm:h-8 px-4 sm:px-3 text-sm sm:text-xs">
+                                                            <Edit className="h-4 w-4 sm:h-3 sm:w-3 mr-2 sm:mr-1" />
+                                                            <span>Edit</span>
                                                         </Button>
                                                     </Link>
                                                 )}

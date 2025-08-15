@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { PlaceholderPattern } from '@/components/ui/placeholder-pattern';
 import AppLayout from '@/layouts/app-layout';
@@ -9,7 +9,8 @@ import { formatCurrency } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { AlertTriangle, BarChart3, Check, DollarSign, Package, Search, ShoppingCart, Users } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useCart } from '@/hooks/use-cart';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -200,7 +201,7 @@ export default function Dashboard() {
     const [search, setSearch] = useState(initialSearch);
     const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
     const [addingToCart, setAddingToCart] = useState<number | null>(null);
-    const [localCartCount, setLocalCartCount] = useState(cartCount);
+    const { cartCount: localCartCount, addToCart } = useCart();
     const [soldItems, setSoldItems] = useState<Set<number>>(new Set());
 
     // Variant selection state
@@ -279,8 +280,15 @@ export default function Dashboard() {
                 unit_price: selectedVariant.selling_price,
             });
 
-            // Update local cart count
-            setLocalCartCount((prev) => prev + quantity);
+            // Add to cart using the hook
+            addToCart({
+                variant_id: selectedVariant.id,
+                quantity: quantity,
+                unit_price: selectedVariant.selling_price,
+                product_name: selectedProduct!.name,
+                color: selectedVariant.color,
+                size: selectedVariant.size,
+            });
 
             // Close modal
             setIsModalOpen(false);
@@ -352,14 +360,16 @@ export default function Dashboard() {
                                     <span className="hidden sm:inline">My Wallet</span>
                                 </Button>
                             </Link>
-                            <Link href="/cart">
-                                <Button variant="outline" className="relative w-full sm:w-auto">
+                            {/* Cart button - hidden on mobile, shows badge on large screens */}
+                            <Link href="/cart" className="hidden sm:block">
+                                <Button variant="outline" className="relative">
                                     <ShoppingCart className="mr-2 h-4 w-4" />
-                                    <span className="hidden sm:inline">Cart</span>
+                                    <span>Cart</span>
+                                    {/* Cart Badge - only show when items exist */}
                                     {localCartCount > 0 && (
-                                        <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 text-xs">
-                                            {localCartCount}
-                                        </Badge>
+                                        <div className="absolute -top-2 -right-2 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                                            {localCartCount > 99 ? '99+' : localCartCount}
+                                        </div>
                                     )}
                                 </Button>
                             </Link>
@@ -626,9 +636,11 @@ export default function Dashboard() {
                                                     {/* Variant selection modal */}
                                                     <Dialog open={isModalOpen && selectedProduct?.id === product.id} onOpenChange={setIsModalOpen}>
                                                         <DialogContent className="sm:max-w-md">
+                                                            <DialogTitle className="text-lg font-semibold">
+                                                                {selectedProduct?.name}
+                                                            </DialogTitle>
                                                             <div className="space-y-4">
                                                                 <div>
-                                                                    <h3 className="text-lg font-semibold">{selectedProduct?.name}</h3>
                                                                     <p className="text-sm text-muted-foreground">{selectedProduct?.description}</p>
                                                                 </div>
 

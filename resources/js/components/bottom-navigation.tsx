@@ -1,7 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { usePage } from '@inertiajs/react';
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     BarChart3,
     DollarSign,
@@ -10,12 +9,14 @@ import {
     Package,
     Plus,
     Receipt,
+    Search,
     ShoppingCart,
     TrendingUp,
     Users,
     Wallet,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useCart } from '@/hooks/use-cart';
 
 interface User {
     id: number;
@@ -28,17 +29,24 @@ interface PageProps {
     auth: {
         user: User;
     };
+    cartCount?: number;
     [key: string]: unknown;
 }
 
 export function BottomNavigation() {
-    const { auth } = usePage<PageProps>().props;
+    const { auth, url } = usePage<PageProps>().props;
     const user = auth.user;
     const isAdmin = user.role === 'admin';
     const isManager = user.role === 'manager';
+    const { cartCount } = useCart();
 
     const [mobileActionDialogOpen, setMobileActionDialogOpen] = useState(false);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+    // Check if a route is active
+    const isActiveRoute = (path: string) => {
+        return url === path;
+    };
 
     if (!isAdmin && !isManager) {
         return null; // Don't show for other roles
@@ -48,68 +56,149 @@ export function BottomNavigation() {
         <>
             {/* Mobile Bottom Navigation */}
             <div className="sm:hidden">
-                <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-                    <div className="flex items-center justify-around px-4 py-2">
-                        {/* Dashboard */}
-                        <Link href="/dashboard" className="flex flex-col items-center space-y-1 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                            <LayoutGrid className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                            <span className="text-xs text-gray-600 dark:text-gray-400">Dashboard</span>
-                        </Link>
+                <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-gray-200 dark:bg-gray-900/95 dark:border-gray-700 shadow-lg">
+                    <div className="flex items-center justify-between px-4 py-3">
+                        {/* Left Navigation Items */}
+                        <div className="flex items-center space-x-4">
+                            {/* Dashboard/Home */}
+                            <Link 
+                                href="/dashboard" 
+                                className={`flex flex-col items-center space-y-1 p-2 rounded-xl transition-all duration-200 ${
+                                    isActiveRoute('/dashboard') 
+                                        ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                                }`}
+                            >
+                                <LayoutGrid className={`h-5 w-5 ${isActiveRoute('/dashboard') ? 'text-blue-600 dark:text-blue-400' : ''}`} />
+                                <span className="text-xs font-medium">Home</span>
+                            </Link>
 
-                        {/* Role-specific navigation items */}
-                        {isAdmin ? (
-                            // Admin Navigation
-                            <>
-                                <Link href="/products" className="flex flex-col items-center space-y-1 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                                    <Package className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                                    <span className="text-xs text-gray-600 dark:text-gray-400">Products</span>
+                            {/* Expenses for managers */}
+                            {isManager && (
+                                <Link 
+                                    href="/expenses" 
+                                    className={`flex flex-col items-center space-y-1 p-2 rounded-xl transition-all duration-200 ${
+                                        isActiveRoute('/expenses') 
+                                            ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                                    }`}
+                                >
+                                    <Receipt className={`h-5 w-5 ${isActiveRoute('/expenses') ? 'text-blue-600 dark:text-blue-400' : ''}`} />
+                                    <span className="text-xs font-medium">Expenses</span>
                                 </Link>
-                                <Link href="/sales" className="flex flex-col items-center space-y-1 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                                    <Receipt className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                                    <span className="text-xs text-gray-600 dark:text-gray-400">Sales</span>
-                                </Link>
-                                <Link href="/wallets" className="flex flex-col items-center space-y-1 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                                    <Wallet className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                                    <span className="text-xs text-gray-600 dark:text-gray-400">Wallets</span>
-                                </Link>
-                            </>
-                        ) : (
-                            // Manager Navigation
-                            <>
-                                <Link href="/dashboard" className="flex flex-col items-center space-y-1 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                                    <ShoppingCart className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                                    <span className="text-xs text-gray-600 dark:text-gray-400">Catalog</span>
-                                </Link>
-                                <Link href="/cart" className="flex flex-col items-center space-y-1 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                                    <ShoppingCart className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                                    <span className="text-xs text-gray-600 dark:text-gray-400">Cart</span>
-                                </Link>
-                                <Link href="/sales" className="flex flex-col items-center space-y-1 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                                    <TrendingUp className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                                    <span className="text-xs text-gray-600 dark:text-gray-400">My Sales</span>
-                                </Link>
-                            </>
-                        )}
+                            )}
 
-                        {/* Menu Button */}
-                        <button 
-                            onClick={() => setMobileSidebarOpen(true)}
-                            className="flex flex-col items-center space-y-1 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                        >
-                            <Menu className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                            <span className="text-xs text-gray-600 dark:text-gray-400">Menu</span>
-                        </button>
+                            {/* Products for admins */}
+                            {isAdmin && (
+                                <Link 
+                                    href="/products" 
+                                    className={`flex flex-col items-center space-y-1 p-2 rounded-xl transition-all duration-200 ${
+                                        isActiveRoute('/products') 
+                                            ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                                    }`}
+                                >
+                                    <Package className={`h-5 w-5 ${isActiveRoute('/products') ? 'text-blue-600 dark:text-blue-400' : ''}`} />
+                                    <span className="text-xs font-medium">Products</span>
+                                </Link>
+                            )}
+                        </div>
+
+                        {/* Center Plus Button - Smaller and properly sized */}
+                        <div className="flex-shrink-0 -mt-4">
+                            <Button
+                                onClick={() => setMobileActionDialogOpen(true)}
+                                className="h-14 w-14 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 p-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 active:scale-95"
+                            >
+                                <Plus className="h-6 w-6 text-white" />
+                            </Button>
+                        </div>
+
+                        {/* Right Navigation Items */}
+                        <div className="flex items-center space-x-4">
+                            {/* Role-specific right items */}
+                            {isAdmin ? (
+                                <>
+                                    <Link 
+                                        href="/sales" 
+                                        className={`flex flex-col items-center space-y-1 p-2 rounded-xl transition-all duration-200 ${
+                                            isActiveRoute('/sales') 
+                                                ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                                        }`}
+                                    >
+                                        <Receipt className={`h-5 w-5 ${isActiveRoute('/sales') ? 'text-blue-600 dark:text-blue-400' : ''}`} />
+                                        <span className="text-xs font-medium">Sales</span>
+                                    </Link>
+                                    <Link 
+                                        href="/wallets" 
+                                        className={`flex flex-col items-center space-y-1 p-2 rounded-xl transition-all duration-200 ${
+                                            isActiveRoute('/wallets') 
+                                                ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                                        }`}
+                                    >
+                                        <Wallet className={`h-5 w-5 ${isActiveRoute('/wallets') ? 'text-blue-600 dark:text-blue-400' : ''}`} />
+                                        <span className="text-xs font-medium">Wallets</span>
+                                    </Link>
+                                </>
+                            ) : (
+                                <>
+                                    {/* Cart with indicator - only show when items exist */}
+                                    <Link 
+                                        href="/cart" 
+                                        className={`relative flex flex-col items-center space-y-1 p-2 rounded-xl transition-all duration-200 ${
+                                            isActiveRoute('/cart') 
+                                                ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                                        }`}
+                                    >
+                                        <ShoppingCart className={`h-5 w-5 ${isActiveRoute('/cart') ? 'text-blue-600 dark:text-blue-400' : ''}`} />
+                                        <span className="text-xs font-medium">Cart</span>
+                                        {/* Cart Badge - only show when cartCount > 0 */}
+                                        {cartCount > 0 && (
+                                            <div className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                                                {cartCount > 99 ? '99+' : cartCount}
+                                            </div>
+                                        )}
+                                    </Link>
+                                    <Link 
+                                        href="/sales" 
+                                        className={`flex flex-col items-center space-y-1 p-2 rounded-xl transition-all duration-200 ${
+                                            isActiveRoute('/sales') 
+                                                ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                                        }`}
+                                    >
+                                        <TrendingUp className={`h-5 w-5 ${isActiveRoute('/sales') ? 'text-blue-600 dark:text-blue-400' : ''}`} />
+                                        <span className="text-xs font-medium">Sales</span>
+                                    </Link>
+                                </>
+                            )}
+
+                            {/* Profile/User - Only for managers */}
+                            {isManager && (
+                                <Link 
+                                    href="/wallet" 
+                                    className="flex flex-col items-center space-y-1 p-2 rounded-xl text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-all duration-200"
+                                >
+                                    <Users className="h-5 w-5" />
+                                    <span className="text-xs font-medium">Profile</span>
+                                </Link>
+                            )}
+
+                            {/* Menu Button - Only for managers, hidden for admins on mobile */}
+                            {isManager && (
+                                <button 
+                                    onClick={() => setMobileSidebarOpen(true)}
+                                    className="flex flex-col items-center space-y-1 p-2 rounded-xl text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-all duration-200"
+                                >
+                                    <Menu className="h-5 w-5" />
+                                    <span className="text-xs font-medium">Menu</span>
+                                </button>
+                            )}
+                        </div>
                     </div>
-                </div>
-
-                {/* Floating Action Button */}
-                <div className="fixed bottom-20 right-4 z-50">
-                    <Button
-                        onClick={() => setMobileActionDialogOpen(true)}
-                        className="h-14 w-14 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 p-0 shadow-lg hover:shadow-xl transition-all duration-200"
-                    >
-                        <Plus className="h-6 w-6 text-white" />
-                    </Button>
                 </div>
             </div>
 
@@ -162,7 +251,7 @@ export function BottomNavigation() {
                                 <Link href="/cart" onClick={() => setMobileActionDialogOpen(false)}>
                                     <Button className="w-full h-20 flex-col space-y-2" variant="outline">
                                         <ShoppingCart className="h-6 w-6" />
-                                        <span className="text-sm font-medium">View Cart</span>
+                                        <span className="text-sm font-history">View Cart</span>
                                     </Button>
                                 </Link>
                                 <Link href="/expenses/create" onClick={() => setMobileActionDialogOpen(false)}>

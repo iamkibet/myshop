@@ -6,9 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { BarChart } from '@/components/ui/bar-chart';
+import { PieChart } from '@/components/ui/pie-chart';
 import { formatCurrency } from '@/lib/utils';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { CreditCard, DollarSign, TrendingUp, RefreshCw, Calculator, Users } from 'lucide-react';
+import { CreditCard, DollarSign, TrendingUp, RefreshCw, Calculator, Users, BarChart3 } from 'lucide-react';
 import { type BreadcrumbItem } from '@/types';
 import AppLayout from '@/layouts/app-layout';
 import { useState } from 'react';
@@ -96,6 +98,61 @@ export default function WalletAdminIndex({ managers }: Props) {
         setSelectedManager(manager);
         setData({ amount: manager.wallet.balance.toString(), notes: '' });
         setShowPayoutDialog(true);
+    };
+
+    const prepareManagerChartData = () => {
+        if (!managers || managers.length === 0) return [];
+        
+        // Sort managers by total sales for better visualization
+        const sortedManagers = [...managers].sort((a, b) => b.total_sales - a.total_sales);
+        
+        return sortedManagers.map((manager, index) => ({
+            label: manager.name.split(' ')[0] || manager.name, // First name or full name if no space
+            value: manager.total_sales,
+            color: getManagerColor(index),
+            secondaryValue: manager.expected_commission > 0 ? manager.expected_commission : undefined,
+            secondaryColor: '#10B981', // green-500
+        }));
+    };
+
+    const prepareCommissionChartData = () => {
+        if (!managers || managers.length === 0) return [];
+        
+        // Sort managers by expected commission for better visualization
+        const sortedManagers = [...managers].sort((a, b) => b.expected_commission - a.expected_commission);
+        
+        return sortedManagers.map((manager, index) => ({
+            label: manager.name.split(' ')[0] || manager.name,
+            value: manager.expected_commission,
+            color: getManagerColor(index),
+        }));
+    };
+
+    const prepareManagerPieData = () => {
+        if (!managers || managers.length === 0) return [];
+        
+        const totalSales = managers.reduce((sum, manager) => sum + manager.total_sales, 0);
+        
+        return managers.map((manager, index) => ({
+            category: manager.name.split(' ')[0] || manager.name,
+            total: manager.total_sales,
+            percentage: totalSales > 0 ? (manager.total_sales / totalSales) * 100 : 0,
+            color: getManagerColor(index),
+        }));
+    };
+
+    const getManagerColor = (index: number) => {
+        const colors = [
+            '#3B82F6', // blue-500
+            '#10B981', // green-500
+            '#F59E0B', // yellow-500
+            '#EF4444', // red-500
+            '#8B5CF6', // purple-500
+            '#06B6D4', // cyan-500
+            '#F97316', // orange-500
+            '#EC4899', // pink-500
+        ];
+        return colors[index % colors.length];
     };
 
     const handlePayout = (e: React.FormEvent) => {
@@ -333,6 +390,143 @@ export default function WalletAdminIndex({ managers }: Props) {
                         </TooltipContent>
                     </Tooltip>
                 </div>
+
+                {/* Manager Performance Charts */}
+                {managers.length > 0 ? (
+                    <div className="grid gap-6 sm:gap-8 grid-cols-1 lg:grid-cols-3 mb-6 sm:mb-8">
+                        {/* Sales Performance Chart - Hidden on mobile */}
+                        <Card className="hidden sm:block border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800">
+                            <CardHeader className="pb-4">
+                                <div className="flex items-center gap-2">
+                                    <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
+                                    <CardTitle className="text-base sm:text-lg font-semibold">
+                                        Sales Performance
+                                    </CardTitle>
+                                </div>
+                                <CardDescription className="text-sm">
+                                    Manager sales volume and expected commission
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <BarChart 
+                                    data={prepareManagerChartData()} 
+                                    height={250}
+                                    showSecondary={true}
+                                    formatValue={formatCurrency}
+                                />
+                            </CardContent>
+                        </Card>
+
+                        {/* Commission Overview Chart - Hidden on mobile */}
+                        <Card className="hidden sm:block border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800">
+                            <CardHeader className="pb-4">
+                                <div className="flex items-center gap-2">
+                                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500" />
+                                    <CardTitle className="text-base sm:text-lg font-semibold">
+                                        Commission Overview
+                                    </CardTitle>
+                                </div>
+                                <CardDescription className="text-sm">
+                                    Pending commission by manager
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <BarChart 
+                                    data={prepareCommissionChartData()} 
+                                    height={250}
+                                    formatValue={formatCurrency}
+                                />
+                            </CardContent>
+                        </Card>
+
+                        {/* Sales Distribution Pie Chart - Mobile optimized */}
+                        <Card className="border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800 lg:col-span-1">
+                            <CardHeader className="pb-4">
+                                <div className="flex items-center gap-2">
+                                    <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500" />
+                                    <CardTitle className="text-base sm:text-lg font-semibold">
+                                        Sales Distribution
+                                    </CardTitle>
+                                </div>
+                                <CardDescription className="text-sm">
+                                    Sales volume distribution by manager
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <PieChart 
+                                    data={prepareManagerPieData()} 
+                                    size={180} 
+                                    strokeWidth={30}
+                                />
+                            </CardContent>
+                        </Card>
+                    </div>
+                ) : (
+                    /* Empty State for Charts */
+                    <Card className="border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800 mb-6 sm:mb-8">
+                        <CardContent className="py-12 text-center">
+                            <div className="text-6xl mb-4">📊</div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                                No Manager Data Available
+                            </h3>
+                            <p className="text-gray-500 dark:text-gray-400">
+                                Manager performance charts will appear here once managers are added to the system.
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Mobile Manager Summary - Only visible on mobile */}
+                {managers.length > 0 && (
+                    <Card className="sm:hidden border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800 mb-6">
+                        <CardHeader className="pb-4">
+                            <div className="flex items-center gap-2">
+                                <BarChart3 className="h-4 w-4 text-blue-500" />
+                                <CardTitle className="text-base font-semibold">
+                                    Manager Summary
+                                </CardTitle>
+                            </div>
+                            <CardDescription className="text-sm">
+                                Key performance metrics for mobile view
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                {managers.slice(0, 3).map((manager, index) => (
+                                    <div key={manager.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                                        <div className="flex items-center gap-3">
+                                            <div 
+                                                className="w-3 h-3 rounded-full" 
+                                                style={{ backgroundColor: getManagerColor(index) }}
+                                            />
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                    {manager.name.split(' ')[0] || manager.name}
+                                                </p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                    {manager.sales_count} sales
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                                {formatCurrency(manager.total_sales)}
+                                            </p>
+                                            <p className="text-xs text-green-600 dark:text-green-400">
+                                                {formatCurrency(manager.expected_commission)} commission
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                                {managers.length > 3 && (
+                                    <div className="text-center text-sm text-gray-500 dark:text-gray-400">
+                                        +{managers.length - 3} more managers
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Managers List */}
                 <Card>

@@ -7,7 +7,8 @@ import { formatCurrency } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { ArrowLeft, Check, CreditCard, Edit, Loader, Plus, ShoppingCart, Trash, X } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useCart } from '@/hooks/use-cart';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -22,35 +23,25 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 interface CartItem {
     variant_id: number;
-    product_variant: {
-        id: number;
-        product: {
-            id: number;
-            name: string;
-            sku: string;
-            image_url?: string;
-        };
-        color?: string;
-        size?: string;
-        quantity: number;
-        selling_price: number;
-        discount_price?: number;
-    };
+    product_name: string;
+    color?: string;
+    size?: string;
     quantity: number;
     unit_price: number;
     total_price: number;
 }
 
 interface CartPageProps {
-    cartItems: CartItem[];
-    total: number;
+    cartItems?: CartItem[];
+    total?: number;
     flash?: {
         success?: string;
         error?: string;
     };
 }
 
-export default function CartPage({ cartItems, total, flash }: CartPageProps) {
+export default function CartPage({ cartItems: backendCartItems, total: backendTotal, flash }: CartPageProps) {
+    const { cart: frontendCart, updateCartItem, removeFromCart, getCartTotal } = useCart();
     const [isCheckingOut, setIsCheckingOut] = useState(false);
     const [editingItem, setEditingItem] = useState<number | null>(null);
     const [editQuantity, setEditQuantity] = useState<number>(0);
@@ -58,9 +49,18 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
     const [updatingItem, setUpdatingItem] = useState<number | null>(null);
     const [removingItem, setRemovingItem] = useState<number | null>(null);
 
-    // Ensure cartItems is always an array
-    const safeCartItems = Array.isArray(cartItems) ? cartItems : [];
-    const safeTotal = total || 0;
+    // Use frontend cart data from localStorage
+    const cartItems = Object.values(frontendCart).map(item => ({
+        variant_id: item.variant_id,
+        product_name: item.product_name,
+        color: item.color,
+        size: item.size,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.quantity * item.unit_price,
+    }));
+
+    const total = getCartTotal();
 
     const handleEditItem = (item: CartItem) => {
         setEditingItem(item.variant_id);
@@ -71,6 +71,10 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
     const handleSaveEdit = async (variantId: number) => {
         setUpdatingItem(variantId);
         try {
+            // Update frontend cart
+            updateCartItem(variantId, editQuantity);
+            
+            // Also update backend cart
             await router.put(`/cart/items/${variantId}`, {
                 quantity: editQuantity,
                 sale_price: editPrice,
@@ -87,6 +91,10 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
         if (confirm('Are you sure you want to remove this item from cart?')) {
             setRemovingItem(variantId);
             try {
+                // Remove from frontend cart
+                removeFromCart(variantId);
+                
+                // Also remove from backend cart
                 await router.delete(`/cart/items/${variantId}`);
             } catch (error) {
                 console.error('Error removing cart item:', error);
@@ -97,7 +105,7 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
     };
 
     const handleCheckout = async () => {
-        if (safeCartItems.length === 0) {
+        if (cartItems.length === 0) {
             alert('Your cart is empty.');
             return;
         }
@@ -117,7 +125,7 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Shopping Cart" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 rounded-xl p-4 md:p-6">
+            <div className="flex h-full flex-1 flex-col gap-6 rounded-xl p-4 md:p-6 pb-20 sm:pb-6">
                 {/* Success Message */}
                 {flash?.success && (
                     <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-green-800">
@@ -160,7 +168,7 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                     </Link>
                 </div>
 
-                {safeCartItems.length === 0 ? (
+                {cartItems.length === 0 ? (
                     <Card className="border-0 shadow-none">
                         <CardContent className="py-12 text-center">
                             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50">
@@ -179,25 +187,22 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                 ) : (
                     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                         {/* Cart Items */}
-                        <div className="space-y-4 lg:col-span-2">
+                        <div className="space-y-4 lg:col-span-2 order-last lg:order-first">
                             <Card className="border-0 shadow-sm">
                                 <CardHeader className="px-4 py-4 md:px-6">
                                     <CardTitle className="text-lg">
-                                        Cart Items <span className="text-muted-foreground">({safeCartItems.length})</span>
+                                        Cart Items <span className="text-muted-foreground">({cartItems.length})</span>
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="px-0 pb-0">
                                     <div className="divide-y">
-                                        {safeCartItems.map((item) => {
+                                        {cartItems.map((item) => {
                                             const isEditing = editingItem === item.variant_id;
                                             const isUpdating = updatingItem === item.variant_id;
                                             const isRemoving = removingItem === item.variant_id;
 
-                                            // Ensure msrp is a number
-                                            const msrp =
-                                                typeof item.product_variant.selling_price === 'string'
-                                                    ? parseFloat(item.product_variant.selling_price)
-                                                    : item.product_variant.selling_price || 0;
+                                            // Get max quantity for validation
+                                            const maxQuantity = 999; // Reasonable limit
 
                                             return (
                                                 <div
@@ -205,35 +210,22 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                                                     className={`relative px-4 py-5 transition-all duration-300 md:px-6 ${isRemoving ? 'opacity-50' : ''}`}
                                                 >
                                                     <div className="flex gap-4">
-                                                        {/* Product Image */}
+                                                        {/* Product Image - Placeholder */}
                                                         <div className="flex-shrink-0">
-                                                            {item.product_variant.product.image_url ? (
-                                                                <div className="h-16 w-16 overflow-hidden rounded-md border">
-                                                                    <img
-                                                                        src={item.product_variant.product.image_url}
-                                                                        alt={item.product_variant.product.name}
-                                                                        className="h-full w-full object-cover"
-                                                                    />
-                                                                </div>
-                                                            ) : (
-                                                                <div className="flex h-16 w-16 items-center justify-center rounded-md bg-muted">
-                                                                    <ShoppingCart className="h-8 w-8 text-muted-foreground" />
-                                                                </div>
-                                                            )}
+                                                            <div className="flex h-16 w-16 items-center justify-center rounded-md bg-muted">
+                                                                <ShoppingCart className="h-8 w-8 text-muted-foreground" />
+                                                            </div>
                                                         </div>
 
                                                         {/* Product Details */}
                                                         <div className="min-w-0 flex-1">
                                                             <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
                                                                 <div className="min-w-0">
-                                                                    <h3 className="truncate font-medium">{item.product_variant.product.name}</h3>
+                                                                    <h3 className="truncate font-medium">{item.product_name}</h3>
                                                                     <p className="truncate text-sm text-muted-foreground">
-                                                                        {item.product_variant.color && item.product_variant.size
-                                                                            ? `${item.product_variant.color} ${item.product_variant.size}`
-                                                                            : item.product_variant.color || item.product_variant.size || 'Default'}
-                                                                    </p>
-                                                                    <p className="mt-0.5 text-xs text-muted-foreground">
-                                                                        SKU: {item.product_variant.product.sku}
+                                                                        {item.color && item.size
+                                                                            ? `${item.color} ${item.size}`
+                                                                            : item.color || item.size || 'Default'}
                                                                     </p>
                                                                 </div>
 
@@ -250,10 +242,10 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                                                                         <Input
                                                                             type="number"
                                                                             min="1"
-                                                                            max={item.product_variant.quantity}
+                                                                            max={maxQuantity}
                                                                             value={editQuantity}
                                                                             onChange={(e) => setEditQuantity(parseInt(e.target.value) || 0)}
-                                                                            className="h-8 w-20"
+                                                                            className="h-10 w-24 sm:h-8 sm:w-20"
                                                                             disabled={isUpdating}
                                                                         />
                                                                     ) : (
@@ -268,10 +260,10 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                                                                         <Input
                                                                             type="number"
                                                                             step="0.01"
-                                                                            min={msrp}
+                                                                            min="0"
                                                                             value={editPrice}
                                                                             onChange={(e) => setEditPrice(parseFloat(e.target.value) || 0)}
-                                                                            className="h-8 w-24"
+                                                                            className="h-10 w-28 sm:h-8 sm:w-24"
                                                                             disabled={isUpdating}
                                                                         />
                                                                     ) : (
@@ -287,7 +279,7 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                                                                                 size="sm"
                                                                                 onClick={() => handleSaveEdit(item.variant_id)}
                                                                                 disabled={isUpdating}
-                                                                                className="h-8 w-8 p-0"
+                                                                                className="h-10 w-10 sm:h-8 sm:w-8 p-0"
                                                                             >
                                                                                 {isUpdating ? (
                                                                                     <Loader className="h-4 w-4 animate-spin" />
@@ -300,7 +292,7 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                                                                                 size="sm"
                                                                                 onClick={() => setEditingItem(null)}
                                                                                 disabled={isUpdating}
-                                                                                className="h-8 w-8 p-0"
+                                                                                className="h-10 w-10 sm:h-8 sm:w-8 p-0"
                                                                             >
                                                                                 <X className="h-4 w-4" />
                                                                             </Button>
@@ -312,7 +304,7 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                                                                                 size="sm"
                                                                                 onClick={() => handleEditItem(item)}
                                                                                 disabled={isRemoving}
-                                                                                className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50"
+                                                                                className="h-10 w-10 sm:h-8 sm:w-8 p-0 text-blue-600 hover:bg-blue-50"
                                                                             >
                                                                                 <Edit className="h-4 w-4" />
                                                                             </Button>
@@ -321,7 +313,7 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                                                                                 size="sm"
                                                                                 onClick={() => handleRemoveItem(item.variant_id)}
                                                                                 disabled={isRemoving}
-                                                                                className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
+                                                                                className="h-10 w-10 sm:h-8 sm:w-8 p-0 text-red-600 hover:bg-red-50"
                                                                             >
                                                                                 {isRemoving ? (
                                                                                     <Loader className="h-4 w-4 animate-spin" />
@@ -344,8 +336,8 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                         </div>
 
                         {/* Order Summary */}
-                        <div>
-                            <Card className="sticky top-6 border-0 shadow-sm">
+                        <div className="order-first lg:order-last">
+                            <Card className="border-0 shadow-sm lg:sticky lg:top-6">
                                 <CardHeader className="px-4 py-4 md:px-6">
                                     <CardTitle className="text-lg">Order Summary</CardTitle>
                                 </CardHeader>
@@ -353,7 +345,7 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                                     <div className="space-y-4">
                                         <div className="flex justify-between">
                                             <span className="text-muted-foreground">Subtotal</span>
-                                            <span className="font-medium">{formatCurrency(safeTotal)}</span>
+                                            <span className="font-medium">{formatCurrency(total)}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-muted-foreground">Tax</span>
@@ -366,7 +358,7 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                                         <div className="mt-2 border-t pt-4">
                                             <div className="flex justify-between text-base font-semibold">
                                                 <span>Total</span>
-                                                <span>{formatCurrency(safeTotal)}</span>
+                                                <span>{formatCurrency(total)}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -374,7 +366,7 @@ export default function CartPage({ cartItems, total, flash }: CartPageProps) {
                                     <Button
                                         size="lg"
                                         onClick={handleCheckout}
-                                        disabled={isCheckingOut || safeCartItems.length === 0}
+                                        disabled={isCheckingOut || cartItems.length === 0}
                                         className="mt-6 w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800"
                                     >
                                         {isCheckingOut ? (

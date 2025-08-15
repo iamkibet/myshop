@@ -147,7 +147,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Admin routes
     Route::middleware(['can:isAdmin'])->group(function () {
-        Route::resource('products', ProductController::class);
+        Route::resource('products', ProductController::class)->except(['show']); // Exclude show since it's now public
         Route::resource('users', UserController::class);
 
         // Image upload route
@@ -217,6 +217,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Manager routes - accessible to both managers and admins
     Route::get('/products/catalog', [ProductController::class, 'catalog'])->name('products.catalog');
+    Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show'); // Allow managers to view products
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
     Route::post('/cart/items', [CartController::class, 'addItem'])->name('cart.add-item');
     Route::put('/cart/items/{variantId}', [CartController::class, 'updateItem'])->name('cart.update-item');
