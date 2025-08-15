@@ -424,44 +424,46 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid gap-6 sm:gap-8 grid-cols-1 lg:grid-cols-2">
+                            <div className="grid gap-6 sm:gap-8 grid-cols-1 xl:grid-cols-3">
                                 {/* Pie Chart Section */}
-                                <div className="flex justify-center">
+                                <div className="flex justify-center xl:col-span-1">
                                     <PieChart 
                                         data={preparePieChartData()} 
-                                        size={200} 
-                                        strokeWidth={35}
+                                        size={250} 
+                                        strokeWidth={40}
                                     />
                                 </div>
                                 
                                 {/* Category Details Section */}
-                                <div className="space-y-3 sm:space-y-4">
-                                    {summary.category_totals.map((item) => (
-                                        <div key={item.category} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-100/50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div 
-                                                    className="w-4 h-4 rounded-full" 
-                                                    style={{ backgroundColor: getPieChartColors(item.category) }}
-                                                />
-                                                <div>
-                                                    <p className="text-sm sm:text-base font-medium text-gray-900 dark:text-gray-100">
-                                                        {categories[item.category] || item.category}
+                                <div className="xl:col-span-2">
+                                    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
+                                        {summary.category_totals.map((item) => (
+                                            <div key={item.category} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-100/50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <div className="flex items-center gap-3">
+                                                    <div 
+                                                        className="w-4 h-4 rounded-full" 
+                                                        style={{ backgroundColor: getPieChartColors(item.category) }}
+                                                    />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm sm:text-base font-medium text-gray-900 dark:text-gray-100 truncate">
+                                                            {categories[item.category] || item.category}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                            {((item.total / summary.total_expenses) * 100).toFixed(1)}% of total
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right ml-2">
+                                                    <p className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                                        {formatCurrency(item.total)}
                                                     </p>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                        {((item.total / summary.total_expenses) * 100).toFixed(1)}% of total
-                                                    </p>
+                                                    <Badge className={`mt-1 text-xs ${getCategoryColor(item.category)}`}>
+                                                        {item.category}
+                                                    </Badge>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
-                                                <p className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
-                                                    {formatCurrency(item.total)}
-                                                </p>
-                                                <Badge className={`mt-1 text-xs ${getCategoryColor(item.category)}`}>
-                                                    {item.category}
-                                                </Badge>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </CardContent>
@@ -495,7 +497,7 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                 </div>
                             ) : (
                                 expenses.data.map((expense) => (
-                                    <div key={expense.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6 bg-white dark:bg-gray-900 hover:shadow-sm transition-shadow space-y-3 sm:space-y-0">
+                                    <div key={expense.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6 bg-white dark:bg-gray-900 hover:shadow-sm transition-shadow space-y-3 lg:space-y-0">
                                         <div className="flex-1">
                                             <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
                                                 <div className="flex-1">
@@ -579,7 +581,7 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                         </div>
 
                                         {/* Action Buttons Section - Mobile Optimized */}
-                                        <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:gap-2">
+                                        <div className="space-y-3 lg:space-y-0 lg:flex lg:items-center lg:gap-2">
                                             {/* Admin Approval Buttons - Mobile Stacked, Desktop Inline */}
                                             {userRole === 'admin' && expense.status === 'pending' && (
                                                 <div className="flex flex-col sm:flex-row gap-2">

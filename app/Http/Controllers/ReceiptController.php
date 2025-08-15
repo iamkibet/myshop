@@ -10,6 +10,31 @@ use Inertia\Inertia;
 class ReceiptController extends Controller
 {
     /**
+     * Display a list of all receipts for the user
+     */
+    public function index()
+    {
+        $user = auth()->user();
+        
+        if ($user->isAdmin()) {
+            // Admins can see all receipts
+            $sales = Sale::with(['manager', 'saleItems.productVariant.product'])
+                ->latest()
+                ->paginate(20);
+        } else {
+            // Managers can only see their own receipts
+            $sales = Sale::with(['manager', 'saleItems.productVariant.product'])
+                ->where('manager_id', $user->id)
+                ->latest()
+                ->paginate(20);
+        }
+
+        return Inertia::render('Receipts/Index', [
+            'sales' => $sales,
+        ]);
+    }
+
+    /**
      * Display the receipt for a sale
      */
     public function show(Sale $sale)

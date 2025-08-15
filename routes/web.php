@@ -212,6 +212,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/sales/{sale}', [SalesController::class, 'show'])->name('sales.show');
 
     // Receipt routes - accessible to both managers and admins
+    Route::get('/receipts', [ReceiptController::class, 'index'])->name('receipts.index');
     Route::get('/receipts/{sale}', [ReceiptController::class, 'show'])->name('receipts.show');
     Route::get('/receipts/{sale}/download', [ReceiptController::class, 'download'])->name('receipts.download');
 
@@ -222,7 +223,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/cart/items', [CartController::class, 'addItem'])->name('cart.add-item');
     Route::put('/cart/items/{variantId}', [CartController::class, 'updateItem'])->name('cart.update-item');
     Route::delete('/cart/items/{variantId}', [CartController::class, 'removeItem'])->name('cart.remove-item');
-    Route::post('/cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
+    Route::post('/cart/sync', [CartController::class, 'sync'])->name('cart.sync');
+Route::post('/cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
 
     // Wallet route for managers
     Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index')->middleware('ensure.wallet');

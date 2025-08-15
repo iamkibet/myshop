@@ -150,6 +150,36 @@ class CartController extends Controller
     }
 
     /**
+     * Sync cart from frontend to backend session.
+     */
+    public function sync(Request $request)
+    {
+        // Check if user is a manager
+        if (!auth()->user() || !auth()->user()->isManager()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $request->validate([
+            'cart' => 'required|array',
+            'cart.*.variant_id' => 'required|exists:product_variants,id',
+            'cart.*.quantity' => 'required|integer|min:1',
+            'cart.*.unit_price' => 'required|numeric|min:0',
+        ]);
+
+        $cart = [];
+        foreach ($request->cart as $item) {
+            $cart[$item['variant_id']] = [
+                'quantity' => $item['quantity'],
+                'unit_price' => $item['unit_price'],
+            ];
+        }
+
+        session(['cart' => $cart]);
+
+        return response()->json(['message' => 'Cart synced successfully']);
+    }
+
+    /**
      * Checkout the cart.
      */
     public function checkout(Request $request)
@@ -221,7 +251,7 @@ class CartController extends Controller
 
             DB::commit();
 
-            // Redirect to the receipt page
+            // Redirect to the receipt page using Inertia
             return redirect()->route('receipts.show', $sale)->with('success', 'Sale completed successfully!');
         } catch (\Exception $e) {
             DB::rollBack();

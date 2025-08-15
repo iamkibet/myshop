@@ -41,8 +41,9 @@ interface CartPageProps {
 }
 
 export default function CartPage({ cartItems: backendCartItems, total: backendTotal, flash }: CartPageProps) {
-    const { cart: frontendCart, updateCartItem, removeFromCart, getCartTotal } = useCart();
+    const { cart: frontendCart, updateCartItem, removeFromCart, clearCart, getCartTotal } = useCart();
     const [isCheckingOut, setIsCheckingOut] = useState(false);
+    const [checkoutSuccess, setCheckoutSuccess] = useState(false);
     const [editingItem, setEditingItem] = useState<number | null>(null);
     const [editQuantity, setEditQuantity] = useState<number>(0);
     const [editPrice, setEditPrice] = useState<number>(0);
@@ -112,7 +113,30 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
 
         setIsCheckingOut(true);
         try {
+            // Prepare cart data for backend sync
+            const cartDataForSync = cartItems.map(item => ({
+                variant_id: item.variant_id,
+                quantity: item.quantity,
+                unit_price: item.unit_price,
+            }));
+
+            console.log('Syncing cart data:', cartDataForSync);
+
+            // First, sync the cart with the backend
+            const syncResponse = await router.post('/cart/sync', { cart: cartDataForSync });
+            console.log('Cart sync response:', syncResponse);
+            
+            // Then proceed with checkout
             await router.post('/cart/checkout');
+            
+            // If we reach here, checkout was successful, clear the frontend cart
+            clearCart();
+            console.log('Cart cleared after successful checkout');
+            
+            // Show success animation - the backend will handle the redirect to the specific receipt
+            setCheckoutSuccess(true);
+            // No need for manual redirect - Inertia will follow the backend redirect
+            
         } catch (error) {
             console.error('Error during checkout:', error);
             alert('Checkout failed. Please try again.');
@@ -124,6 +148,39 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Shopping Cart" />
+
+            {/* Success Overlay Animation */}
+            {checkoutSuccess && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="relative bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-2xl transform transition-all duration-500 scale-100 animate-in fade-in-0 zoom-in-95">
+                        {/* Success Icon with Animation */}
+                        <div className="flex justify-center mb-6">
+                            <div className="relative">
+                                <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center animate-pulse">
+                                    <Check className="w-10 h-10 text-green-600 dark:text-green-400 animate-bounce" />
+                                </div>
+                                {/* Ripple Effect */}
+                                <div className="absolute inset-0 w-20 h-20 bg-green-200 dark:bg-green-800/40 rounded-full animate-ping"></div>
+                            </div>
+                        </div>
+                        
+                        {/* Success Message */}
+                        <div className="text-center mb-6">
+                            <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                                Sale Completed!
+                            </h3>
+                            <p className="text-gray-600 dark:text-gray-400">
+                                Redirecting to your receipt...
+                            </p>
+                        </div>
+                        
+                        {/* Loading Bar */}
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                            <div className="h-full bg-green-500 rounded-full animate-pulse transition-all duration-1000 ease-out"></div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="flex h-full flex-1 flex-col gap-6 rounded-xl p-4 md:p-6 pb-20 sm:pb-6">
                 {/* Success Message */}
@@ -185,6 +242,7 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
                         </CardContent>
                     </Card>
                 ) : (
+                    <div className={`transition-all duration-500 ${checkoutSuccess ? 'opacity-50 scale-95' : 'opacity-100 scale-100'}`}>
                     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                         {/* Cart Items */}
                         <div className="space-y-4 lg:col-span-2 order-last lg:order-first">
@@ -336,7 +394,7 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
                         </div>
 
                         {/* Order Summary */}
-                        <div className="order-first lg:order-last">
+                        <div className={`order-first lg:order-last transition-all duration-500 ${checkoutSuccess ? 'opacity-50 scale-95' : 'opacity-100 scale-100'}`}>
                             <Card className="border-0 shadow-sm lg:sticky lg:top-6">
                                 <CardHeader className="px-4 py-4 md:px-6">
                                     <CardTitle className="text-lg">Order Summary</CardTitle>
@@ -366,13 +424,18 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
                                     <Button
                                         size="lg"
                                         onClick={handleCheckout}
-                                        disabled={isCheckingOut || cartItems.length === 0}
-                                        className="mt-6 w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800"
+                                        disabled={isCheckingOut || checkoutSuccess || cartItems.length === 0}
+                                        className="mt-6 w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {isCheckingOut ? (
                                             <>
                                                 <Loader className="mr-2 h-4 w-4 animate-spin" />
                                                 Processing...
+                                            </>
+                                        ) : checkoutSuccess ? (
+                                            <>
+                                                <Check className="mr-2 h-4 w-4" />
+                                                Sale Completed!
                                             </>
                                         ) : (
                                             <>
@@ -390,6 +453,7 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
                                 </CardContent>
                             </Card>
                         </div>
+                    </div>
                     </div>
                 )}
             </div>

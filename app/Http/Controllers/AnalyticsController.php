@@ -38,6 +38,9 @@ class AnalyticsController extends Controller
                 case 'year':
                     $startDate = $now->copy()->startOfYear();
                     break;
+                case 'lifetime':
+                    $startDate = null; // No start date filter for lifetime
+                    break;
                 default:
                     $startDate = $now->copy()->startOfMonth();
             }
@@ -84,8 +87,13 @@ class AnalyticsController extends Controller
     private function getSalesAnalytics($startDate): array
     {
         // Total sales for the period
-        $totalSales = Sale::where('created_at', '>=', $startDate)->sum('total_amount');
-        $totalOrders = Sale::where('created_at', '>=', $startDate)->count();
+        $query = Sale::query();
+        if ($startDate) {
+            $query->where('created_at', '>=', $startDate);
+        }
+        
+        $totalSales = $query->sum('total_amount');
+        $totalOrders = $query->count();
         $averageOrderValue = $totalOrders > 0 ? $totalSales / $totalOrders : 0;
 
         // Sales trends (last 30 days)
@@ -103,8 +111,12 @@ class AnalyticsController extends Controller
             });
 
         // Best selling products for the period
-        $bestSellingProducts = SaleItem::with(['productVariant.product'])
-            ->where('sale_items.created_at', '>=', $startDate)
+        $bestSellingProductsQuery = SaleItem::with(['productVariant.product']);
+        if ($startDate) {
+            $bestSellingProductsQuery->where('sale_items.created_at', '>=', $startDate);
+        }
+        
+        $bestSellingProducts = $bestSellingProductsQuery
             ->selectRaw('product_variant_id, SUM(quantity) as total_sold, SUM(total_price) as total_revenue')
             ->groupBy('product_variant_id')
             ->orderByDesc('total_sold')
@@ -120,8 +132,12 @@ class AnalyticsController extends Controller
             });
 
         // Sales by category for the period
-        $salesByCategory = SaleItem::with(['productVariant.product'])
-            ->where('sale_items.created_at', '>=', $startDate)
+        $salesByCategoryQuery = SaleItem::with(['productVariant.product']);
+        if ($startDate) {
+            $salesByCategoryQuery->where('sale_items.created_at', '>=', $startDate);
+        }
+        
+        $salesByCategory = $salesByCategoryQuery
             ->selectRaw('products.category, SUM(sale_items.quantity) as total_sold, SUM(sale_items.total_price) as total_revenue')
             ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
             ->join('products', 'product_variants.product_id', '=', 'products.id')
@@ -225,8 +241,12 @@ class AnalyticsController extends Controller
     private function getTopEntities($startDate): array
     {
         // Top performing managers
-        $topManagers = Sale::with(['manager'])
-            ->where('created_at', '>=', $startDate)
+        $topManagersQuery = Sale::with(['manager']);
+        if ($startDate) {
+            $topManagersQuery->where('created_at', '>=', $startDate);
+        }
+        
+        $topManagers = $topManagersQuery
             ->selectRaw('manager_id, COUNT(*) as sales_count, SUM(total_amount) as total_revenue')
             ->groupBy('manager_id')
             ->orderByDesc('total_revenue')
@@ -242,9 +262,13 @@ class AnalyticsController extends Controller
             });
 
         // Top 5 best-selling products for the period
-        $topProducts = SaleItem::with(['productVariant.product'])
-            ->where('sale_items.created_at', '>=', $startDate)
-            ->selectRaw('product_variant_id, SUM(quantity) as total_sold, SUM(total_price) as total_revenue')
+        $topProductsQuery = SaleItem::with(['productVariant.product']);
+        if ($startDate) {
+            $topProductsQuery->where('sale_items.created_at', '>=', $startDate);
+        }
+        
+        $topProducts = $topProductsQuery
+            ->selectRaw('product_variant_id, SUM(quantity) as total_sold, SUM(quantity * unit_price) as total_revenue')
             ->groupBy('product_variant_id')
             ->orderByDesc('total_sold')
             ->limit(5)
@@ -259,9 +283,13 @@ class AnalyticsController extends Controller
             });
 
         // Top product categories for the period
-        $topCategories = SaleItem::with(['productVariant.product'])
-            ->where('sale_items.created_at', '>=', $startDate)
-            ->selectRaw('products.category, SUM(sale_items.quantity) as total_sold, SUM(sale_items.total_price) as total_revenue')
+        $topCategoriesQuery = SaleItem::with(['productVariant.product']);
+        if ($startDate) {
+            $topCategoriesQuery->where('sale_items.created_at', '>=', $startDate);
+        }
+        
+        $topCategories = $topCategoriesQuery
+            ->selectRaw('products.category, SUM(sale_items.quantity) as total_sold, SUM(sale_items.quantity * sale_items.unit_price) as total_revenue')
             ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
             ->join('products', 'product_variants.product_id', '=', 'products.id')
             ->groupBy('products.category')
@@ -282,14 +310,18 @@ class AnalyticsController extends Controller
     private function getProfitAnalytics($startDate): array
     {
         // Calculate profits per sale item for the period
-        $profitData = SaleItem::with(['productVariant'])
+        $profitDataQuery = SaleItem::with(['productVariant'])
             ->selectRaw('
                 sale_items.*,
                 (sale_items.unit_price - product_variants.cost_price) * sale_items.quantity as profit
             ')
-            ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
-            ->where('sale_items.created_at', '>=', $startDate)
-            ->get();
+            ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id');
+        
+        if ($startDate) {
+            $profitDataQuery->where('sale_items.created_at', '>=', $startDate);
+        }
+        
+        $profitData = $profitDataQuery->get();
 
         $totalProfit = $profitData->sum('profit');
         $totalRevenue = $profitData->sum('total_price');

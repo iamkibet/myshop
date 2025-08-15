@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { PlaceholderPattern } from '@/components/ui/placeholder-pattern';
 import AppLayout from '@/layouts/app-layout';
@@ -121,20 +121,27 @@ const getProductTotalQuantity = (product: Product): number => {
 // Helper function to get available colors for a product
 const getAvailableColors = (product: Product | null): string[] => {
     if (!product || !product.variants) return [];
-    return [...new Set(product.variants.map((v) => v.color).filter((color): color is string => Boolean(color)))];
+    
+    const colors = product.variants
+        .filter((v) => v.is_active && v.quantity > 0)
+        .map((v) => v.color)
+        .filter((color): color is string => Boolean(color));
+    
+    console.log('Available colors for product:', product.name, ':', colors);
+    return [...new Set(colors)];
 };
 
 // Helper function to get available sizes for a specific color
 const getAvailableSizesForColor = (product: Product | null, color: string): string[] => {
     if (!product || !product.variants || !color) return [];
-    return [
-        ...new Set(
-            product.variants
-                .filter((v) => v.color === color && v.is_active && v.quantity > 0)
-                .map((v) => v.size)
-                .filter((size): size is string => Boolean(size)),
-        ),
-    ];
+    
+    const sizes = product.variants
+        .filter((v) => v.color === color && v.is_active && v.quantity > 0)
+        .map((v) => v.size)
+        .filter((size): size is string => Boolean(size));
+    
+    console.log('Available sizes for color', color, ':', sizes);
+    return [...new Set(sizes)];
 };
 
 // Helper function to convert color name to hex
@@ -242,70 +249,70 @@ export default function Dashboard() {
         );
     };
 
-    const handleOpenVariantModal = (product: Product) => {
-        setSelectedProduct(product);
-        setSelectedColor('');
-        setSelectedSize('');
-        setSelectedVariant(null);
-        setQuantity(1);
-        setIsModalOpen(true);
-    };
+
 
     const handleColorChange = (color: string) => {
+        console.log('Color changed to:', color);
         setSelectedColor(color);
         setSelectedSize('');
         setSelectedVariant(null);
-        console.log('Color changed to:', color);
+        setQuantity(1);
     };
 
     const handleSizeChange = (size: string) => {
+        console.log('Size changed to:', size, 'for color:', selectedColor);
         setSelectedSize(size);
+        
         // Find the specific variant
-        if (selectedProduct) {
-            const variant = selectedProduct.variants?.find((v) => v.color === selectedColor && v.size === size && v.is_active && v.quantity > 0);
-            console.log('Selected variant:', variant, 'for color:', selectedColor, 'size:', size);
+        if (selectedProduct && selectedColor) {
+            const variant = selectedProduct.variants?.find((v) => 
+                v.color === selectedColor && 
+                v.size === size && 
+                v.is_active && 
+                v.quantity > 0
+            );
+            console.log('Found variant:', variant);
             setSelectedVariant(variant || null);
         }
     };
 
     const handleAddToCart = async () => {
-        if (!selectedVariant) return;
+        if (!selectedVariant || !selectedProduct) return;
 
-        setAddingToCart(selectedProduct!.id);
+        setAddingToCart(selectedProduct.id);
 
         try {
-            await router.post('/cart/items', {
-                variant_id: selectedVariant.id,
-                quantity: quantity,
-                unit_price: selectedVariant.selling_price,
-            });
-
-            // Add to cart using the hook
+            // Add to cart using the hook first for immediate UI feedback
             addToCart({
                 variant_id: selectedVariant.id,
                 quantity: quantity,
                 unit_price: selectedVariant.selling_price,
-                product_name: selectedProduct!.name,
+                product_name: selectedProduct.name,
                 color: selectedVariant.color,
                 size: selectedVariant.size,
+                image_url: selectedVariant.image_url || selectedProduct.image_url,
             });
 
-            // Close modal
+            // Close modal after successful add
             setIsModalOpen(false);
             setSelectedProduct(null);
+            setSelectedColor('');
+            setSelectedSize('');
             setSelectedVariant(null);
+            setQuantity(1);
 
             // Show success feedback
-            setSoldItems((prev) => new Set([...prev, selectedProduct!.id]));
+            setSoldItems((prev) => new Set([...prev, selectedProduct.id]));
             setTimeout(() => {
                 setSoldItems((prev) => {
                     const newSet = new Set(prev);
-                    newSet.delete(selectedProduct!.id);
+                    newSet.delete(selectedProduct.id);
                     return newSet;
                 });
             }, 2000);
         } catch (error) {
             console.error('Failed to add to cart:', error);
+            alert('Failed to add item to cart. Please try again.');
         } finally {
             setAddingToCart(null);
         }
@@ -482,15 +489,22 @@ export default function Dashboard() {
                                         const availableColors = getAvailableColors(product);
 
                                         return (
-                                            <Link 
-                                                key={product.id}
-                                                href={`/products/${product.id}`}
-                                                className="block"
-                                            >
+                                            <div key={product.id}>
                                                 <Card
-                                                    className={`overflow-hidden transition-all duration-300 hover:shadow-lg ${
+                                                    className={`overflow-hidden transition-all duration-300 hover:shadow-lg cursor-pointer ${
                                                         isSold ? 'bg-green-50/70 ring-1 ring-green-400 dark:bg-green-900/30' : ''
                                                     }`}
+                                                    onClick={() => {
+                                                        console.log('Product card clicked:', product.name);
+                                                        // Reset all selection state
+                                                        setSelectedColor('');
+                                                        setSelectedSize('');
+                                                        setSelectedVariant(null);
+                                                        setQuantity(1);
+                                                        // Set product and open modal
+                                                        setSelectedProduct(product);
+                                                        setIsModalOpen(true);
+                                                    }}
                                                 >
                                                 <CardHeader className="pb-3">
                                                     <div className="flex items-start justify-between gap-2">
@@ -606,7 +620,18 @@ export default function Dashboard() {
 
                                                     {/* Sell Button */}
                                                     <Button
-                                                        onClick={() => handleOpenVariantModal(product)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation(); // Prevent card click
+                                                            console.log('Sell button clicked for:', product.name);
+                                                            // Reset all selection state
+                                                            setSelectedColor('');
+                                                            setSelectedSize('');
+                                                            setSelectedVariant(null);
+                                                            setQuantity(1);
+                                                            // Set product and open modal
+                                                            setSelectedProduct(product);
+                                                            setIsModalOpen(true);
+                                                        }}
                                                         disabled={!hasStock || isAdding}
                                                         className={`w-full transition-all duration-200 ${
                                                             isSold
@@ -633,154 +658,25 @@ export default function Dashboard() {
                                                         )}
                                                     </Button>
 
-                                                    {/* Variant selection modal */}
-                                                    <Dialog open={isModalOpen && selectedProduct?.id === product.id} onOpenChange={setIsModalOpen}>
-                                                        <DialogContent className="sm:max-w-md">
-                                                            <DialogTitle className="text-lg font-semibold">
-                                                                {selectedProduct?.name}
-                                                            </DialogTitle>
-                                                            <div className="space-y-4">
-                                                                <div>
-                                                                    <p className="text-sm text-muted-foreground">{selectedProduct?.description}</p>
-                                                                </div>
 
-                                                                {/* Color Selection */}
-                                                                {getAvailableColors(selectedProduct).length > 0 && (
-                                                                    <div>
-                                                                        <label className="text-sm font-medium">Color</label>
-                                                                        <div className="mt-2 flex flex-wrap gap-2">
-                                                                            {getAvailableColors(selectedProduct).map((color) => (
-                                                                                <button
-                                                                                    key={color}
-                                                                                    onClick={() => handleColorChange(color)}
-                                                                                    className={`flex items-center gap-2 rounded-lg border p-2 text-sm transition-colors ${
-                                                                                        selectedColor === color
-                                                                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
-                                                                                            : 'border-gray-200 hover:border-gray-300'
-                                                                                    }`}
-                                                                                >
-                                                                                    <div
-                                                                                        className="h-4 w-4 rounded-full border shadow-sm"
-                                                                                        style={{ backgroundColor: getColorHex(color) }}
-                                                                                    />
-                                                                                    {color}
-                                                                                </button>
-                                                                            ))}
-                                                                        </div>
-                                                                    </div>
-                                                                )}
 
-                                                                {/* Size Selection */}
-                                                                {selectedColor &&
-                                                                    getAvailableSizesForColor(selectedProduct, selectedColor).length > 0 && (
-                                                                        <div>
-                                                                            <label className="text-sm font-medium">Size</label>
-                                                                            <div className="mt-2 flex flex-wrap gap-2">
-                                                                                {getAvailableSizesForColor(selectedProduct, selectedColor).map(
-                                                                                    (size) => (
-                                                                                        <button
-                                                                                            key={size}
-                                                                                            onClick={() => handleSizeChange(size)}
-                                                                                            className={`rounded-lg border px-3 py-2 text-sm transition-colors ${
-                                                                                                selectedSize === size
-                                                                                                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
-                                                                                                    : 'border-gray-200 hover:border-gray-300'
-                                                                                            }`}
-                                                                                        >
-                                                                                            {size}
-                                                                                        </button>
-                                                                                    ),
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
 
-                                                                {/* Selected Variant Info */}
-                                                                {selectedVariant && (
-                                                                    <div className="space-y-3 rounded-lg border p-3">
-                                                                        <div className="flex justify-between">
-                                                                            <span className="font-medium">Price:</span>
-                                                                            <span className="font-semibold">
-                                                                                {formatCurrency(selectedVariant.selling_price)}
-                                                                            </span>
-                                                                        </div>
-                                                                        <div className="flex justify-between">
-                                                                            <span className="font-medium">Stock:</span>
-                                                                            <Badge
-                                                                                variant={
-                                                                                    getStockColor(selectedVariant) as
-                                                                                        | 'destructive'
-                                                                                        | 'secondary'
-                                                                                        | 'default'
-                                                                                }
-                                                                            >
-                                                                                {getStockText(selectedVariant)}
-                                                                            </Badge>
-                                                                        </div>
-                                                                        {selectedVariant.discount_price && (
-                                                                            <div className="flex justify-between">
-                                                                                <span className="font-medium">Discount:</span>
-                                                                                <span className="font-semibold text-green-600">
-                                                                                    {formatCurrency(selectedVariant.discount_price)}
-                                                                                </span>
-                                                                            </div>
-                                                                        )}
 
-                                                                        {/* Quantity Selection */}
-                                                                        <div>
-                                                                            <label className="text-sm font-medium">Quantity</label>
-                                                                            <Input
-                                                                                type="number"
-                                                                                min="1"
-                                                                                max={selectedVariant.quantity}
-                                                                                value={quantity}
-                                                                                onChange={(e) =>
-                                                                                    setQuantity(
-                                                                                        Math.min(
-                                                                                            parseInt(e.target.value) || 1,
-                                                                                            selectedVariant.quantity,
-                                                                                        ),
-                                                                                    )
-                                                                                }
-                                                                                className="mt-1"
-                                                                            />
-                                                                        </div>
-                                                                    </div>
-                                                                )}
 
-                                                                {/* Action Buttons */}
-                                                                <div className="flex space-x-2">
-                                                                    <Button
-                                                                        onClick={handleAddToCart}
-                                                                        disabled={!selectedVariant || isAdding}
-                                                                        className="flex-1"
-                                                                    >
-                                                                        {isAdding ? (
-                                                                            <>
-                                                                                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                                                                Adding...
-                                                                            </>
-                                                                        ) : (
-                                                                            <>
-                                                                                <ShoppingCart className="mr-2 h-4 w-4" />
-                                                                                Add to Cart
-                                                                            </>
-                                                                        )}
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        onClick={() => setIsModalOpen(false)}
-                                                                        disabled={isAdding}
-                                                                    >
-                                                                        Cancel
-                                                                    </Button>
-                                                                </div>
-                                                            </div>
-                                                        </DialogContent>
-                                                    </Dialog>
+                                                                
+                                                                
+
+
+
+
+
+                                                                
+
+
+
                                                 </CardContent>
                                             </Card>
-                                        </Link>
+                                        </div>
                                     );
                                 })}
                                 </div>
@@ -843,6 +739,220 @@ export default function Dashboard() {
                     <PlaceholderPattern className="absolute inset-0 size-full stroke-neutral-900/20 dark:stroke-neutral-100/20" />
                 </div>
             </div>
+
+            {/* Variant Selection Modal */}
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                <DialogContent className="w-[95vw] max-w-lg p-4 sm:p-6 max-h-[85vh] sm:max-h-[80vh] overflow-y-auto">
+                    <DialogTitle className="text-lg sm:text-xl font-bold text-center mb-2">
+                        {selectedProduct?.name}
+                    </DialogTitle>
+                    
+                    <DialogDescription className="text-center text-xs sm:text-sm text-muted-foreground mb-4">
+                        Select your preferred color, size, and quantity to add this item to your cart
+                    </DialogDescription>
+                    
+                    <div className="space-y-4 sm:space-y-6">
+                        {selectedProduct?.description && (
+                            <div className="text-center px-2">
+                                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">{selectedProduct.description}</p>
+                            </div>
+                        )}
+                        
+                        {/* Instructions */}
+                        <div className="text-center space-y-3 px-2">
+                            <p className="text-xs sm:text-sm text-blue-600 dark:text-blue-400 font-medium">
+                                {!selectedColor ? 'First, select a color' : 
+                                 !selectedSize ? 'Now select a size' : 
+                                 'Choose quantity and add to cart'}
+                            </p>
+                            
+                            {/* Progress indicator */}
+                            <div className="flex justify-center items-center gap-2">
+                                <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all duration-300 ${selectedColor ? 'bg-blue-500 scale-110' : 'bg-gray-300'}`}></div>
+                                <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all duration-300 ${selectedSize ? 'bg-blue-500 scale-110' : 'bg-gray-300'}`}></div>
+                                <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all duration-300 ${selectedVariant ? 'bg-blue-500 scale-110' : 'bg-gray-300'}`}></div>
+                            </div>
+                        </div>
+
+                        {/* Color Selection */}
+                        {getAvailableColors(selectedProduct).length > 0 && (
+                            <div>
+                                <label className="text-xs sm:text-sm font-medium flex items-center gap-2 mb-3">
+                                    <span>Select Color</span>
+                                    {selectedColor && (
+                                        <Badge variant="secondary" className="text-xs px-2 py-1">
+                                            {selectedColor}
+                                        </Badge>
+                                    )}
+                                </label>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2 sm:gap-3">
+                                    {getAvailableColors(selectedProduct).map((color) => (
+                                        <button
+                                            key={color}
+                                            onClick={() => {
+                                                console.log('Color clicked:', color);
+                                                handleColorChange(color);
+                                            }}
+                                            className={`flex items-center gap-2 rounded-lg border p-2 sm:p-3 text-xs sm:text-sm font-medium transition-all duration-200 hover:scale-105 ${
+                                                selectedColor === color
+                                                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 shadow-md scale-105'
+                                                    : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                                            }`}
+                                        >
+                                            <div
+                                                className="h-4 w-4 sm:h-5 sm:w-5 rounded-full border-2 border-white shadow-sm"
+                                                style={{ backgroundColor: getColorHex(color) }}
+                                            />
+                                            <span className="capitalize truncate">{color}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Size Selection */}
+                        {selectedColor &&
+                            getAvailableSizesForColor(selectedProduct, selectedColor).length > 0 && (
+                                <div>
+                                    <label className="text-xs sm:text-sm font-medium flex items-center gap-2 mb-3">
+                                        <span>Select Size</span>
+                                        {selectedSize && (
+                                            <Badge variant="secondary" className="text-xs px-2 py-1">
+                                                {selectedSize}
+                                            </Badge>
+                                        )}
+                                    </label>
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 lg:flex lg:flex-wrap gap-2 sm:gap-3">
+                                        {getAvailableSizesForColor(selectedProduct, selectedColor).map(
+                                            (size) => (
+                                                <button
+                                                    key={size}
+                                                    onClick={() => {
+                                                        console.log('Size clicked:', size);
+                                                        handleSizeChange(size);
+                                                    }}
+                                                    className={`rounded-lg border px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-200 hover:scale-105 ${
+                                                        selectedSize === size
+                                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 shadow-md scale-105'
+                                                            : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                                                    }`}
+                                                >
+                                                    {size}
+                                                </button>
+                                            ),
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                        {/* Selected Variant Info */}
+                        {!selectedVariant && selectedColor && selectedSize && (
+                            <div className="text-center py-4">
+                                <div className="text-xs sm:text-sm text-amber-600 dark:text-amber-400">
+                                    <div className="animate-pulse flex items-center justify-center gap-2">
+                                        <div className="w-2 h-2 bg-amber-600 rounded-full animate-bounce"></div>
+                                        <span>Checking availability...</span>
+                                        <div className="w-2 h-2 bg-amber-600 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {selectedVariant && (
+                            <div className="space-y-4 rounded-lg border-2 border-green-200 bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 mx-2 sm:mx-0">
+                                <div className="text-center">
+                                    <div className="inline-flex items-center gap-2 px-2 py-1 sm:px-3 sm:py-1 bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 rounded-full text-xs sm:text-sm font-medium">
+                                        <Check className="h-3 w-3 sm:h-4 sm:w-4" />
+                                        Variant Selected
+                                    </div>
+                                </div>
+                                
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs sm:text-sm font-medium">Price:</span>
+                                        <span className="text-sm sm:text-base font-semibold">
+                                            {formatCurrency(selectedVariant.selling_price)}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs sm:text-sm font-medium">Stock:</span>
+                                        <Badge
+                                            variant={
+                                                getStockColor(selectedVariant) as
+                                                    | 'destructive'
+                                                    | 'secondary'
+                                                    | 'default'
+                                            }
+                                            className="text-xs px-2 py-1"
+                                        >
+                                            {getStockText(selectedVariant)}
+                                        </Badge>
+                                    </div>
+                                    {selectedVariant.discount_price && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs sm:text-sm font-medium">Discount:</span>
+                                            <span className="text-sm sm:text-base font-semibold text-green-600">
+                                                {formatCurrency(selectedVariant.discount_price)}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* Quantity Selection */}
+                                    <div>
+                                        <label className="text-xs sm:text-sm font-medium mb-2 block">Quantity</label>
+                                        <Input
+                                            type="number"
+                                            min="1"
+                                            max={selectedVariant.quantity}
+                                            value={quantity}
+                                            onChange={(e) =>
+                                                setQuantity(
+                                                    Math.min(
+                                                        parseInt(e.target.value) || 1,
+                                                        selectedVariant.quantity,
+                                                    ),
+                                                )
+                                            }
+                                            className="h-10 sm:h-9 text-sm"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-col gap-3 pt-4 sm:pt-6 px-2 sm:px-0">
+                            <Button
+                                onClick={handleAddToCart}
+                                disabled={!selectedVariant || addingToCart === selectedProduct?.id}
+                                size="lg"
+                                className="w-full h-14 sm:h-10 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 shadow-lg text-sm sm:text-base font-medium rounded-xl sm:rounded-lg"
+                            >
+                                {addingToCart === selectedProduct?.id ? (
+                                    <>
+                                        <div className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                        <span className="text-xs sm:text-sm">Adding to Cart...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <ShoppingCart className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                                        <span className="text-xs sm:text-sm">Add to Cart</span>
+                                    </>
+                                )}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsModalOpen(false)}
+                                disabled={addingToCart === selectedProduct?.id}
+                                size="lg"
+                                className="w-full h-14 sm:h-10 text-sm sm:text-base font-medium rounded-xl sm:rounded-lg"
+                            >
+                                Cancel
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

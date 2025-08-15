@@ -1,7 +1,7 @@
 import NotificationsDropdown from '@/components/notifications-dropdown';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { PieChart } from '@/components/ui/pie-chart';
 
 // Utility function to format large numbers for charts
 const formatChartNumber = (value: number): string => {
@@ -570,6 +571,7 @@ export default function AdminDashboard() {
                                     <SelectItem value="week">Week</SelectItem>
                                     <SelectItem value="month">Month</SelectItem>
                                     <SelectItem value="year">Year</SelectItem>
+                                    <SelectItem value="lifetime">Lifetime</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -588,6 +590,7 @@ export default function AdminDashboard() {
                                         <SelectItem value="week">This Week</SelectItem>
                                         <SelectItem value="month">This Month</SelectItem>
                                         <SelectItem value="year">This Year</SelectItem>
+                                        <SelectItem value="lifetime">Lifetime</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <Button onClick={fetchAnalytics} disabled={loading} variant="outline" size="sm" className="shadow-sm">
@@ -612,7 +615,8 @@ export default function AdminDashboard() {
                                 {dateRange === 'day' ? 'Today\'s Revenue' : 
                                  dateRange === 'week' ? 'This Week\'s Revenue' : 
                                  dateRange === 'month' ? 'This Month\'s Revenue' : 
-                                 dateRange === 'year' ? 'This Year\'s Revenue' : 'Period Revenue'}
+                                 dateRange === 'year' ? 'This Year\'s Revenue' : 
+                                 dateRange === 'lifetime' ? 'Lifetime Revenue' : 'Period Revenue'}
                             </CardTitle>
                             <DollarSign className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
@@ -624,7 +628,8 @@ export default function AdminDashboard() {
                                     {dateRange === 'day' ? 'Today only' : 
                                      dateRange === 'week' ? 'This week only' : 
                                      dateRange === 'month' ? 'This month only' : 
-                                     dateRange === 'year' ? 'This year only' : 'Selected period'}
+                                     dateRange === 'year' ? 'This year only' : 
+                                     dateRange === 'lifetime' ? 'All time' : 'Selected period'}
                                 </span>
                             </p>
                         </CardContent>
@@ -632,12 +637,12 @@ export default function AdminDashboard() {
 
                     <Card className="border-l-4 border-l-blue-500">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-xs font-medium sm:text-sm">Total Profit</CardTitle>
+                            <CardTitle className="text-xs font-medium sm:text-sm">Net Profit</CardTitle>
                             <TrendingUp className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent className="pb-3">
                             <div className="text-lg font-bold sm:text-xl lg:text-2xl">{formatCurrency(profits?.totalProfit || 0)}</div>
-                            <p className="text-xs text-muted-foreground">{(profits?.profitMargin || 0).toFixed(1)}% margin</p>
+                            <p className="text-xs text-muted-foreground">Sales minus expenses • {(profits?.profitMargin || 0).toFixed(1)}% margin</p>
                         </CardContent>
                     </Card>
 
@@ -647,7 +652,8 @@ export default function AdminDashboard() {
                                 {dateRange === 'day' ? 'Today\'s Avg Order' : 
                                  dateRange === 'week' ? 'This Week\'s Avg Order' : 
                                  dateRange === 'month' ? 'This Month\'s Avg Order' : 
-                                 dateRange === 'year' ? 'This Year\'s Avg Order' : 'Period Avg Order'}
+                                 dateRange === 'year' ? 'This Year\'s Avg Order' : 
+                                 dateRange === 'lifetime' ? 'Lifetime Avg Order' : 'Period Avg Order'}
                             </CardTitle>
                             <BarChart3 className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
@@ -659,7 +665,8 @@ export default function AdminDashboard() {
                                     {dateRange === 'day' ? 'Today only' : 
                                      dateRange === 'week' ? 'This week only' : 
                                      dateRange === 'month' ? 'This month only' : 
-                                     dateRange === 'year' ? 'This year only' : 'Selected period'}
+                                     dateRange === 'year' ? 'This year only' : 
+                                     dateRange === 'lifetime' ? 'All time' : 'Selected period'}
                                 </span>
                             </p>
                         </CardContent>
@@ -743,10 +750,16 @@ export default function AdminDashboard() {
                                             <Activity className="h-4 w-4 text-green-600 dark:text-green-400" />
                                         </div>
                                         <div>
-                                            <p className="text-xs font-medium text-green-600 dark:text-green-400">Revenue</p>
+                                            <p className="text-xs font-medium text-green-600 dark:text-green-400">
+                                                {dateRange === 'day' ? 'Today\'s Revenue' : 
+                                                 dateRange === 'week' ? 'Week Revenue' : 
+                                                 dateRange === 'month' ? 'Month Revenue' : 
+                                                 dateRange === 'year' ? 'Year Revenue' : 
+                                                 dateRange === 'lifetime' ? 'Lifetime Revenue' : 'Revenue'}
+                                            </p>
                                             <p className="text-lg font-bold text-green-800 dark:text-green-100">
                                                 {Array.isArray(sales?.salesTrends) && sales.salesTrends.length > 0
-                                                    ? formatChartNumber(
+                                                    ? formatCurrency(
                                                           sales.salesTrends.reduce(
                                                               (sum: number, day: { revenue: number }) => sum + (day.revenue || 0),
                                                               0,
@@ -763,7 +776,13 @@ export default function AdminDashboard() {
                                             <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                                         </div>
                                         <div>
-                                            <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Orders</p>
+                                            <p className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                                                {dateRange === 'day' ? 'Today\'s Orders' : 
+                                                 dateRange === 'week' ? 'Week Orders' : 
+                                                 dateRange === 'month' ? 'Month Orders' : 
+                                                 dateRange === 'year' ? 'Year Orders' : 
+                                                 dateRange === 'lifetime' ? 'Lifetime Orders' : 'Orders'}
+                                            </p>
                                             <p className="text-lg font-bold text-blue-800 dark:text-blue-100">
                                                 {Array.isArray(sales?.salesTrends) && sales.salesTrends.length > 0
                                                     ? sales.salesTrends.reduce(
@@ -778,26 +797,77 @@ export default function AdminDashboard() {
                             </div>
                         </div>
 
+                        {/* Period Summary Banner */}
+                        <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 dark:from-blue-900/20 dark:to-indigo-900/20 dark:border-blue-800">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                                        {dateRange === 'day' ? 'Today\'s Performance' : 
+                                         dateRange === 'week' ? 'This Week\'s Performance' : 
+                                         dateRange === 'month' ? 'This Month\'s Performance' : 
+                                         dateRange === 'year' ? 'This Year\'s Performance' : 
+                                         dateRange === 'lifetime' ? 'Lifetime Performance' : 'Period Performance'}
+                                    </h3>
+                                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                                        {dateRange === 'day' ? 'Real-time data for today' : 
+                                         dateRange === 'week' ? 'Weekly aggregated data' : 
+                                         dateRange === 'month' ? 'Monthly aggregated data' : 
+                                         dateRange === 'year' ? 'Yearly aggregated data' : 
+                                         dateRange === 'lifetime' ? 'Complete business history' : 'Last 30 days data'}
+                                    </p>
+                                </div>
+                                <Button 
+                                    onClick={fetchAnalytics} 
+                                    disabled={loading} 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-600 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                                >
+                                    <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                                    Refresh
+                                </Button>
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-2">
                             {/* Sales Trends Chart */}
                             <Card className="border-0 shadow-sm">
                                 <CardHeader className="px-4 py-4 md:px-6">
                                     <CardTitle className="flex items-center gap-2">
                                         <Activity className="h-5 w-5 text-blue-600" />
-                                        <span className="text-sm sm:text-base">Sales Performance (30 Days) - KSH</span>
+                                        <span className="text-sm sm:text-base">
+                                            Sales Performance 
+                                            {dateRange === 'day' ? ' (Today)' : 
+                                             dateRange === 'week' ? ' (This Week)' : 
+                                             dateRange === 'month' ? ' (This Month)' : 
+                                             dateRange === 'year' ? ' (This Year)' : 
+                                             dateRange === 'lifetime' ? ' (All Time)' : ' (30 Days)'} - KSH
+                                        </span>
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="px-4 pb-6 md:px-6">
-                                    {Array.isArray(sales?.salesTrends) && sales.salesTrends.length > 0 ? (
+                                    {loading ? (
+                                        <div className="flex h-48 items-center justify-center text-muted-foreground sm:h-64 lg:h-80">
+                                            <div className="text-center">
+                                                <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></div>
+                                                <p className="text-base font-medium">Loading sales data...</p>
+                                                <p className="mt-1 text-sm">Please wait while we fetch your data</p>
+                                            </div>
+                                        </div>
+                                    ) : Array.isArray(sales?.salesTrends) && sales.salesTrends.length > 0 ? (
                                         <div className="space-y-4 sm:space-y-6">
                                             {/* Summary Cards - Desktop Only */}
                                             <div className="hidden sm:grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
                                                 <div className="rounded-lg border bg-gradient-to-br from-green-50 to-green-100 p-3 sm:p-4 dark:from-green-900/30 dark:to-green-900/20">
                                                     <div className="mb-1 text-xs font-medium text-green-600 sm:text-sm dark:text-green-400">
-                                                        Total Revenue
+                                                        {dateRange === 'day' ? 'Today\'s Revenue' : 
+                                                         dateRange === 'week' ? 'Week Revenue' : 
+                                                         dateRange === 'month' ? 'Month Revenue' : 
+                                                         dateRange === 'year' ? 'Year Revenue' : 
+                                                         dateRange === 'lifetime' ? 'Lifetime Revenue' : 'Total Revenue'}
                                                     </div>
                                                     <div className="text-lg font-bold text-green-800 sm:text-xl lg:text-2xl dark:text-green-100">
-                                                        {formatChartNumber(
+                                                        {formatCurrency(
                                                             sales.salesTrends.reduce(
                                                                 (sum: number, day: { revenue: number }) => sum + (day.revenue || 0),
                                                                 0,
@@ -808,7 +878,11 @@ export default function AdminDashboard() {
 
                                                 <div className="rounded-lg border bg-gradient-to-br from-blue-50 to-blue-100 p-3 sm:p-4 dark:from-blue-900/30 dark:to-blue-900/20">
                                                     <div className="mb-1 text-xs font-medium text-blue-600 sm:text-sm dark:text-blue-400">
-                                                        Total Orders
+                                                        {dateRange === 'day' ? 'Today\'s Orders' : 
+                                                         dateRange === 'week' ? 'Week Orders' : 
+                                                         dateRange === 'month' ? 'Month Orders' : 
+                                                         dateRange === 'year' ? 'Year Orders' : 
+                                                         dateRange === 'lifetime' ? 'Lifetime Orders' : 'Total Orders'}
                                                     </div>
                                                     <div className="text-lg font-bold text-blue-800 sm:text-xl lg:text-2xl dark:text-blue-100">
                                                         {sales.salesTrends.reduce(
@@ -820,11 +894,15 @@ export default function AdminDashboard() {
 
                                                 <div className="rounded-lg border bg-gradient-to-br from-purple-50 to-purple-100 p-3 sm:p-4 dark:from-purple-900/30 dark:to-purple-900/20">
                                                     <div className="mb-1 text-xs font-medium text-purple-600 sm:text-sm dark:text-purple-400">
-                                                        Avg Daily Revenue
+                                                        {dateRange === 'day' ? 'Today\'s Revenue' : 
+                                                         dateRange === 'week' ? 'Avg Daily Revenue' : 
+                                                         dateRange === 'month' ? 'Avg Daily Revenue' : 
+                                                         dateRange === 'year' ? 'Avg Daily Revenue' : 
+                                                         dateRange === 'lifetime' ? 'Avg Monthly Revenue' : 'Avg Daily Revenue'}
                                                     </div>
                                                     <div className="text-lg font-bold text-purple-800 sm:text-xl lg:text-2xl dark:text-green-100">
                                                         {sales.salesTrends.length > 0
-                                                            ? formatChartNumber(
+                                                            ? formatCurrency(
                                                                   Math.round(
                                                                       sales.salesTrends.reduce(
                                                                           (sum: number, day: { revenue: number }) => sum + (day.revenue || 0),
@@ -832,9 +910,57 @@ export default function AdminDashboard() {
                                                                       ) / sales.salesTrends.length,
                                                                   ),
                                                               )
-                                                            : formatChartNumber(0)}
+                                                            : formatCurrency(0)}
                                                     </div>
                                                 </div>
+                                            </div>
+
+                                            {/* Chart Legend & Insights */}
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-center space-x-6 text-sm">
+                                                    <div className="flex items-center space-x-2">
+                                                        <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                                                        <span className="text-green-700 dark:text-green-300">Revenue</span>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <div className="h-3 w-3 rounded-full bg-blue-500"></div>
+                                                        <span className="text-blue-700 dark:text-blue-300">Orders</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Data Insights */}
+                                                {sales.salesTrends.length > 1 && (
+                                                    <div className="grid grid-cols-2 gap-4 text-xs">
+                                                        <div className="text-center p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                                            <p className="text-green-600 dark:text-green-400 font-medium">Trend</p>
+                                                            <p className="text-green-800 dark:text-green-200">
+                                                                {(() => {
+                                                                    const firstHalf = sales.salesTrends.slice(0, Math.ceil(sales.salesTrends.length / 2));
+                                                                    const secondHalf = sales.salesTrends.slice(Math.ceil(sales.salesTrends.length / 2));
+                                                                    const firstAvg = firstHalf.reduce((sum: number, day: { revenue: number }) => sum + (day.revenue || 0), 0) / firstHalf.length;
+                                                                    const secondAvg = secondHalf.reduce((sum: number, day: { revenue: number }) => sum + (day.revenue || 0), 0) / secondHalf.length;
+                                                                    const change = ((secondAvg - firstAvg) / firstAvg) * 100;
+                                                                    return change > 0 ? `↗️ +${change.toFixed(1)}%` : 
+                                                                           change < 0 ? `↘️ ${change.toFixed(1)}%` : '→ Stable';
+                                                                })()}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                                                            <p className="text-blue-600 dark:text-blue-400 font-medium">Peak Day</p>
+                                                            <p className="text-blue-800 dark:text-blue-200">
+                                                                {(() => {
+                                                                    const peakDay = sales.salesTrends.reduce((max: { revenue: number; date: string; orders: number }, day: { revenue: number; date: string; orders: number }) => 
+                                                                        (day.revenue || 0) > (max.revenue || 0) ? day : max
+                                                                    );
+                                                                    return peakDay.date ? new Date(peakDay.date).toLocaleDateString('en-US', { 
+                                                                        month: 'short', 
+                                                                        day: 'numeric' 
+                                                                    }) : 'N/A';
+                                                                })()}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Chart */}
@@ -892,7 +1018,7 @@ export default function AdminDashboard() {
                                                                             </div>
                                                                             <span className="ml-4 font-medium text-gray-900 dark:text-gray-100">
                                                                                 {entry.name === 'revenue'
-                                                                                    ? formatChartNumber(entry.value as number)
+                                                                                    ? formatCurrency(entry.value as number)
                                                                                     : entry.value}
                                                                             </span>
                                                                         </div>
@@ -923,9 +1049,21 @@ export default function AdminDashboard() {
                                     ) : (
                                         <div className="flex h-48 items-center justify-center text-muted-foreground sm:h-64 lg:h-80">
                                             <div className="text-center">
-                                                <BarChart3 className="mx-auto mb-4 h-12 w-12" />
+                                                <BarChart3 className="mx-auto mb-4 h-12 w-12 opacity-50" />
                                                 <p className="text-base font-medium">No sales data available</p>
-                                                <p className="mt-1 text-sm">Sales data will appear here once available</p>
+                                                <p className="mt-1 text-sm">
+                                                    {dateRange === 'lifetime' ? 'No sales data found for the selected period' : 
+                                                     'Sales data will appear here once available'}
+                                                </p>
+                                                <Button 
+                                                    onClick={fetchAnalytics} 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="mt-3"
+                                                >
+                                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                                    Refresh Data
+                                                </Button>
                                             </div>
                                         </div>
                                     )}
@@ -937,39 +1075,68 @@ export default function AdminDashboard() {
                                 <CardHeader className="px-4 py-4 md:px-6">
                                     <CardTitle className="flex items-center gap-2">
                                         <TrendingUp className="h-5 w-5 text-green-600" />
-                                        <span className="text-sm sm:text-base">Profit Analysis (30 Days) - KSH</span>
+                                        <span className="text-sm sm:text-base">
+                                            Net Profit Analysis 
+                                            {dateRange === 'day' ? ' (Today)' : 
+                                             dateRange === 'week' ? ' (This Week)' : 
+                                             dateRange === 'month' ? ' (This Month)' : 
+                                             dateRange === 'year' ? ' (This Year)' : 
+                                             dateRange === 'lifetime' ? ' (All Time)' : ' (30 Days)'} - KSH
+                                        </span>
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="px-4 pb-6 md:px-6">
-                                    {Array.isArray(profits?.profitTrends) && profits.profitTrends.length > 0 ? (
+                                    {loading ? (
+                                        <div className="flex h-48 items-center justify-center text-muted-foreground sm:h-64 lg:h-80">
+                                            <div className="text-center">
+                                                <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-green-200 border-t-green-600"></div>
+                                                <p className="text-base font-medium">Loading profit data...</p>
+                                                <p className="mt-1 text-sm">Please wait while we fetch your data</p>
+                                            </div>
+                                        </div>
+                                    ) : Array.isArray(profits?.profitTrends) && profits.profitTrends.length > 0 ? (
                                         <div className="space-y-4 sm:space-y-6">
                                             {/* Summary Cards */}
                                             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
                                                 <div className="rounded-lg border bg-gradient-to-br from-green-50 to-green-100 p-3 sm:p-4 dark:from-green-900/30 dark:to-green-900/20">
                                                     <div className="mb-1 text-xs font-medium text-green-600 sm:text-sm dark:text-green-400">
-                                                        Total Profit
+                                                        Net Profit
                                                     </div>
                                                     <div className="text-lg font-bold text-green-800 sm:text-xl lg:text-2xl dark:text-green-100">
-                                                        {formatChartNumber(
+                                                        {formatCurrency(
                                                             profits.profitTrends.reduce((sum, day) => sum + (day.daily_profit || 0), 0),
                                                         )}
+                                                    </div>
+                                                    <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                                        Sales minus expenses
                                                     </div>
                                                 </div>
 
                                                 <div className="rounded-lg border bg-gradient-to-br from-purple-50 to-purple-100 p-3 sm:p-4 dark:from-purple-900/30 dark:to-purple-900/20">
                                                     <div className="mb-1 text-xs font-medium text-purple-600 sm:text-sm dark:text-purple-400">
-                                                        Avg Daily Profit
+                                                        Avg Daily Net Profit
                                                     </div>
                                                     <div className="text-lg font-bold text-purple-800 sm:text-xl lg:text-2xl dark:text-purple-100">
                                                         {profits.profitTrends.length > 0
-                                                            ? formatChartNumber(
+                                                            ? formatCurrency(
                                                                   Math.round(
                                                                       profits.profitTrends.reduce((sum, day) => sum + (day.daily_profit || 0), 0) /
                                                                           profits.profitTrends.length,
                                                                   ),
                                                               )
-                                                            : formatChartNumber(0)}
+                                                            : formatCurrency(0)}
                                                     </div>
+                                                    <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                                                        After expenses
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Chart Legend */}
+                                            <div className="flex items-center justify-center space-x-6 text-sm">
+                                                <div className="flex items-center space-x-2">
+                                                    <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                                                    <span className="text-green-700 dark:text-green-300">Net Profit</span>
                                                 </div>
                                             </div>
 
@@ -1019,11 +1186,11 @@ export default function AdminDashboard() {
                                                                                     }}
                                                                                 />
                                                                                 <span className="text-sm text-gray-600 dark:text-gray-300">
-                                                                                    Profit
+                                                                                    Net Profit
                                                                                 </span>
                                                                             </div>
                                                                             <span className="ml-4 font-medium text-gray-900 dark:text-gray-100">
-                                                                                {formatChartNumber(entry.value as number)}
+                                                                                {formatCurrency(entry.value as number)}
                                                                             </span>
                                                                         </div>
                                                                     ))}
@@ -1037,7 +1204,7 @@ export default function AdminDashboard() {
                                                             strokeWidth={3}
                                                             dot={{ fill: '#10b981', strokeWidth: 2, r: 5 }}
                                                             activeDot={{ r: 6, strokeWidth: 2 }}
-                                                            name="Profit"
+                                                            name="Net Profit"
                                                         />
                                                     </LineChart>
                                                 </ResponsiveContainer>
@@ -1046,14 +1213,82 @@ export default function AdminDashboard() {
                                     ) : (
                                         <div className="flex h-48 items-center justify-center text-muted-foreground sm:h-64 lg:h-80">
                                             <div className="text-center">
-                                                <TrendingUp className="mx-auto mb-4 h-12 w-12" />
-                                                <p className="text-base font-medium">No profit data available</p>
-                                                <p className="mt-1 text-sm">Profit data will appear here once available</p>
+                                                <TrendingUp className="mx-auto mb-4 h-12 w-12 opacity-50" />
+                                                <p className="text-base font-medium">No net profit data available</p>
+                                                <p className="mt-1 text-sm">
+                                                    {dateRange === 'lifetime' ? 'No profit data found for the selected period' : 
+                                                     'Net profit data will appear here once available'}
+                                                </p>
+                                                <Button 
+                                                    onClick={fetchAnalytics} 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="mt-3"
+                                                >
+                                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                                    Refresh Data
+                                                </Button>
                                             </div>
                                         </div>
                                     )}
                                 </CardContent>
                             </Card>
+                        </div>
+
+                        {/* Product Performance Overview - Overview Section */}
+                        <div className="grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-2">
+                            {/* Top Products by Sales Volume */}
+                            <Card className="border-0 shadow-sm">
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Target className="h-5 w-5 text-green-600" />
+                                        <span className="text-sm sm:text-base">Top Products by Sales Volume</span>
+                                    </CardTitle>
+                                    <CardDescription className="text-sm">
+                                        Products with highest units sold
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-3">
+                                        {Array.isArray(sales?.bestSellingProducts) && sales.bestSellingProducts.length > 0 ? (
+                                            sales.bestSellingProducts.slice(0, 5).map((product, index) => (
+                                                <Link 
+                                                    key={index} 
+                                                    href={`/products?search=${encodeURIComponent(product.product_name)}`}
+                                                    className="block"
+                                                >
+                                                    <div className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors cursor-pointer hover:border-green-300 hover:shadow-sm">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-sm font-bold text-green-600 dark:bg-green-800 dark:text-green-400">
+                                                                {index + 1}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="font-medium text-sm truncate hover:text-green-700 dark:hover:text-green-300">
+                                                                    {product.product_name}
+                                                                </p>
+                                                                <p className="text-xs text-muted-foreground truncate">
+                                                                    {product.variant_info}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-sm font-medium">{product.total_sold} sold</p>
+                                                            <p className="text-xs text-muted-foreground">{formatCurrency(product.total_revenue)}</p>
+                                                        </div>
+                                                    </div>
+                                                </Link>
+                                            ))
+                                        ) : (
+                                            <div className="text-center py-6 text-muted-foreground">
+                                                <Target className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                                                <p className="text-sm">No product data available</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            
                         </div>
                     </TabsContent>
 
@@ -1938,45 +2173,46 @@ export default function AdminDashboard() {
                 </Tabs>
 
                 {/* Quick Actions - Desktop Only */}
-                <Card className="hidden sm:block mb-4">
-                    <CardHeader>
-                        <CardTitle>Quick Actions</CardTitle>
+                <Card className="hidden sm:block mb-6">
+                    <CardHeader className="pb-4">
+                        <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
+                        <CardDescription>Manage your shop operations efficiently</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="grid grid-cols-1 gap-4 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                             <Link href="/products">
-                                <Button className="w-full" variant="outline">
-                                    <Package className="mr-2 h-4 w-4" />
-                                    Manage Products
+                                <Button className="w-full h-auto py-4 px-3 flex flex-col items-center gap-2" variant="outline">
+                                    <Package className="h-5 w-5 text-blue-600" />
+                                    <span className="text-sm font-medium">Products</span>
                                 </Button>
                             </Link>
                             <Link href="/users">
-                                <Button className="w-full" variant="outline">
-                                    <Users className="mr-2 h-4 w-4" />
-                                    Manage Users
+                                <Button className="w-full h-auto py-4 px-3 flex flex-col items-center gap-2" variant="outline">
+                                    <Users className="h-5 w-5 text-green-600" />
+                                    <span className="text-sm font-medium">Users</span>
                                 </Button>
                             </Link>
                             <Link href="/wallets">
-                                <Button className="w-full" variant="outline">
-                                    <DollarSign className="mr-2 h-4 w-4" />
-                                    Manager Wallets
+                                <Button className="w-full h-auto py-4 px-3 flex flex-col items-center gap-2" variant="outline">
+                                    <DollarSign className="h-5 w-5 text-yellow-600" />
+                                    <span className="text-sm font-medium">Wallets</span>
                                 </Button>
                             </Link>
                             <Link href="/expenses">
-                                <Button className="w-full" variant="outline">
-                                    <Receipt className="mr-2 h-4 w-4" />
-                                    Manage Expenses
+                                <Button className="w-full h-auto py-4 px-3 flex flex-col items-center gap-2" variant="outline">
+                                    <Receipt className="h-5 w-5 text-purple-600" />
+                                    <span className="text-sm font-medium">Expenses</span>
                                 </Button>
                             </Link>
                             <Link href="/sales">
-                                <Button className="w-full" variant="outline">
-                                    <Receipt className="mr-2 h-4 w-4" />
-                                    View All Sales
+                                <Button className="w-full h-auto py-4 px-3 flex flex-col items-center gap-2" variant="outline">
+                                    <Receipt className="h-5 w-5 text-indigo-600" />
+                                    <span className="text-sm font-medium">Sales</span>
                                 </Button>
                             </Link>
-                            <Button className="w-full" variant="outline" onClick={() => setRestockDialogOpen(true)}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Restock Items
+                            <Button className="w-full h-auto py-4 px-3 flex flex-col items-center gap-2" variant="outline" onClick={() => setRestockDialogOpen(true)}>
+                                <Plus className="h-5 w-5 text-red-600" />
+                                <span className="text-sm font-medium">Restock</span>
                             </Button>
                         </div>
                     </CardContent>

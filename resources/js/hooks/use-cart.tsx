@@ -73,6 +73,29 @@ export function useCart() {
         localStorage.removeItem('cart');
     };
 
+    // Sync cart with backend (for checkout)
+    const syncCartWithBackend = async (cartData: CartItem[]) => {
+        try {
+            const response = await fetch('/cart/sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({ cart: cartData }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to sync cart');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error syncing cart:', error);
+            throw error;
+        }
+    };
+
     // Get cart total
     const getCartTotal = () => {
         return Object.values(cart).reduce((total, item) => total + (item.quantity * item.unit_price), 0);
@@ -85,6 +108,7 @@ export function useCart() {
         updateCartItem,
         removeFromCart,
         clearCart,
+        syncCartWithBackend,
         getCartTotal,
     };
 }
