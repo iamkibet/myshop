@@ -156,181 +156,105 @@ export default function UsersShow({
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={`${user.name} - Profile`} />
-
-            <div className="flex h-full flex-1 flex-col gap-8 overflow-x-auto rounded-xl p-6">
-                {/* Hero Header */}
-                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-950 dark:via-indigo-950 dark:to-purple-950 border border-blue-200 dark:border-blue-800">
-                    <div className="absolute inset-0 opacity-5 bg-[radial-gradient(circle_at_1px_1px,rgba(0,0,0,0.1)_1px,transparent_0)] bg-[length:20px_20px]"></div>
-                    <div className="relative p-8">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-6">
-                                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg">
-                                    <span className="text-2xl font-bold">{user.name.charAt(0).toUpperCase()}</span>
-                                </div>
-                                <div>
-                                    <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{user.name}</h1>
-                                    <p className="text-lg text-gray-600 dark:text-gray-400">{user.email}</p>
-                                    <div className="mt-2 flex items-center space-x-3">
-                                        <Badge 
-                                            variant={getRoleBadgeVariant(user.role)}
-                                            className={user.role === 'admin' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'}
-                                        >
-                                            {user.role === 'admin' ? 'Administrator' : 'Manager'}
-                                        </Badge>
-                                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                                            Member since {new Date(user.created_at).toLocaleDateString()}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex items-center space-x-3">
-                                <Link href="/users">
-                                    <Button variant="outline" size="lg" className="border-gray-300 dark:border-gray-600">
-                                        <ArrowLeft className="mr-2 h-5 w-5" />
-                                        Back
-                                    </Button>
-                                </Link>
-                                <Link href={`/users/${user.id}/edit`}>
-                                    <Button variant="outline" size="lg" className="border-gray-300 dark:border-gray-600">
-                                        <Edit className="mr-2 h-5 w-5" />
-                                        Edit Profile
-                                    </Button>
-                                </Link>
-                                {user.role === 'manager' && wallet && wallet.balance > 0 && (
-                                    <Dialog open={showPayoutDialog} onOpenChange={setShowPayoutDialog}>
-                                        <DialogTrigger asChild>
-                                            <Button size="lg" className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
-                                                <CreditCard className="mr-2 h-5 w-5" />
-                                                Pay Manager
-                                            </Button>
-                                        </DialogTrigger>
-                                        <DialogContent className="sm:max-w-md">
-                                            <DialogHeader>
-                                                <DialogTitle className="text-xl">Process Payout</DialogTitle>
-                                                <DialogDescription className="text-base">
-                                                    Process a payout for <span className="font-semibold">{user.name}</span>
-                                                </DialogDescription>
-                                            </DialogHeader>
-                                            <form onSubmit={handlePayout}>
-                                                <div className="space-y-6">
-                                                    <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-4">
-                                                        <p className="text-sm text-blue-700 dark:text-blue-300">
-                                                            Available balance: <span className="font-bold text-blue-900 dark:text-blue-100">{formatCurrency(wallet.balance)}</span>
-                                                        </p>
-                                                    </div>
-                                                    
-                                                    <div>
-                                                        <Label htmlFor="amount" className="text-sm font-medium">Amount</Label>
-                                                        <Input
-                                                            id="amount"
-                                                            type="number"
-                                                            step="0.01"
-                                                            min="0.01"
-                                                            max={wallet.balance}
-                                                            value={data.amount}
-                                                            onChange={(e) => setData('amount', e.target.value)}
-                                                            placeholder="Enter payout amount"
-                                                            className="mt-2"
-                                                        />
-                                                        {errors.amount && <p className="mt-1 text-sm text-destructive">{errors.amount}</p>}
-                                                    </div>
-
-                                                    <div>
-                                                        <Label htmlFor="notes" className="text-sm font-medium">Notes (Optional)</Label>
-                                                        <Textarea
-                                                            id="notes"
-                                                            value={data.notes}
-                                                            onChange={(e) => setData('notes', e.target.value)}
-                                                            placeholder="Add any notes about this payout"
-                                                            className="mt-2"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <DialogFooter className="mt-6">
-                                                    <Button type="button" variant="outline" onClick={() => setShowPayoutDialog(false)}>
-                                                        Cancel
-                                                    </Button>
-                                                    <Button type="submit" disabled={processing || !data.amount} className="bg-green-600 hover:bg-green-700">
-                                                        {processing ? 'Processing...' : 'Process Payout'}
-                                                    </Button>
-                                                </DialogFooter>
-                                            </form>
-                                        </DialogContent>
-                                    </Dialog>
-                                )}
+            <Head title={`User: ${user.name}`} />
+            <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-3 sm:p-4 pb-20 sm:pb-6">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-3">
+                            <Link href="/users" className="flex-shrink-0">
+                                <Button variant="outline" size="sm" className="h-8 w-8 p-0 sm:h-9 sm:w-auto sm:px-3">
+                                    <ArrowLeft className="h-4 w-4" />
+                                    <span className="hidden sm:inline ml-2">Back</span>
+                                </Button>
+                            </Link>
+                            <div className="min-w-0 flex-1">
+                                <h1 className="text-lg sm:text-xl md:text-2xl font-bold truncate">
+                                    {user.name}
+                                </h1>
+                                <p className="text-sm sm:text-base text-muted-foreground truncate">
+                                    {user.email}
+                                </p>
                             </div>
                         </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="text-xs sm:text-sm px-2 py-1 sm:px-3 sm:py-1">
+                            {user.role === 'admin' ? 'Administrator' : 'Manager'}
+                        </Badge>
+                        <span className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
+                            Joined {new Date(user.created_at).toLocaleDateString()}
+                        </span>
                     </div>
                 </div>
 
                 {/* Sales Performance Overview */}
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-4 sm:gap-6 grid-cols-2 lg:grid-cols-4">
                     <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border-blue-200 dark:border-blue-800">
-                        <CardHeader className="pb-3">
+                        <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-lg font-semibold text-blue-900 dark:text-blue-100">Total Sales</CardTitle>
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-800">
-                                    <ShoppingCart className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                <CardTitle className="text-sm sm:text-lg font-semibold text-blue-900 dark:text-blue-100">Total Sales</CardTitle>
+                                <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-800">
+                                    <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-3xl font-bold text-blue-900 dark:text-blue-100 mb-2">
+                        <CardContent className="px-3 sm:px-6">
+                            <div className="text-xl sm:text-3xl font-bold text-blue-900 dark:text-blue-100 mb-1 sm:mb-2">
                                 {salesStats.total_sales}
                             </div>
-                            <p className="text-sm text-blue-700 dark:text-blue-300">Transactions processed</p>
+                            <p className="text-xs sm:text-sm text-blue-700 dark:text-blue-300">Transactions processed</p>
                         </CardContent>
                     </Card>
 
                     <Card className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-green-200 dark:border-green-800">
-                        <CardHeader className="pb-3">
+                        <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-lg font-semibold text-green-900 dark:text-green-100">Total Revenue</CardTitle>
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-800">
-                                    <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
+                                <CardTitle className="text-sm sm:text-lg font-semibold text-green-900 dark:text-green-100">Total Revenue</CardTitle>
+                                <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-800">
+                                    <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400" />
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-3xl font-bold text-green-900 dark:text-green-100 mb-2">
+                        <CardContent className="px-3 sm:px-6">
+                            <div className="text-xl sm:text-3xl font-bold text-green-900 dark:text-green-100 mb-1 sm:mb-2">
                                 {formatCurrency(salesStats.total_revenue)}
                             </div>
-                            <p className="text-sm text-green-700 dark:text-green-300">Revenue generated</p>
+                            <p className="text-xs sm:text-sm text-green-700 dark:text-green-300">Revenue generated</p>
                         </CardContent>
                     </Card>
 
                     <Card className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950 dark:to-violet-950 border-purple-200 dark:border-purple-800">
-                        <CardHeader className="pb-3">
+                        <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-lg font-semibold text-purple-900 dark:text-purple-100">Products Sold</CardTitle>
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-800">
-                                    <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                                <CardTitle className="text-sm sm:text-lg font-semibold text-purple-900 dark:text-purple-100">Products Sold</CardTitle>
+                                <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-800">
+                                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 dark:text-purple-400" />
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-3xl font-bold text-purple-900 dark:text-purple-100 mb-2">
+                        <CardContent className="px-3 sm:px-6">
+                            <div className="text-xl sm:text-3xl font-bold text-purple-900 dark:text-purple-100 mb-1 sm:mb-2">
                                 {salesStats.total_products_sold}
                             </div>
-                            <p className="text-sm text-purple-700 dark:text-purple-300">Items sold</p>
+                            <p className="text-xs sm:text-sm text-purple-700 dark:text-purple-300">Items sold</p>
                         </CardContent>
                     </Card>
 
                     <Card className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950 dark:to-amber-950 border-orange-200 dark:border-orange-800">
-                        <CardHeader className="pb-3">
+                        <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-lg font-semibold text-orange-900 dark:text-orange-100">Average Sale</CardTitle>
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-800">
-                                    <Receipt className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                                <CardTitle className="text-sm sm:text-lg font-semibold text-orange-900 dark:text-orange-100">Average Sale</CardTitle>
+                                <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-800">
+                                    <Receipt className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600 dark:text-orange-400" />
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-3xl font-bold text-orange-900 dark:text-orange-100 mb-2">
+                        <CardContent className="px-3 sm:px-6">
+                            <div className="text-xl sm:text-3xl font-bold text-orange-900 dark:text-orange-100 mb-1 sm:mb-2">
                                 {formatCurrency(salesStats.average_sale_value)}
                             </div>
-                            <p className="text-sm text-orange-700 dark:text-orange-300">Per transaction</p>
+                            <p className="text-xs sm:text-sm text-orange-700 dark:text-orange-300">Per transaction</p>
                         </CardContent>
                     </Card>
                 </div>

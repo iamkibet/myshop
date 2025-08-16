@@ -297,15 +297,33 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="text-sm text-muted-foreground">Qty:</span>
                                                                     {isEditing ? (
-                                                                        <Input
-                                                                            type="number"
-                                                                            min="1"
-                                                                            max={maxQuantity}
-                                                                            value={editQuantity}
-                                                                            onChange={(e) => setEditQuantity(parseInt(e.target.value) || 0)}
-                                                                            className="h-10 w-24 sm:h-8 sm:w-20"
-                                                                            disabled={isUpdating}
-                                                                        />
+                                                                        <div className="flex items-center space-x-1">
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                onClick={() => setEditQuantity(Math.max(1, editQuantity - 1))}
+                                                                                disabled={editQuantity <= 1}
+                                                                                className="h-8 w-8 p-0 flex-shrink-0"
+                                                                            >
+                                                                                <span className="text-sm font-bold">-</span>
+                                                                            </Button>
+                                                                            <div className="flex-1 text-center">
+                                                                                <span className="text-sm font-medium px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-md min-w-[40px] inline-block">
+                                                                                    {editQuantity}
+                                                                                </span>
+                                                                            </div>
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                onClick={() => setEditQuantity(Math.min(maxQuantity, editQuantity + 1))}
+                                                                                disabled={editQuantity >= maxQuantity}
+                                                                                className="h-8 w-8 p-0 flex-shrink-0"
+                                                                            >
+                                                                                <span className="text-sm font-bold">+</span>
+                                                                            </Button>
+                                                                        </div>
                                                                     ) : (
                                                                         <span className="font-medium">{item.quantity}</span>
                                                                     )}

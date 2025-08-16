@@ -279,11 +279,15 @@ export default function Dashboard() {
     const handleAddToCart = async () => {
         if (!selectedVariant || !selectedProduct) return;
 
+        console.log('Adding to cart - selectedVariant:', selectedVariant);
+        console.log('Adding to cart - selectedProduct:', selectedProduct);
+        console.log('Adding to cart - quantity:', quantity);
+
         setAddingToCart(selectedProduct.id);
 
         try {
             // Add to cart using the hook first for immediate UI feedback
-            addToCart({
+            const cartItem = {
                 variant_id: selectedVariant.id,
                 quantity: quantity,
                 unit_price: selectedVariant.selling_price,
@@ -291,7 +295,11 @@ export default function Dashboard() {
                 color: selectedVariant.color,
                 size: selectedVariant.size,
                 image_url: selectedVariant.image_url || selectedProduct.image_url,
-            });
+            };
+            
+            console.log('Adding cart item:', cartItem);
+            addToCart(cartItem);
+            console.log('Cart item added, current cart count:', localCartCount);
 
             // Close modal after successful add
             setIsModalOpen(false);
@@ -900,21 +908,36 @@ export default function Dashboard() {
                                     {/* Quantity Selection */}
                                     <div>
                                         <label className="text-xs sm:text-sm font-medium mb-2 block">Quantity</label>
-                                        <Input
-                                            type="number"
-                                            min="1"
-                                            max={selectedVariant.quantity}
-                                            value={quantity}
-                                            onChange={(e) =>
-                                                setQuantity(
-                                                    Math.min(
-                                                        parseInt(e.target.value) || 1,
-                                                        selectedVariant.quantity,
-                                                    ),
-                                                )
-                                            }
-                                            className="h-10 sm:h-9 text-sm"
-                                        />
+                                        <div className="flex items-center space-x-2">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                                                disabled={quantity <= 1}
+                                                className="h-8 w-8 p-0 flex-shrink-0"
+                                            >
+                                                <span className="text-lg font-bold">-</span>
+                                            </Button>
+                                            <div className="flex-1 text-center">
+                                                <span className="text-sm font-medium px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-md min-w-[60px] inline-block">
+                                                    {quantity}
+                                                </span>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setQuantity(Math.min(selectedVariant.quantity, quantity + 1))}
+                                                disabled={quantity >= selectedVariant.quantity}
+                                                className="h-8 w-8 p-0 flex-shrink-0"
+                                            >
+                                                <span className="text-lg font-bold">+</span>
+                                            </Button>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-1 text-center">
+                                            Max: {selectedVariant.quantity} available
+                                        </p>
                                     </div>
                                 </div>
                             </div>

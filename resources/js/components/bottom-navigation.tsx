@@ -40,6 +40,8 @@ export function BottomNavigation() {
     const isManager = user.role === 'manager';
     const { cartCount } = useCart();
 
+    console.log('BottomNavigation - cartCount:', cartCount);
+
     const [mobileActionDialogOpen, setMobileActionDialogOpen] = useState(false);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
@@ -176,27 +178,9 @@ export function BottomNavigation() {
                                 </>
                             )}
 
-                            {/* Profile/User - Only for managers */}
-                            {isManager && (
-                                <Link 
-                                    href="/wallet" 
-                                    className="flex flex-col items-center space-y-1 p-2 rounded-xl text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-all duration-200"
-                                >
-                                    <Users className="h-5 w-5" />
-                                    <span className="text-xs font-medium">Profile</span>
-                                </Link>
-                            )}
+                           
 
-                            {/* Menu Button - Only for managers, hidden for admins on mobile */}
-                            {isManager && (
-                                <button 
-                                    onClick={() => setMobileSidebarOpen(true)}
-                                    className="flex flex-col items-center space-y-1 p-2 rounded-xl text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-all duration-200"
-                                >
-                                    <Menu className="h-5 w-5" />
-                                    <span className="text-xs font-medium">Menu</span>
-                                </button>
-                            )}
+                           
                         </div>
                     </div>
                 </div>

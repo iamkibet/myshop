@@ -35,6 +35,7 @@ interface Expense {
 interface Summary {
     total_expenses: number;
     total_sales: number;
+    total_gross_profit: number;
     total_profit: number;
     monthly_expenses: Array<{
         month: number;
@@ -228,7 +229,7 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                     {formatCurrency(summary.total_profit)}
                                 </div>
                                 <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                    Sales minus expenses
+                                    Total sales minus total expenses
                                 </p>
                             </CardContent>
                         </Card>
@@ -292,6 +293,89 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                         </Card>
                     </div>
                 )}
+
+                {/* Net Profit Insights - Creative Display */}
+                <Card className="mb-6 sm:mb-8 border-0 shadow-sm bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950 dark:to-green-950 dark:border-emerald-800">
+                    <CardHeader className="pb-4">
+                        <CardTitle className="text-lg sm:text-xl font-semibold text-emerald-900 dark:text-emerald-100 flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5" />
+                            Net Profit Insights
+                        </CardTitle>
+                        <CardDescription className="text-emerald-700 dark:text-emerald-300">
+                            Comprehensive profit analysis and efficiency metrics
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                            {/* Net Profit Display */}
+                            <div className="text-center p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-emerald-200 dark:border-emerald-700">
+                                <div className={`text-2xl sm:text-3xl font-bold mb-2 ${summary.total_profit >= 0 ? 'text-emerald-900 dark:text-emerald-100' : 'text-red-900 dark:text-red-100'}`}>
+                                    {formatCurrency(summary.total_profit)}
+                                </div>
+                                <p className="text-sm text-emerald-700 dark:text-emerald-300 font-medium">
+                                    Net Profit
+                                </p>
+                                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                                    Total sales minus total expenses
+                                </p>
+                            </div>
+
+                            {/* Gross Profit Display */}
+                            <div className="text-center p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-emerald-200 dark:border-emerald-700">
+                                <div className="text-2xl sm:text-3xl font-bold text-green-900 dark:text-green-100 mb-2">
+                                    {formatCurrency(summary.total_gross_profit)}
+                                </div>
+                                <p className="text-sm text-green-700 dark:text-green-300 font-medium">
+                                    Gross Profit
+                                </p>
+                                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                    Before expenses
+                                </p>
+                            </div>
+
+                            {/* Profit Margin */}
+                            <div className="text-center p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-emerald-200 dark:border-emerald-700">
+                                <div className="text-2xl sm:text-3xl font-bold text-purple-900 dark:text-purple-100 mb-2">
+                                    {summary.total_sales > 0 ? ((summary.total_profit / summary.total_sales) * 100).toFixed(1) : '0.0'}%
+                                </div>
+                                <p className="text-sm text-purple-700 dark:text-purple-300 font-medium">
+                                    Net Profit Margin
+                                </p>
+                                <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                                    Of total sales
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Monthly Profit Trends */}
+                        {summary.monthly_expenses && summary.monthly_expenses.length > 0 && (
+                            <div className="mt-6">
+                                <h4 className="font-semibold text-emerald-900 dark:text-emerald-100 mb-3 text-center sm:text-left">
+                                    Monthly Profit Trends
+                                </h4>
+                                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+                                    {summary.monthly_expenses.slice(-6).map((monthData, index) => {
+                                        const monthName = new Date(2024, monthData.month - 1).toLocaleDateString('en-US', { month: 'short' });
+                                        const monthlyProfit = summary.total_sales - monthData.total;
+                                        return (
+                                            <div key={index} className="text-center p-3 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-emerald-200 dark:border-emerald-700">
+                                                <div className="text-sm font-medium text-emerald-900 dark:text-emerald-100 mb-1">
+                                                    {monthName}
+                                                </div>
+                                                <div className={`text-lg font-bold ${monthlyProfit >= 0 ? 'text-emerald-900 dark:text-emerald-100' : 'text-red-900 dark:text-red-100'}`}>
+                                                    {formatCurrency(monthlyProfit)}
+                                                </div>
+                                                <div className="text-xs text-emerald-600 dark:text-emerald-400">
+                                                    Net Profit
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
 
                 {/* Compact Filters Section - Mobile Optimized */}
                 <Card className="mb-6 sm:mb-8 border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800">

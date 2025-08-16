@@ -309,11 +309,11 @@ class AnalyticsController extends Controller
      */
     private function getProfitAnalytics($startDate): array
     {
-        // Calculate profits per sale item for the period
+        // Calculate gross profits per sale item for the period
         $profitDataQuery = SaleItem::with(['productVariant'])
             ->selectRaw('
                 sale_items.*,
-                (sale_items.unit_price - product_variants.cost_price) * sale_items.quantity as profit
+                (sale_items.unit_price - product_variants.cost_price) * sale_items.quantity as gross_profit
             ')
             ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id');
         
@@ -323,15 +323,25 @@ class AnalyticsController extends Controller
         
         $profitData = $profitDataQuery->get();
 
-        $totalProfit = $profitData->sum('profit');
+        $totalGrossProfit = $profitData->sum('gross_profit');
         $totalRevenue = $profitData->sum('total_price');
-        $profitMargin = $totalRevenue > 0 ? ($totalProfit / $totalRevenue) * 100 : 0;
+        
+        // Calculate expenses for the same period
+        $expensesQuery = \App\Models\Expense::where('is_approved', true);
+        if ($startDate) {
+            $expensesQuery->where('created_at', '>=', $startDate);
+        }
+        $totalExpenses = $expensesQuery->sum('amount');
+        
+        // Calculate net profit (gross profit - expenses)
+        $totalNetProfit = $totalGrossProfit - $totalExpenses;
+        $profitMargin = $totalRevenue > 0 ? ($totalNetProfit / $totalRevenue) * 100 : 0;
 
-        // Profit trends (last 30 days)
+        // Profit trends (last 30 days) with expenses
         $profitTrends = SaleItem::with(['productVariant'])
             ->selectRaw('
                 DATE(sale_items.created_at) as date,
-                SUM((sale_items.unit_price - product_variants.cost_price) * sale_items.quantity) as daily_profit,
+                SUM((sale_items.unit_price - product_variants.cost_price) * sale_items.quantity) as daily_gross_profit,
                 SUM(sale_items.total_price) as daily_revenue
             ')
             ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
@@ -340,16 +350,25 @@ class AnalyticsController extends Controller
             ->orderBy('date')
             ->get()
             ->map(function ($item) {
+                // Get expenses for this specific date
+                $dailyExpenses = \App\Models\Expense::where('is_approved', true)
+                    ->whereDate('created_at', $item->date)
+                    ->sum('amount');
+                
                 return [
                     'date' => $item->date,
-                    'daily_profit' => (float) $item->daily_profit,
+                    'daily_gross_profit' => (float) $item->daily_gross_profit,
+                    'daily_net_profit' => (float) ($item->daily_gross_profit - $dailyExpenses),
                     'daily_revenue' => (float) $item->daily_revenue,
+                    'daily_expenses' => (float) $dailyExpenses,
                 ];
             });
 
         return [
-            'totalProfit' => round($totalProfit, 2),
+            'totalGrossProfit' => round($totalGrossProfit, 2),
+            'totalNetProfit' => round($totalNetProfit, 2),
             'totalRevenue' => round($totalRevenue, 2),
+            'totalExpenses' => round($totalExpenses, 2),
             'profitMargin' => round($profitMargin, 2),
             'profitTrends' => $profitTrends,
         ];

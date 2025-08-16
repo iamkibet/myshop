@@ -7,6 +7,7 @@ interface CartItem {
     product_name: string;
     color?: string;
     size?: string;
+    image_url?: string;
 }
 
 interface Cart {
@@ -19,31 +20,42 @@ export function useCart() {
 
     // Initialize cart from localStorage
     useEffect(() => {
+        console.log('useCart useEffect - initializing cart');
         const storedCart = localStorage.getItem('cart');
+        console.log('useCart useEffect - storedCart from localStorage:', storedCart);
         if (storedCart) {
             try {
                 const parsedCart = JSON.parse(storedCart);
+                console.log('useCart useEffect - parsedCart:', parsedCart);
                 setCart(parsedCart);
                 updateCartCount(parsedCart);
             } catch (error) {
                 console.error('Error parsing cart from localStorage:', error);
             }
+        } else {
+            console.log('useCart useEffect - no stored cart found');
         }
     }, []);
 
     // Update cart count
     const updateCartCount = (cartData: Cart) => {
         const count = Object.values(cartData).reduce((total, item) => total + item.quantity, 0);
+        console.log('updateCartCount - cartData:', cartData);
+        console.log('updateCartCount - calculated count:', count);
         setCartCount(count);
+        console.log('updateCartCount - cartCount state set to:', count);
     };
 
     // Add item to cart
     const addToCart = (item: CartItem) => {
+        console.log('Adding to cart:', item);
         const newCart = { ...cart };
         newCart[item.variant_id] = item;
+        console.log('New cart state:', newCart);
         setCart(newCart);
         localStorage.setItem('cart', JSON.stringify(newCart));
         updateCartCount(newCart);
+        console.log('Cart count updated:', Object.values(newCart).reduce((total, item) => total + item.quantity, 0));
     };
 
     // Update cart item

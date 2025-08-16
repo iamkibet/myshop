@@ -7,6 +7,7 @@ use App\Models\Sale;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
+use App\Models\SaleItem; // Added this import for gross profit calculation
 
 class ExpenseController extends Controller
 {
@@ -55,7 +56,20 @@ class ExpenseController extends Controller
             $query->where('manager_id', $user->id);
         })->sum('total_amount');
         
-        $totalProfit = $totalSales - $totalExpenses;
+        // Calculate net profit using simple formula: Sales - Expenses
+        $netProfit = $totalSales - $totalExpenses;
+        
+        // For gross profit, still calculate it but it's not the main focus
+        $grossProfit = SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
+            ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
+            ->when(!$user->isAdmin(), function ($query) use ($user) {
+                $query->where('sales.manager_id', $user->id);
+            })
+            ->selectRaw('SUM((sale_items.unit_price - product_variants.cost_price) * sale_items.quantity) as gross_profit')
+            ->value('gross_profit') ?? 0;
+        
+        // Calculate net profit (gross profit - expenses)
+        $netProfit = $grossProfit - $totalExpenses;
 
         $monthlyExpenses = Expense::approved()->when(!$user->isAdmin(), function ($query) use ($user) {
             $query->where('added_by', $user->id);
@@ -81,7 +95,8 @@ class ExpenseController extends Controller
             'summary' => [
                 'total_expenses' => $totalExpenses,
                 'total_sales' => $totalSales,
-                'total_profit' => $totalProfit,
+                'total_gross_profit' => $grossProfit,
+                'total_profit' => $netProfit, // Changed to net profit
                 'monthly_expenses' => $monthlyExpenses,
                 'category_totals' => $categoryTotals,
             ],

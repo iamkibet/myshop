@@ -261,7 +261,7 @@ export default function ProductsForm({
         >
             <Head title={isEditing ? 'Edit Product' : 'Create Product'} />
 
-            <div className="flex h-full flex-1 flex-col gap-3 sm:gap-4 rounded-xl p-2 sm:p-4">
+            <div className="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4 pb-20 sm:pb-6">
                 {/* Header */}
                 <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:gap-6">
@@ -582,13 +582,13 @@ export default function ProductsForm({
                     </Card>
 
                     {/* Submit Button */}
-                    <div className="flex flex-col sm:flex-row justify-end gap-2 sm:space-x-2">
+                    <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-2 pt-4 border-t">
                         <Link href="/products">
-                            <Button type="button" variant="outline" className="w-full sm:w-auto">
+                            <Button type="button" variant="outline" className="w-full sm:w-auto h-10 sm:h-9">
                                 Cancel
                             </Button>
                         </Link>
-                        <Button type="submit" disabled={isSubmitting || variants.length === 0} className="w-full sm:w-auto">
+                        <Button type="submit" disabled={isSubmitting || variants.length === 0} className="w-full sm:w-auto h-10 sm:h-9">
                             {isSubmitting ? (
                                 <>
                                     <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />

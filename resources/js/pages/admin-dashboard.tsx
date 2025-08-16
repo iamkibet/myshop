@@ -31,7 +31,7 @@ import {
     Zap,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
 import { PieChart } from '@/components/ui/pie-chart';
 
 // Utility function to format large numbers for charts
@@ -119,15 +119,20 @@ interface InventoryData {
     inventoryTurnoverRate: number;
 }
 
-interface ProfitData {
+interface Profits {
     totalProfit: number;
+    totalNetProfit: number;
     totalRevenue: number;
     profitMargin: number;
     profitTrends: Array<{
         date: string;
-        daily_profit: number;
+        daily_gross_profit: number;
+        daily_net_profit: number;
         daily_revenue: number;
+        daily_expenses: number;
     }>;
+    totalExpenses: number;
+    totalGrossProfit: number;
 }
 
 interface TopEntities {
@@ -153,7 +158,7 @@ interface TopEntities {
 interface AnalyticsData {
     sales: SalesData;
     inventory: InventoryData;
-    profits: ProfitData;
+    profits: Profits;
     topEntities: TopEntities;
     notifications: Notification[];
 }
@@ -291,9 +296,12 @@ export default function AdminDashboard() {
         },
         profits: {
             totalProfit: 0,
+            totalNetProfit: 0,
             totalRevenue: 0,
             profitMargin: 0,
             profitTrends: [],
+            totalExpenses: 0,
+            totalGrossProfit: 0,
         },
         topEntities: {
             topManagers: [],
@@ -340,9 +348,12 @@ export default function AdminDashboard() {
                   },
                   profits: {
                       totalProfit: analyticsData.profits?.totalProfit || 0,
+                      totalNetProfit: analyticsData.profits?.totalNetProfit || 0,
                       totalRevenue: analyticsData.profits?.totalRevenue || 0,
                       profitMargin: analyticsData.profits?.profitMargin || 0,
                       profitTrends: Array.isArray(analyticsData.profits?.profitTrends) ? analyticsData.profits.profitTrends : [],
+                      totalExpenses: analyticsData.profits?.totalExpenses || 0,
+                      totalGrossProfit: analyticsData.profits?.totalGrossProfit || 0,
                   },
                   topEntities: {
                       topManagers: Array.isArray(analyticsData.topEntities?.topManagers) ? analyticsData.topEntities.topManagers : [],
@@ -474,7 +485,15 @@ export default function AdminDashboard() {
         totalRetailValue: 0,
         inventoryTurnoverRate: 0,
     };
-    const profits = safeAnalyticsData?.profits || { totalProfit: 0, totalRevenue: 0, profitMargin: 0, profitTrends: [] };
+    const profits = safeAnalyticsData?.profits || { 
+        totalProfit: 0, 
+        totalNetProfit: 0, 
+        totalRevenue: 0, 
+        profitMargin: 0, 
+        profitTrends: [],
+        totalExpenses: 0,
+        totalGrossProfit: 0,
+    };
     const topEntities = safeAnalyticsData?.topEntities || { topManagers: [], topProducts: [], topCategories: [] };
 
     console.log('Chart data - Sales trends:', sales.salesTrends);
@@ -611,64 +630,53 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Card className="border-l-4 border-l-green-500">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-xs font-medium sm:text-sm">
-                                {dateRange === 'day' ? 'Today\'s Revenue' : 
-                                 dateRange === 'week' ? 'This Week\'s Revenue' : 
-                                 dateRange === 'month' ? 'This Month\'s Revenue' : 
-                                 dateRange === 'year' ? 'This Year\'s Revenue' : 
-                                 dateRange === 'lifetime' ? 'Lifetime Revenue' : 'Period Revenue'}
-                            </CardTitle>
+                            <CardTitle className="text-xs font-medium sm:text-sm">Revenue</CardTitle>
                             <DollarSign className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent className="pb-3">
                             <div className="text-lg font-bold sm:text-xl lg:text-2xl">{formatCurrency(sales?.totalSales || 0)}</div>
                             <p className="text-xs text-muted-foreground">
-                                {sales?.totalOrders || 0} orders
-                                <span className="block text-xs text-green-600 dark:text-green-400 mt-1">
-                                    {dateRange === 'day' ? 'Today only' : 
-                                     dateRange === 'week' ? 'This week only' : 
-                                     dateRange === 'month' ? 'This month only' : 
-                                     dateRange === 'year' ? 'This year only' : 
-                                     dateRange === 'lifetime' ? 'All time' : 'Selected period'}
-                                </span>
+                                {dateRange === 'day' ? 'Today only' : 
+                                 dateRange === 'week' ? 'This week only' : 
+                                 dateRange === 'month' ? 'This month only' : 
+                                 dateRange === 'year' ? 'This year only' : 
+                                 dateRange === 'lifetime' ? 'All time' : 'Selected period'}
                             </p>
                         </CardContent>
                     </Card>
 
                     <Card className="border-l-4 border-l-blue-500">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-xs font-medium sm:text-sm">Gross Profit</CardTitle>
+                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent className="pb-3">
+                            <div className="text-lg font-bold sm:text-xl lg:text-2xl">
+                                {formatCurrency(profits?.totalGrossProfit || 0)}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Sales minus cost price • {(profits?.totalRevenue > 0 ? ((profits.totalGrossProfit / profits.totalRevenue) * 100) : 0).toFixed(1)}% margin
+                            </p>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-l-4 border-l-emerald-500">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-xs font-medium sm:text-sm">Net Profit</CardTitle>
                             <TrendingUp className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent className="pb-3">
-                            <div className="text-lg font-bold sm:text-xl lg:text-2xl">{formatCurrency(profits?.totalProfit || 0)}</div>
-                            <p className="text-xs text-muted-foreground">Sales minus expenses • {(profits?.profitMargin || 0).toFixed(1)}% margin</p>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-l-4 border-l-purple-500">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-xs font-medium sm:text-sm">
-                                {dateRange === 'day' ? 'Today\'s Avg Order' : 
-                                 dateRange === 'week' ? 'This Week\'s Avg Order' : 
-                                 dateRange === 'month' ? 'This Month\'s Avg Order' : 
-                                 dateRange === 'year' ? 'This Year\'s Avg Order' : 
-                                 dateRange === 'lifetime' ? 'Lifetime Avg Order' : 'Period Avg Order'}
-                            </CardTitle>
-                            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent className="pb-3">
-                            <div className="text-lg font-bold sm:text-xl lg:text-2xl">{formatCurrency(sales?.averageOrderValue || 0)}</div>
+                            <div className="text-lg font-bold sm:text-xl lg:text-2xl">
+                                {formatCurrency(profits?.totalNetProfit || 0)}
+                            </div>
                             <p className="text-xs text-muted-foreground">
-                                per order
-                                <span className="block text-xs text-purple-600 dark:text-purple-400 mt-1">
-                                    {dateRange === 'day' ? 'Today only' : 
-                                     dateRange === 'week' ? 'This week only' : 
-                                     dateRange === 'month' ? 'This month only' : 
-                                     dateRange === 'year' ? 'This year only' : 
-                                     dateRange === 'lifetime' ? 'All time' : 'Selected period'}
-                                </span>
+                                Sales minus expenses • {(profits?.profitMargin || 0).toFixed(1)}% margin
                             </p>
+                            {profits?.totalExpenses > 0 && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Expenses: {formatCurrency(profits.totalExpenses)}
+                                </p>
+                            )}
                         </CardContent>
                     </Card>
 
@@ -683,6 +691,8 @@ export default function AdminDashboard() {
                         </CardContent>
                     </Card>
                 </div>
+
+
 
                 {/* Charts and Analytics */}
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3 sm:space-y-4">
@@ -993,38 +1003,29 @@ export default function AdminDashboard() {
                                                             tickLine={false}
                                                             width={60}
                                                         />
-                                                        <Tooltip
-                                                            content={({ payload, label }) => (
-                                                                <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-gray-700 dark:bg-gray-800">
-                                                                    <p className="mb-1 font-medium text-gray-900 dark:text-gray-100">
-                                                                        {label
-                                                                            ? new Date(label).toLocaleDateString('en-US', {
-                                                                                  weekday: 'short',
-                                                                                  month: 'short',
-                                                                                  day: 'numeric',
-                                                                              })
-                                                                            : ''}
-                                                                    </p>
-                                                                    {payload?.map((entry, index) => (
-                                                                        <div key={`tooltip-${index}`} className="flex items-center justify-between">
-                                                                            <div className="flex items-center">
-                                                                                <div
-                                                                                    className="mr-2 h-3 w-3 rounded-full"
-                                                                                    style={{ backgroundColor: entry.color }}
-                                                                                />
-                                                                                <span className="text-sm text-gray-600 dark:text-gray-300">
-                                                                                    {entry.name === 'revenue' ? 'Revenue' : 'Orders'}
-                                                                                </span>
-                                                                            </div>
-                                                                            <span className="ml-4 font-medium text-gray-900 dark:text-gray-100">
-                                                                                {entry.name === 'revenue'
-                                                                                    ? formatCurrency(entry.value as number)
-                                                                                    : entry.value}
-                                                                            </span>
+                                                        <Tooltip 
+                                                            content={({ active, payload, label }) => {
+                                                                if (active && payload && payload.length && label) {
+                                                                    return (
+                                                                        <div className="bg-white dark:bg-gray-900 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                                                                            <p className="font-medium text-gray-900 dark:text-gray-100">
+                                                                                {new Date(label).toLocaleDateString('en-US', { 
+                                                                                    weekday: 'long', 
+                                                                                    year: 'numeric', 
+                                                                                    month: 'long', 
+                                                                                    day: 'numeric' 
+                                                                                })}
+                                                                            </p>
+                                                                            {payload.map((entry: any, index: number) => (
+                                                                                <p key={index} className="text-sm" style={{ color: entry.color }}>
+                                                                                    {entry.name}: {formatCurrency(entry.value)}
+                                                                                </p>
+                                                                            ))}
                                                                         </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
+                                                                    );
+                                                                }
+                                                                return null;
+                                                            }}
                                                         />
                                                         <Area
                                                             type="monotone"
@@ -1072,162 +1073,144 @@ export default function AdminDashboard() {
 
                             {/* Profit Trends Chart */}
                             <Card className="border-0 shadow-sm">
-                                <CardHeader className="px-4 py-4 md:px-6">
-                                    <CardTitle className="flex items-center gap-2">
-                                        <TrendingUp className="h-5 w-5 text-green-600" />
-                                        <span className="text-sm sm:text-base">
-                                            Net Profit Analysis 
-                                            {dateRange === 'day' ? ' (Today)' : 
-                                             dateRange === 'week' ? ' (This Week)' : 
-                                             dateRange === 'month' ? ' (This Month)' : 
-                                             dateRange === 'year' ? ' (This Year)' : 
-                                             dateRange === 'lifetime' ? ' (All Time)' : ' (30 Days)'} - KSH
-                                        </span>
+                                <CardHeader>
+                                    <CardTitle className="text-lg sm:text-xl font-semibold">
+                                        Net Profit Analysis {dateRange === 'day' ? '(Today)' : dateRange === 'week' ? '(This Week)' : dateRange === 'month' ? '(This Month)' : dateRange === 'year' ? '(This Year)' : dateRange === 'lifetime' ? '(All Time)' : '(30 Days)'} - KSH
                                     </CardTitle>
+                                    <CardDescription>
+                                        Daily profit trends with expenses factored in
+                                    </CardDescription>
                                 </CardHeader>
-                                <CardContent className="px-4 pb-6 md:px-6">
+                                <CardContent>
                                     {loading ? (
-                                        <div className="flex h-48 items-center justify-center text-muted-foreground sm:h-64 lg:h-80">
-                                            <div className="text-center">
-                                                <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-green-200 border-t-green-600"></div>
-                                                <p className="text-base font-medium">Loading profit data...</p>
-                                                <p className="mt-1 text-sm">Please wait while we fetch your data</p>
+                                        <div className="flex items-center justify-center h-64">
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-6 w-6 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                                <span className="text-muted-foreground">Loading profit data...</span>
                                             </div>
                                         </div>
-                                    ) : Array.isArray(profits?.profitTrends) && profits.profitTrends.length > 0 ? (
-                                        <div className="space-y-4 sm:space-y-6">
+                                    ) : profits.profitTrends.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center h-64 text-center">
+                                            <TrendingUp className="h-12 w-12 text-muted-foreground mb-4" />
+                                            <p className="text-base font-medium">No profit data found for the selected period</p>
+                                            <p className="text-sm text-muted-foreground mt-1">
+                                                {dateRange === 'lifetime' ? 'Profit data will appear here once available' : 'Profit data will appear here once available'}
+                                            </p>
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                onClick={() => window.location.reload()} 
+                                                className="mt-4"
+                                            >
+                                                Refresh Data
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
                                             {/* Summary Cards */}
-                                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
-                                                <div className="rounded-lg border bg-gradient-to-br from-green-50 to-green-100 p-3 sm:p-4 dark:from-green-900/30 dark:to-green-900/20">
-                                                    <div className="mb-1 text-xs font-medium text-green-600 sm:text-sm dark:text-green-400">
-                                                        Net Profit
-                                                    </div>
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                <div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
                                                     <div className="text-lg font-bold text-green-800 sm:text-xl lg:text-2xl dark:text-green-100">
                                                         {formatCurrency(
-                                                            profits.profitTrends.reduce((sum, day) => sum + (day.daily_profit || 0), 0),
+                                                            profits.profitTrends.reduce((sum, day) => sum + (day.daily_gross_profit || 0), 0),
                                                         )}
                                                     </div>
-                                                    <div className="text-xs text-green-600 dark:text-green-400 mt-1">
-                                                        Sales minus expenses
-                                                    </div>
+                                                    <p className="text-sm text-green-700 dark:text-green-300">Total Gross Profit</p>
                                                 </div>
-
-                                                <div className="rounded-lg border bg-gradient-to-br from-purple-50 to-purple-100 p-3 sm:p-4 dark:from-purple-900/30 dark:to-purple-900/20">
-                                                    <div className="mb-1 text-xs font-medium text-purple-600 sm:text-sm dark:text-purple-400">
-                                                        Avg Daily Net Profit
+                                                <div className="text-center p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                                                    <div className="text-lg font-bold text-blue-800 sm:text-xl lg:text-2xl dark:text-blue-100">
+                                                        {formatCurrency(
+                                                            profits.profitTrends.reduce((sum, day) => sum + (day.daily_net_profit || 0), 0),
+                                                        )}
                                                     </div>
+                                                    <p className="text-sm text-blue-700 dark:text-blue-300">Total Net Profit</p>
+                                                </div>
+                                                <div className="text-center p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
                                                     <div className="text-lg font-bold text-purple-800 sm:text-xl lg:text-2xl dark:text-purple-100">
-                                                        {profits.profitTrends.length > 0
-                                                            ? formatCurrency(
-                                                                  Math.round(
-                                                                      profits.profitTrends.reduce((sum, day) => sum + (day.daily_profit || 0), 0) /
-                                                                          profits.profitTrends.length,
-                                                                  ),
-                                                              )
-                                                            : formatCurrency(0)}
+                                                        {formatCurrency(
+                                                            profits.profitTrends.reduce((sum, day) => sum + (day.daily_expenses || 0), 0),
+                                                        )}
                                                     </div>
-                                                    <div className="text-xs text-purple-600 dark:text-purple-400 mt-1">
-                                                        After expenses
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Chart Legend */}
-                                            <div className="flex items-center justify-center space-x-6 text-sm">
-                                                <div className="flex items-center space-x-2">
-                                                    <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                                                    <span className="text-green-700 dark:text-green-300">Net Profit</span>
+                                                    <p className="text-sm text-purple-700 dark:text-purple-300">Total Expenses</p>
                                                 </div>
                                             </div>
 
                                             {/* Chart */}
-                                            <div className="h-48 sm:h-64 lg:h-80 w-full overflow-hidden">
+                                            <div className="h-80">
                                                 <ResponsiveContainer width="100%" height="100%">
-                                                    <LineChart data={profits.profitTrends} margin={{ top: 10, right: 10, left: 0, bottom: 30 }}>
-                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                                                        <XAxis
-                                                            dataKey="date"
-                                                            tickFormatter={(value) =>
-                                                                new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                                                            }
+                                                    <LineChart data={profits.profitTrends}>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                                        <XAxis 
+                                                            dataKey="date" 
                                                             stroke="#6b7280"
-                                                            fontSize={12}
-                                                            axisLine={false}
-                                                            tickLine={false}
-                                                            tickMargin={10}
+                                                            tick={{ fontSize: 12 }}
+                                                            tickFormatter={(value) => {
+                                                                const date = new Date(value);
+                                                                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                                            }}
                                                         />
-                                                        <YAxis
+                                                        <YAxis 
                                                             stroke="#6b7280"
-                                                            fontSize={12}
-                                                            tickFormatter={(value) => formatChartNumber(value)}
-                                                            axisLine={false}
-                                                            tickLine={false}
-                                                            width={60}
+                                                            tick={{ fontSize: 12 }}
+                                                            tickFormatter={(value) => formatCurrency(value)}
                                                         />
-                                                        <Tooltip
-                                                            content={({ payload, label }) => (
-                                                                <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-gray-700 dark:bg-gray-800">
-                                                                    <p className="mb-1 font-medium text-gray-900 dark:text-gray-100">
-                                                                        {label
-                                                                            ? new Date(label).toLocaleDateString('en-US', {
-                                                                                  weekday: 'short',
-                                                                                  month: 'short',
-                                                                                  day: 'numeric',
-                                                                              })
-                                                                            : ''}
-                                                                    </p>
-                                                                    {payload?.map((entry, index) => (
-                                                                        <div key={`tooltip-${index}`} className="flex items-center justify-between">
-                                                                            <div className="flex items-center">
-                                                                                <div
-                                                                                    className="mr-2 h-3 w-3 rounded-full"
-                                                                                    style={{
-                                                                                        backgroundColor: entry.color,
-                                                                                    }}
-                                                                                />
-                                                                                <span className="text-sm text-gray-600 dark:text-gray-300">
-                                                                                    Net Profit
-                                                                                </span>
-                                                                            </div>
-                                                                            <span className="ml-4 font-medium text-gray-900 dark:text-gray-100">
-                                                                                {formatCurrency(entry.value as number)}
-                                                                            </span>
+                                                        <Tooltip 
+                                                            content={({ active, payload, label }) => {
+                                                                if (active && payload && payload.length && label) {
+                                                                    return (
+                                                                        <div className="bg-white dark:bg-gray-900 p-3 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                                                                            <p className="font-medium text-gray-900 dark:text-gray-100">
+                                                                                {new Date(label).toLocaleDateString('en-US', { 
+                                                                                    weekday: 'long', 
+                                                                                    year: 'numeric', 
+                                                                                    month: 'long', 
+                                                                                    day: 'numeric' 
+                                                                                })}
+                                                                            </p>
+                                                                            {payload.map((entry: any, index: number) => (
+                                                                                <p key={index} className="text-sm" style={{ color: entry.color }}>
+                                                                                    {entry.name}: {formatCurrency(entry.value)}
+                                                                                </p>
+                                                                            ))}
                                                                         </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
+                                                                    );
+                                                                }
+                                                                return null;
+                                                            }}
                                                         />
+                                                        <Legend />
                                                         <Line
                                                             type="monotone"
-                                                            dataKey="daily_profit"
+                                                            dataKey="daily_gross_profit"
                                                             stroke="#10b981"
                                                             strokeWidth={3}
                                                             dot={{ fill: '#10b981', strokeWidth: 2, r: 5 }}
+                                                            activeDot={{ r: 6, strokeWidth: 2 }}
+                                                            name="Gross Profit"
+                                                        />
+                                                        <Line
+                                                            type="monotone"
+                                                            dataKey="daily_net_profit"
+                                                            stroke="#2196f3"
+                                                            strokeWidth={3}
+                                                            dot={{ fill: '#2196f3', strokeWidth: 2, r: 5 }}
                                                             activeDot={{ r: 6, strokeWidth: 2 }}
                                                             name="Net Profit"
                                                         />
                                                     </LineChart>
                                                 </ResponsiveContainer>
                                             </div>
-                                        </div>
-                                    ) : (
-                                        <div className="flex h-48 items-center justify-center text-muted-foreground sm:h-64 lg:h-80">
-                                            <div className="text-center">
-                                                <TrendingUp className="mx-auto mb-4 h-12 w-12 opacity-50" />
-                                                <p className="text-base font-medium">No net profit data available</p>
-                                                <p className="mt-1 text-sm">
-                                                    {dateRange === 'lifetime' ? 'No profit data found for the selected period' : 
-                                                     'Net profit data will appear here once available'}
-                                                </p>
-                                                <Button 
-                                                    onClick={fetchAnalytics} 
-                                                    variant="outline" 
-                                                    size="sm" 
-                                                    className="mt-3"
-                                                >
-                                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                                    Refresh Data
-                                                </Button>
+
+                                            {/* Chart Legend */}
+                                            <div className="flex flex-wrap justify-center gap-4 text-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                                    <span className="text-green-700 dark:text-green-300">Gross Profit</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                                    <span className="text-blue-700 dark:text-blue-300">Net Profit</span>
+                                                </div>
                                             </div>
                                         </div>
                                     )}
