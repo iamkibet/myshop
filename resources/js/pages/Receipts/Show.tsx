@@ -5,8 +5,7 @@ import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ArrowLeft, Download, Eye, EyeOff, Package, Printer, User } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeft, Download, Printer } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -61,7 +60,7 @@ export default function ShowReceipt() {
     const { props } = usePage<PageProps>();
     const { sale } = props;
     const appName = props.app?.name || 'MyShop';
-    const [showPassword, setShowPassword] = useState(false);
+
 
     // Debug logging to see the actual data structure
     console.log('Sale data received:', sale);
@@ -202,10 +201,7 @@ export default function ShowReceipt() {
                                         {new Date(sale.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                 </div>
-                                <div className="flex justify-between text-sm sm:text-base">
-                                    <span className="text-muted-foreground">Cashier:</span>
-                                    <span className="font-medium">{sale.manager.name}</span>
-                                </div>
+
                             </div>
 
                             {/* Items List */}
@@ -258,14 +254,6 @@ export default function ShowReceipt() {
                             {/* Totals */}
                             <div className="border-t border-b p-4 sm:p-6">
                                 <div className="space-y-2">
-                                    <div className="flex justify-between text-sm sm:text-base">
-                                        <span>Subtotal:</span>
-                                        <span>{formatCurrency(sale.total_amount)}</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm sm:text-base">
-                                        <span>Tax:</span>
-                                        <span>{formatCurrency(0)}</span>
-                                    </div>
                                     <div className="flex justify-between text-base font-bold sm:text-lg">
                                         <span>TOTAL:</span>
                                         <span>{formatCurrency(sale.total_amount)}</span>
@@ -273,21 +261,7 @@ export default function ShowReceipt() {
                                 </div>
                             </div>
 
-                            {/* Payment Method */}
-                            <div className="border-b p-4 sm:p-6">
-                                <div className="flex justify-between text-sm sm:text-base">
-                                    <span className="text-muted-foreground">Payment Method:</span>
-                                    <span className="font-medium">Cash</span>
-                                </div>
-                                <div className="mt-1 flex justify-between text-sm sm:text-base">
-                                    <span className="text-muted-foreground">Amount Tendered:</span>
-                                    <span className="font-medium">{formatCurrency(sale.total_amount)}</span>
-                                </div>
-                                <div className="mt-1 flex justify-between text-sm sm:text-base">
-                                    <span className="text-muted-foreground">Change:</span>
-                                    <span className="font-medium">{formatCurrency(0)}</span>
-                                </div>
-                            </div>
+
 
                             {/* Footer */}
                             <div className="space-y-1 p-4 text-center text-xs text-muted-foreground sm:p-6">
@@ -302,73 +276,7 @@ export default function ShowReceipt() {
                     </Card>
                 </div>
 
-                {/* Additional Information (Non-printable) */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 print:hidden">
-                    {/* Manager Info */}
-                    <Card>
-                        <CardHeader className="px-4 py-4 sm:px-6">
-                            <CardTitle className="flex items-center justify-between">
-                                <div className="flex items-center">
-                                    <User className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                                    <span className="text-sm sm:text-base">Manager Information</span>
-                                </div>
-                                <Button variant="outline" size="sm" onClick={() => setShowPassword(!showPassword)}>
-                                    {showPassword ? (
-                                        <>
-                                            <EyeOff className="mr-2 h-4 w-4" />
-                                            <span className="hidden sm:inline">Hide</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Eye className="mr-2 h-4 w-4" />
-                                            <span className="hidden sm:inline">Show</span>
-                                        </>
-                                    )}
-                                </Button>
-                            </CardTitle>
-                        </CardHeader>
-                        {showPassword && (
-                            <CardContent className="space-y-3 px-4 pb-4 sm:px-6">
-                                <div className="flex justify-between text-sm sm:text-base">
-                                    <span className="text-muted-foreground">Name:</span>
-                                    <span className="font-medium">{sale.manager.name}</span>
-                                </div>
-                                <div className="flex justify-between text-sm sm:text-base">
-                                    <span className="text-muted-foreground">Email:</span>
-                                    <span className="font-medium">{sale.manager.email}</span>
-                                </div>
-                                <div className="flex justify-between text-sm sm:text-base">
-                                    <span className="text-muted-foreground">Manager ID:</span>
-                                    <span className="font-medium">#{sale.manager.id}</span>
-                                </div>
-                            </CardContent>
-                        )}
-                    </Card>
-
-                    {/* Summary */}
-                    <Card>
-                        <CardHeader className="px-4 py-4 sm:px-6">
-                            <CardTitle className="flex items-center">
-                                <Package className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                                <span className="text-sm sm:text-base">Order Summary</span>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3 px-4 pb-4 sm:px-6">
-                            <div className="flex justify-between text-sm sm:text-base">
-                                <span className="text-muted-foreground">Items:</span>
-                                <span className="font-medium">{sale.sale_items.length}</span>
-                            </div>
-                            <div className="flex justify-between text-sm sm:text-base">
-                                <span className="text-muted-foreground">Total Quantity:</span>
-                                <span className="font-medium">{sale.sale_items.reduce((sum, item) => sum + item.quantity, 0)}</span>
-                            </div>
-                            <div className="flex justify-between text-sm sm:text-base">
-                                <span className="text-muted-foreground">Status:</span>
-                                <Badge variant="default">Completed</Badge>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                
             </div>
         </AppLayout>
     );

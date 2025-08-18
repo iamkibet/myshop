@@ -103,8 +103,7 @@
         <div class="receipt-info">
             <div>
                 <strong>Receipt #:</strong> {{ $sale->id }}<br>
-                <strong>Date:</strong> {{ $sale->created_at->format('M d, Y g:i A') }}<br>
-                <strong>Manager:</strong> {{ $sale->manager->name ?? 'Unknown' }}
+                <strong>Date:</strong> {{ $sale->created_at->format('M d, Y g:i A') }}
             </div>
         </div>
 

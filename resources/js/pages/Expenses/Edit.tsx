@@ -311,7 +311,7 @@ export default function ExpensesEdit({ expense, categories, userRole }: Props) {
                                     
                                     <div className="text-center">
                                         <p className="text-xs text-muted-foreground">
-                                            Accepted formats: JPG, PNG, PDF (max 5MB)
+                                            Accepted formats: JPG, PNG, PDF
                                             {userRole === 'manager' && (
                                                 <span className="block mt-1 text-amber-600 dark:text-amber-400 font-medium">
                                                     ⚠️ Proof of purchase is required for manager expenses
