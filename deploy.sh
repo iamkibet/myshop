@@ -26,6 +26,7 @@ rsync -av --exclude-from=<(cat <<'EOF'
 node_modules/
 .git/
 .env
+public/hot
 storage/logs/*.log
 storage/framework/cache/data/*
 storage/framework/sessions/*
@@ -58,6 +59,7 @@ echo "Installing/updating Composer dependencies..."
 composer install --optimize-autoloader --no-dev
 
 echo "Setting up Laravel..."
+php artisan key:generate --force
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
@@ -76,6 +78,9 @@ echo "Clearing caches..."
 php artisan config:clear
 php artisan cache:clear
 php artisan view:clear
+
+echo "Copying assets to public_html..."
+cp -r public/build/* public_html/build/ 2>/dev/null || true
 
 echo "✅ Deployment completed successfully!"
 EOF
