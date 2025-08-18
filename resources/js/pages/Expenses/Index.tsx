@@ -34,9 +34,10 @@ interface Expense {
 
 interface Summary {
     total_expenses: number;
-    total_sales: number;
-    total_gross_profit: number;
-    total_profit: number;
+    total_sales?: number;
+    total_gross_profit?: number;
+    total_profit?: number;
+    net_profit_margin?: number;
     monthly_expenses: Array<{
         month: number;
         total: number;
@@ -99,9 +100,8 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
     };
 
     const handleReject = (expenseId: number) => {
-        const notes = prompt('Please provide a reason for rejection:');
-        if (notes !== null) {
-            router.post(`/expenses/${expenseId}/reject`, { approval_notes: notes });
+        if (confirm('Are you sure you want to reject this expense?')) {
+            router.post(`/expenses/${expenseId}/reject`);
         }
     };
 
@@ -209,7 +209,7 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                                    {formatCurrency(summary.total_sales)}
+                                    {formatCurrency(summary.total_sales || 0)}
                                 </div>
                                 <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
                                     All time sales
@@ -222,11 +222,11 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                 <CardTitle className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">
                                     Net Profit
                                 </CardTitle>
-                                <DollarSign className={`h-4 w-4 sm:h-5 sm:w-5 ${summary.total_profit >= 0 ? 'text-green-500' : 'text-red-500'}`} />
+                                <DollarSign className={`h-4 w-4 sm:h-5 sm:w-5 ${(summary.total_profit || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`} />
                             </CardHeader>
                             <CardContent>
-                                <div className={`text-2xl sm:text-3xl font-bold ${summary.total_profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                    {formatCurrency(summary.total_profit)}
+                                <div className={`text-2xl sm:text-3xl font-bold ${(summary.total_profit || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                    {formatCurrency(summary.total_profit || 0)}
                                 </div>
                                 <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
                                     Total sales minus total expenses
@@ -294,88 +294,90 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                     </div>
                 )}
 
-                {/* Net Profit Insights - Creative Display */}
-                <Card className="mb-6 sm:mb-8 border-0 shadow-sm bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950 dark:to-green-950 dark:border-emerald-800">
-                    <CardHeader className="pb-4">
-                        <CardTitle className="text-lg sm:text-xl font-semibold text-emerald-900 dark:text-emerald-100 flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5" />
-                            Net Profit Insights
-                        </CardTitle>
-                        <CardDescription className="text-emerald-700 dark:text-emerald-300">
-                            Comprehensive profit analysis and efficiency metrics
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                            {/* Net Profit Display */}
-                            <div className="text-center p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-emerald-200 dark:border-emerald-700">
-                                <div className={`text-2xl sm:text-3xl font-bold mb-2 ${summary.total_profit >= 0 ? 'text-emerald-900 dark:text-emerald-100' : 'text-red-900 dark:text-red-100'}`}>
-                                    {formatCurrency(summary.total_profit)}
+                {/* Net Profit Insights - Creative Display - Only for Admins */}
+                {userRole === 'admin' && summary.total_profit !== undefined && (
+                    <Card className="mb-6 sm:mb-8 border-0 shadow-sm bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950 dark:to-green-950 dark:border-emerald-800">
+                        <CardHeader className="pb-4">
+                            <CardTitle className="text-lg sm:text-xl font-semibold text-emerald-900 dark:text-emerald-100 flex items-center gap-2">
+                                <TrendingUp className="h-5 w-5" />
+                                Net Profit Insights
+                            </CardTitle>
+                            <CardDescription className="text-emerald-700 dark:text-emerald-300">
+                                Comprehensive profit analysis and efficiency metrics
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                                {/* Net Profit Display */}
+                                <div className="text-center p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-emerald-200 dark:border-emerald-700">
+                                    <div className={`text-2xl sm:text-3xl font-bold mb-2 ${summary.total_profit >= 0 ? 'text-emerald-900 dark:text-emerald-100' : 'text-red-900 dark:text-red-100'}`}>
+                                        {formatCurrency(summary.total_profit)}
+                                    </div>
+                                    <p className="text-sm text-emerald-700 dark:text-emerald-300 font-medium">
+                                        Net Profit
+                                    </p>
+                                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                                        Total sales minus total expenses
+                                    </p>
                                 </div>
-                                <p className="text-sm text-emerald-700 dark:text-emerald-300 font-medium">
-                                    Net Profit
-                                </p>
-                                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
-                                    Total sales minus total expenses
-                                </p>
+
+                                {/* Gross Profit Display */}
+                                <div className="text-center p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-emerald-200 dark:border-emerald-700">
+                                    <div className="text-2xl sm:text-3xl font-bold text-green-900 dark:text-green-100 mb-2">
+                                        {formatCurrency(summary.total_gross_profit || 0)}
+                                    </div>
+                                    <p className="text-sm text-green-700 dark:text-green-300 font-medium">
+                                        Gross Profit
+                                    </p>
+                                    <p className="text-xs text-green-600 dark:text-emerald-400 mt-1">
+                                        Before expenses
+                                    </p>
+                                </div>
+
+                                {/* Profit Margin */}
+                                <div className="text-center p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-emerald-200 dark:border-emerald-700">
+                                    <div className="text-2xl sm:text-3xl font-bold text-purple-900 dark:text-purple-100 mb-2">
+                                        {summary.net_profit_margin || 0}%
+                                    </div>
+                                    <p className="text-sm text-purple-700 dark:text-purple-300 font-medium">
+                                        Net Profit Margin
+                                    </p>
+                                    <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                                        Of total sales
+                                    </p>
+                                </div>
                             </div>
 
-                            {/* Gross Profit Display */}
-                            <div className="text-center p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-emerald-200 dark:border-emerald-700">
-                                <div className="text-2xl sm:text-3xl font-bold text-green-900 dark:text-green-100 mb-2">
-                                    {formatCurrency(summary.total_gross_profit)}
-                                </div>
-                                <p className="text-sm text-green-700 dark:text-green-300 font-medium">
-                                    Gross Profit
-                                </p>
-                                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                                    Before expenses
-                                </p>
-                            </div>
-
-                            {/* Profit Margin */}
-                            <div className="text-center p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-emerald-200 dark:border-emerald-700">
-                                <div className="text-2xl sm:text-3xl font-bold text-purple-900 dark:text-purple-100 mb-2">
-                                    {summary.total_sales > 0 ? ((summary.total_profit / summary.total_sales) * 100).toFixed(1) : '0.0'}%
-                                </div>
-                                <p className="text-sm text-purple-700 dark:text-purple-300 font-medium">
-                                    Net Profit Margin
-                                </p>
-                                <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
-                                    Of total sales
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Monthly Profit Trends */}
-                        {summary.monthly_expenses && summary.monthly_expenses.length > 0 && (
-                            <div className="mt-6">
-                                <h4 className="font-semibold text-emerald-900 dark:text-emerald-100 mb-3 text-center sm:text-left">
-                                    Monthly Profit Trends
-                                </h4>
-                                <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-                                    {summary.monthly_expenses.slice(-6).map((monthData, index) => {
-                                        const monthName = new Date(2024, monthData.month - 1).toLocaleDateString('en-US', { month: 'short' });
-                                        const monthlyProfit = summary.total_sales - monthData.total;
-                                        return (
-                                            <div key={index} className="text-center p-3 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-emerald-200 dark:border-emerald-700">
-                                                <div className="text-sm font-medium text-emerald-900 dark:text-emerald-100 mb-1">
-                                                    {monthName}
+                            {/* Monthly Profit Trends */}
+                            {summary.monthly_expenses && summary.monthly_expenses.length > 0 && (summary.total_sales || 0) > 0 && (
+                                <div className="mt-6">
+                                    <h4 className="font-semibold text-emerald-900 dark:text-emerald-100 mb-3 text-center sm:text-left">
+                                        Monthly Profit Trends
+                                    </h4>
+                                    <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+                                        {summary.monthly_expenses.slice(-6).map((monthData, index) => {
+                                            const monthName = new Date(2024, monthData.month - 1).toLocaleDateString('en-US', { month: 'short' });
+                                            const monthlyProfit = (summary.total_sales || 0) - monthData.total;
+                                            return (
+                                                <div key={index} className="text-center p-3 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-emerald-200 dark:border-emerald-700">
+                                                    <div className="text-sm font-medium text-emerald-900 dark:text-emerald-100 mb-1">
+                                                        {monthName}
+                                                    </div>
+                                                    <div className={`text-lg font-bold ${monthlyProfit >= 0 ? 'text-emerald-900 dark:text-emerald-100' : 'text-red-900 dark:text-red-100'}`}>
+                                                        {formatCurrency(monthlyProfit)}
+                                                    </div>
+                                                    <div className="text-xs text-emerald-600 dark:text-emerald-400">
+                                                        Net Profit
+                                                    </div>
                                                 </div>
-                                                <div className={`text-lg font-bold ${monthlyProfit >= 0 ? 'text-emerald-900 dark:text-emerald-100' : 'text-red-900 dark:text-red-100'}`}>
-                                                    {formatCurrency(monthlyProfit)}
-                                                </div>
-                                                <div className="text-xs text-emerald-600 dark:text-emerald-400">
-                                                    Net Profit
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Compact Filters Section - Mobile Optimized */}
                 <Card className="mb-6 sm:mb-8 border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800">
@@ -596,7 +598,7 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                                             <Badge className={`text-xs px-2 py-1 sm:text-sm sm:px-3 sm:py-1 ${
                                                                 expense.status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
                                                                 expense.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' :
-                                                                'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
+                                                                'bg-yellow-100 text-yellow-800 dark:bg-gray-900/20 dark:text-yellow-400'
                                                             }`}>
                                                                 {expense.status === 'approved' ? '✓ Approved' :
                                                                  expense.status === 'rejected' ? '✗ Rejected' :
@@ -620,32 +622,32 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                                             <>
                                                                 <span className="hidden sm:inline">•</span>
                                                                 <div className="flex items-center gap-2">
-                                                                                                        <Button 
-                                        variant="link" 
-                                        size="sm" 
-                                        className="h-auto p-0 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
-                                        onClick={() => window.open(`/expenses/${expense.id}/receipt`, '_blank')}
-                                    >
-                                        <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
-                                        View Proof
-                                    </Button>
-                                    <Button 
-                                        variant="link" 
-                                        size="sm" 
-                                        className="h-auto p-0 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:underline"
-                                        onClick={() => {
-                                            const link = document.createElement('a');
-                                            link.href = `/expenses/${expense.id}/receipt?download=true`;
-                                            link.download = '';
-                                            link.click();
-                                        }}
-                                    >
-                                        <svg className="h-3 w-3 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                        <span className="hidden sm:inline">Download Proof</span>
-                                        <span className="sm:hidden">Download</span>
-                                    </Button>
+                                                                    <Button 
+                                                                        variant="link" 
+                                                                        size="sm" 
+                                                                        className="h-auto p-0 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
+                                                                        onClick={() => window.open(`/expenses/${expense.id}/receipt`, '_blank')}
+                                                                    >
+                                                                        <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+                                                                        View Proof
+                                                                    </Button>
+                                                                    <Button 
+                                                                        variant="link" 
+                                                                        size="sm" 
+                                                                        className="h-auto p-0 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:underline"
+                                                                        onClick={() => {
+                                                                            const link = document.createElement('a');
+                                                                            link.href = `/expenses/${expense.id}/receipt?download=true`;
+                                                                            link.download = '';
+                                                                            link.click();
+                                                                        }}
+                                                                    >
+                                                                        <svg className="h-3 w-3 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                                        </svg>
+                                                                        <span className="hidden sm:inline">Download Proof</span>
+                                                                        <span className="sm:hidden">Download</span>
+                                                                    </Button>
                                                                 </div>
                                                             </>
                                                         )}

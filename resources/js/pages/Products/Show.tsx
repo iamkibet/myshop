@@ -154,17 +154,19 @@ export default function ProductShow({ product }: ProductShowProps) {
                         <Card className="border-0 shadow-sm">
                             <CardContent className="p-6">
                                 {/* Product Image */}
-                                <div className="relative mb-6 h-64 overflow-hidden rounded-lg bg-gray-50 dark:bg-gray-800">
+                                <div className="mb-6">
                                     {product.image_url ? (
                                         <img
                                             src={product.image_url}
                                             alt={product.name}
-                                            className="h-full w-full object-cover"
+                                            className="h-64 w-full rounded-lg border object-cover md:h-96"
+                                            onError={(e) => {
+                                                e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCAxMDBDODAgODkuNTQ0NCA4OS41NDQ0IDgwIDEwMCA4MEMxMTAuNDU2IDgwIDEyMCA4OS41NDQ0IDEyMCAxMEMxMjAgMTEwLjQ1NiAxMTAuNDU2IDEyMCAxMDAgMTIwQzg5LjU0NDQgMTIwIDgwIDExMC40NTYgODAgMTAwWiIgZmlsbD0iI0QxRDVFM0EiLz4KPC9zdmc+';
+                                            }}
                                         />
                                     ) : (
-                                        <div className="flex h-full flex-col items-center justify-center p-4 text-muted-foreground">
-                                            <Package className="h-16 w-16" />
-                                            <span className="mt-2 text-center">No image available</span>
+                                        <div className="flex h-64 w-full items-center justify-center rounded-lg bg-muted md:h-96">
+                                            <Package className="h-24 w-24 text-muted-foreground" />
                                         </div>
                                     )}
                                 </div>

@@ -19,7 +19,7 @@ class SalesController extends Controller
         $isAdmin = $user->isAdmin();
 
         // Build query
-        $query = Sale::with(['manager', 'saleItems.productVariant.product']);
+        $query = Sale::with(['manager', 'saleItems.product']);
 
         // Filter by manager (for managers, only show their sales)
         if (!$isAdmin) {
@@ -50,7 +50,7 @@ class SalesController extends Controller
             $search = $request->get('search');
             $query->where(function ($q) use ($search) {
                 $q->where('id', 'like', "%{$search}%")
-                    ->orWhereHas('saleItems.productVariant.product', function ($pq) use ($search) {
+                    ->orWhereHas('saleItems.product', function ($pq) use ($search) {
                         $pq->where('name', 'like', "%{$search}%")
                             ->orWhere('sku', 'like', "%{$search}%");
                     });
@@ -148,7 +148,7 @@ class SalesController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        $sale->load(['manager', 'saleItems.productVariant.product']);
+        $sale->load(['manager', 'saleItems.product']);
 
         return Inertia::render('Sales/Show', [
             'sale' => $sale,
@@ -169,7 +169,7 @@ class SalesController extends Controller
         $manager = \App\Models\User::findOrFail($managerId);
 
         $sales = Sale::where('manager_id', $managerId)
-            ->with(['saleItems.productVariant.product'])
+            ->with(['saleItems.product'])
             ->orderByDesc('created_at')
             ->paginate(10);
 

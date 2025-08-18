@@ -22,10 +22,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface CartItem {
-    variant_id: number;
+    product_id: number;
     product_name: string;
-    color?: string;
-    size?: string;
     quantity: number;
     unit_price: number;
     total_price: number;
@@ -52,10 +50,8 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
 
     // Use frontend cart data from localStorage
     const cartItems = Object.values(frontendCart).map(item => ({
-        variant_id: item.variant_id,
+        product_id: item.product_id,
         product_name: item.product_name,
-        color: item.color,
-        size: item.size,
         quantity: item.quantity,
         unit_price: item.unit_price,
         total_price: item.quantity * item.unit_price,
@@ -64,21 +60,21 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
     const total = getCartTotal();
 
     const handleEditItem = (item: CartItem) => {
-        setEditingItem(item.variant_id);
+        setEditingItem(item.product_id);
         setEditQuantity(item.quantity);
         setEditPrice(item.unit_price);
     };
 
-    const handleSaveEdit = async (variantId: number) => {
-        setUpdatingItem(variantId);
+    const handleSaveEdit = async (productId: number) => {
+        setUpdatingItem(productId);
         try {
             // Update frontend cart
-            updateCartItem(variantId, editQuantity);
+            updateCartItem(productId, editQuantity);
             
             // Also update backend cart
-            await router.put(`/cart/items/${variantId}`, {
+            await router.put(`/cart/items/${productId}`, {
                 quantity: editQuantity,
-                sale_price: editPrice,
+                unit_price: editPrice,
             });
             setEditingItem(null);
         } catch (error) {
@@ -88,15 +84,15 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
         }
     };
 
-    const handleRemoveItem = async (variantId: number) => {
+    const handleRemoveItem = async (productId: number) => {
         if (confirm('Are you sure you want to remove this item from cart?')) {
-            setRemovingItem(variantId);
+            setRemovingItem(productId);
             try {
                 // Remove from frontend cart
-                removeFromCart(variantId);
+                removeFromCart(productId);
                 
                 // Also remove from backend cart
-                await router.delete(`/cart/items/${variantId}`);
+                await router.delete(`/cart/items/${productId}`);
             } catch (error) {
                 console.error('Error removing cart item:', error);
             } finally {
@@ -115,7 +111,7 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
         try {
             // Prepare cart data for backend sync
             const cartDataForSync = cartItems.map(item => ({
-                variant_id: item.variant_id,
+                product_id: item.product_id,
                 quantity: item.quantity,
                 unit_price: item.unit_price,
             }));
@@ -123,19 +119,21 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
             console.log('Syncing cart data:', cartDataForSync);
 
             // First, sync the cart with the backend
-            const syncResponse = await router.post('/cart/sync', { cart: cartDataForSync });
-            console.log('Cart sync response:', syncResponse);
+            await router.post('/cart/sync', { cart: cartDataForSync });
+            console.log('Cart synced successfully');
             
-            // Then proceed with checkout
+            // Then proceed with checkout - this will redirect to receipt page
             await router.post('/cart/checkout');
             
             // If we reach here, checkout was successful, clear the frontend cart
             clearCart();
             console.log('Cart cleared after successful checkout');
             
-            // Show success animation - the backend will handle the redirect to the specific receipt
+            // Show success animation briefly before redirect
             setCheckoutSuccess(true);
-            // No need for manual redirect - Inertia will follow the backend redirect
+            
+            // The backend will handle the redirect to the receipt page
+            // We don't need to manually redirect
             
         } catch (error) {
             console.error('Error during checkout:', error);
@@ -255,16 +253,16 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
                                 <CardContent className="px-0 pb-0">
                                     <div className="divide-y">
                                         {cartItems.map((item) => {
-                                            const isEditing = editingItem === item.variant_id;
-                                            const isUpdating = updatingItem === item.variant_id;
-                                            const isRemoving = removingItem === item.variant_id;
+                                            const isEditing = editingItem === item.product_id;
+                                            const isUpdating = updatingItem === item.product_id;
+                                            const isRemoving = removingItem === item.product_id;
 
                                             // Get max quantity for validation
                                             const maxQuantity = 999; // Reasonable limit
 
                                             return (
                                                 <div
-                                                    key={item.variant_id}
+                                                    key={item.product_id}
                                                     className={`relative px-4 py-5 transition-all duration-300 md:px-6 ${isRemoving ? 'opacity-50' : ''}`}
                                                 >
                                                     <div className="flex gap-4">
@@ -281,9 +279,7 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
                                                                 <div className="min-w-0">
                                                                     <h3 className="truncate font-medium">{item.product_name}</h3>
                                                                     <p className="truncate text-sm text-muted-foreground">
-                                                                        {item.color && item.size
-                                                                            ? `${item.color} ${item.size}`
-                                                                            : item.color || item.size || 'Default'}
+                                                                        Product
                                                                     </p>
                                                                 </div>
 
@@ -353,7 +349,7 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
                                                                         <>
                                                                             <Button
                                                                                 size="sm"
-                                                                                onClick={() => handleSaveEdit(item.variant_id)}
+                                                                                onClick={() => handleSaveEdit(item.product_id)}
                                                                                 disabled={isUpdating}
                                                                                 className="h-10 w-10 sm:h-8 sm:w-8 p-0"
                                                                             >
@@ -387,7 +383,7 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
                                                                             <Button
                                                                                 variant="outline"
                                                                                 size="sm"
-                                                                                onClick={() => handleRemoveItem(item.variant_id)}
+                                                                                onClick={() => handleRemoveItem(item.product_id)}
                                                                                 disabled={isRemoving}
                                                                                 className="h-10 w-10 sm:h-8 sm:w-8 p-0 text-red-600 hover:bg-red-50"
                                                                             >

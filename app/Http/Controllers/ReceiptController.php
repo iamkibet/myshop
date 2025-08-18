@@ -18,12 +18,12 @@ class ReceiptController extends Controller
         
         if ($user->isAdmin()) {
             // Admins can see all receipts
-            $sales = Sale::with(['manager', 'saleItems.productVariant.product'])
+            $sales = Sale::with(['manager', 'saleItems.product'])
                 ->latest()
                 ->paginate(20);
         } else {
             // Managers can only see their own receipts
-            $sales = Sale::with(['manager', 'saleItems.productVariant.product'])
+            $sales = Sale::with(['manager', 'saleItems.product'])
                 ->where('manager_id', $user->id)
                 ->latest()
                 ->paginate(20);
@@ -49,7 +49,20 @@ class ReceiptController extends Controller
         // Load all necessary relationships
         $sale->load([
             'manager',
-            'saleItems.productVariant.product'
+            'saleItems.product'
+        ]);
+
+        \Log::info('Receipt data loaded', [
+            'sale_id' => $sale->id,
+            'sale_items_count' => $sale->saleItems->count(),
+            'sale_items_with_products' => $sale->saleItems->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'product_loaded' => $item->product ? 'YES' : 'NO',
+                    'product_name' => $item->product?->name ?? 'NULL'
+                ];
+            })->toArray()
         ]);
 
         return Inertia::render('Receipts/Show', [
@@ -72,7 +85,7 @@ class ReceiptController extends Controller
         // Load all necessary relationships
         $sale->load([
             'manager',
-            'saleItems.productVariant.product'
+            'saleItems.product'
         ]);
 
         // Generate receipt content
@@ -253,17 +266,12 @@ class ReceiptController extends Controller
                     <span>Receipt ID:</span>
                     <span>' . $sale->id . '</span>
                 </div>
-                <div>
-                    <span>Payment Method:</span>
-                    <span>Cash</span>
-                </div>
             </div>
             
             <table class="items-table">
                 <thead>
                     <tr>
                         <th>Product</th>
-                        <th>Variant</th>
                         <th>SKU</th>
                         <th>Qty</th>
                         <th>Unit Price</th>
@@ -273,20 +281,10 @@ class ReceiptController extends Controller
                 <tbody>';
 
         foreach ($sale->saleItems as $item) {
-            $variantInfo = '';
-            if ($item->productVariant->color || $item->productVariant->size) {
-                $variantInfo = ($item->productVariant->color ?? '') .
-                    ($item->productVariant->color && $item->productVariant->size ? ' - ' : '') .
-                    ($item->productVariant->size ?? '');
-            } else {
-                $variantInfo = 'Standard';
-            }
-
             $html .= '
                 <tr>
-                    <td>' . ($item->productVariant->product->name ?? 'Unknown Product') . '</td>
-                    <td>' . $variantInfo . '</td>
-                    <td>' . ($item->productVariant->sku ?? 'N/A') . '</td>
+                    <td>' . ($item->product->name ?? 'Unknown Product') . '</td>
+                    <td>' . ($item->product->sku ?? 'N/A') . '</td>
                     <td>' . $item->quantity . '</td>
                     <td>KSH ' . number_format($item->unit_price, 2) . '</td>
                     <td>KSH ' . number_format($item->total_price, 2) . '</td>

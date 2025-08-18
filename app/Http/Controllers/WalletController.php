@@ -86,7 +86,19 @@ class WalletController extends Controller
             ->get()
             ->map(function ($manager) {
                 $totalSales = $manager->sales->sum('total_amount');
+                
+                // Ensure wallet exists for this manager
                 $wallet = $manager->wallet;
+                if (!$wallet) {
+                    // Create wallet if it doesn't exist
+                    $wallet = $manager->wallet()->create([
+                        'balance' => 0,
+                        'total_earned' => 0,
+                        'total_paid_out' => 0,
+                        'paid_sales' => 0,
+                    ]);
+                }
+                
                 $qualifiedSales = $wallet->getQualifiedSales($totalSales);
                 $qualifiedCommission = $wallet->getQualifiedCommission($totalSales);
                 $qualifiedCommissionBreakdown = $wallet->getQualifiedCommissionBreakdown($totalSales);

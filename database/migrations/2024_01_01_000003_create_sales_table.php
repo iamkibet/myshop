@@ -14,11 +14,18 @@ return new class extends Migration
         Schema::create('sales', function (Blueprint $table) {
             $table->id();
             $table->foreignId('manager_id')->constrained('users')->onDelete('cascade');
+            $table->string('customer_name');
+            $table->string('customer_email')->nullable();
+            $table->string('customer_phone')->nullable();
+            $table->enum('payment_method', ['cash', 'card', 'mobile_money']);
+            $table->text('notes')->nullable();
             $table->decimal('total_amount', 10, 2);
+            $table->enum('status', ['pending', 'completed', 'cancelled'])->default('completed');
             $table->timestamps();
             
             $table->index('manager_id');
             $table->index('created_at');
+            $table->index(['status', 'created_at']);
         });
     }
 

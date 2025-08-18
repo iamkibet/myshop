@@ -64,7 +64,7 @@ class Sale extends Model
             // Get or create wallet for the manager
             $wallet = Wallet::firstOrCreate(
                 ['user_id' => $sale->manager_id],
-                ['balance' => 0, 'total_earned' => 0, 'total_paid_out' => 0]
+                ['balance' => 0, 'total_earned' => 0, 'total_paid_out' => 0, 'paid_sales' => 0]
             );
 
             // Add commission to wallet

@@ -7,7 +7,7 @@ import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertTriangle, Edit, Filter, Package, Plus, Search, Trash2, MoreVertical } from 'lucide-react';
+import { AlertTriangle, Edit, Filter, Package, Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -21,35 +21,22 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-interface ProductVariant {
+interface Product {
     id: number;
-    product_id: number;
-    color?: string;
-    size?: string;
+    name: string;
+    category: string;
+    description?: string;
+    brand?: string;
+    image_url?: string;
     sku: string;
     quantity: number;
     cost_price: number;
     selling_price: number;
     discount_price?: number;
-    image_url?: string;
-    is_active: boolean;
     low_stock_threshold: number;
-}
-
-interface Product {
-    id: number;
-    name: string;
-    description?: string;
-    brand: string;
-    category: string;
-    image_url?: string;
-    features?: string[];
-    meta_title?: string;
-    meta_description?: string;
     is_active: boolean;
     created_at: string;
     updated_at: string;
-    variants?: ProductVariant[];
 }
 
 interface ProductsIndexProps {
@@ -62,9 +49,18 @@ interface ProductsIndexProps {
         from?: number;
         to?: number;
     };
+    categories: string[];
+    brands: string[];
     filters: {
         search?: string;
+        category?: string;
+        brand?: string;
         stock_filter?: string;
+        price_min?: string;
+        price_max?: string;
+        sort_by?: string;
+        sort_direction?: string;
+        per_page?: string;
     };
     flash?: {
         success?: string;
@@ -72,100 +68,92 @@ interface ProductsIndexProps {
     };
 }
 
-// Helper function to get stock status for a product based on its variants
+// Helper function to get stock status for a product
 const getProductStockStatus = (product: Product) => {
-    if (!product.variants || product.variants.length === 0) {
-        return { status: 'No Variants', color: 'destructive' as const };
-    }
-
-    const inStockVariants = product.variants.filter((v) => v.quantity > 0);
-    const lowStockVariants = product.variants.filter((v) => v.quantity > 0 && v.quantity <= v.low_stock_threshold);
-
-    if (inStockVariants.length === 0) {
+    if (product.quantity === 0) {
         return { status: 'Out of Stock', color: 'destructive' as const };
     }
-
-    if (lowStockVariants.length > 0) {
+    if (product.quantity <= product.low_stock_threshold) {
         return { status: 'Low Stock', color: 'secondary' as const };
     }
-
     return { status: 'In Stock', color: 'default' as const };
 };
 
-// Helper function to get total quantity from variants
-const getProductTotalQuantity = (product: Product): number => {
-    if (!product.variants || product.variants.length === 0) {
-        return 0;
-    }
-
-    return product.variants.reduce((total, variant) => total + variant.quantity, 0);
+// Helper function to get current price
+const getCurrentPrice = (product: Product): number => {
+    return product.discount_price ?? product.selling_price;
 };
 
-// Helper function to get minimum price from variants
-const getProductMinPrice = (product: Product): number => {
-    if (!product.variants || product.variants.length === 0) {
-        return 0;
-    }
-
-    const activeVariants = product.variants.filter((v) => v.is_active);
-    if (activeVariants.length === 0) {
-        return 0;
-    }
-
-    return Math.min(...activeVariants.map((v) => v.selling_price));
+// Helper function to check if product has discount
+const hasDiscount = (product: Product): boolean => {
+    return !!(product.discount_price && product.discount_price < product.selling_price);
 };
 
-// Helper function to get maximum price from variants
-const getProductMaxPrice = (product: Product): number => {
-    if (!product.variants || product.variants.length === 0) {
-        return 0;
-    }
-
-    const activeVariants = product.variants.filter((v) => v.is_active);
-    if (activeVariants.length === 0) {
-        return 0;
-    }
-
-    return Math.max(...activeVariants.map((v) => v.selling_price));
-};
-
-// Helper function to get variant count
-const getVariantCount = (product: Product): number => {
-    return product.variants?.length || 0;
-};
-
-export default function ProductsIndex({ products, filters, flash }: ProductsIndexProps) {
+export default function ProductsIndex({ products, categories, brands, filters, flash }: ProductsIndexProps) {
     const [search, setSearch] = useState(filters.search || '');
+    const [categoryFilter, setCategoryFilter] = useState(filters.category || '');
+    const [brandFilter, setBrandFilter] = useState(filters.brand || '');
     const [stockFilter, setStockFilter] = useState(filters.stock_filter || '');
+    const [priceMin, setPriceMin] = useState(filters.price_min || '');
+    const [priceMax, setPriceMax] = useState(filters.price_max || '');
+    const [sortBy, setSortBy] = useState(filters.sort_by || 'created_at');
+    const [sortDirection, setSortDirection] = useState(filters.sort_direction || 'desc');
+    const [perPage, setPerPage] = useState(filters.per_page || '20');
 
     const handleSearch = (value: string) => {
         setSearch(value);
-        router.get(
-            '/products',
-            {
-                search: value,
-                stock_filter: stockFilter,
-            },
-            {
-                preserveState: true,
-                preserveScroll: true,
-            },
-        );
+        updateFilters({ search: value });
+    };
+
+    const handleCategoryFilter = (category: string) => {
+        setCategoryFilter(category);
+        updateFilters({ category: category !== 'all' ? category : '' });
+    };
+
+    const handleBrandFilter = (brand: string) => {
+        setBrandFilter(brand);
+        updateFilters({ brand: brand !== 'all' ? brand : '' });
     };
 
     const handleStockFilter = (filter: string) => {
         setStockFilter(filter);
-        router.get(
-            '/products',
-            {
-                search: search,
-                stock_filter: filter,
-            },
-            {
-                preserveState: true,
-                preserveScroll: true,
-            },
-        );
+        updateFilters({ stock_filter: filter });
+    };
+
+    const handlePriceFilter = () => {
+        updateFilters({ price_min: priceMin, price_max: priceMax });
+    };
+
+    const handleSort = (field: string) => {
+        const newDirection = sortBy === field && sortDirection === 'asc' ? 'desc' : 'asc';
+        setSortBy(field);
+        setSortDirection(newDirection);
+        updateFilters({ sort_by: field, sort_direction: newDirection });
+    };
+
+    const handlePerPageChange = (value: string) => {
+        setPerPage(value);
+        updateFilters({ per_page: value });
+    };
+
+    const updateFilters = (newFilters: Partial<typeof filters>) => {
+        const currentFilters = {
+            search,
+            category: categoryFilter,
+            brand: brandFilter,
+            stock_filter: stockFilter,
+            price_min: priceMin,
+            price_max: priceMax,
+            sort_by: sortBy,
+            sort_direction: sortDirection,
+            per_page: perPage,
+            ...newFilters,
+        };
+
+        router.get('/products', currentFilters, {
+            preserveState: true,
+            preserveScroll: true,
+        });
     };
 
     const handleDelete = (productId: number) => {
@@ -175,18 +163,23 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
     };
 
     const handlePageChange = (page: number) => {
-        router.get(
-            '/products',
-            {
-                search: search,
-                stock_filter: stockFilter,
-                page: page,
-            },
-            {
-                preserveState: true,
-                preserveScroll: true,
-            },
-        );
+        const currentFilters = {
+            search,
+            category: categoryFilter,
+            brand: brandFilter,
+            stock_filter: stockFilter,
+            price_min: priceMin,
+            price_max: priceMax,
+            sort_by: sortBy,
+            sort_direction: sortDirection,
+            per_page: perPage,
+            page,
+        };
+
+        router.get('/products', currentFilters, {
+            preserveState: true,
+            preserveScroll: true,
+        });
     };
 
     return (
@@ -296,6 +289,30 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
                                     </SelectContent>
                                 </Select>
                             </div>
+                            
+                            {/* Mobile Sorting */}
+                            <div className="flex items-center space-x-2">
+                                <span className="text-sm text-muted-foreground flex-shrink-0">Sort:</span>
+                                <Select value={sortBy} onValueChange={handleSort}>
+                                    <SelectTrigger className="flex-1">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="created_at">Newest First</SelectItem>
+                                        <SelectItem value="name">Name A-Z</SelectItem>
+                                        <SelectItem value="category">Category</SelectItem>
+                                        <SelectItem value="price">Price</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleSort(sortBy)}
+                                    className="px-2"
+                                >
+                                    {sortDirection === 'asc' ? '↑' : '↓'}
+                                </Button>
+                            </div>
                         </div>
 
                         {/* Desktop Search and Filter */}
@@ -309,6 +326,35 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
                                     className="max-w-sm pl-10"
                                 />
                             </div>
+                            
+                            <Select value={categoryFilter || "all"} onValueChange={handleCategoryFilter}>
+                                <SelectTrigger className="w-40">
+                                    <SelectValue placeholder="Category" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Categories</SelectItem>
+                                    {categories.map((category) => (
+                                        <SelectItem key={category} value={category}>
+                                            {category}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+
+                            <Select value={brandFilter || "all"} onValueChange={handleBrandFilter}>
+                                <SelectTrigger className="w-40">
+                                    <SelectValue placeholder="Brand" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Brands</SelectItem>
+                                    {brands.map((brand) => (
+                                        <SelectItem key={brand} value={brand}>
+                                            {brand}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+
                             <div className="flex items-center space-x-2">
                                 <Filter className="h-4 w-4 text-muted-foreground" />
                                 <Button variant={stockFilter === '' ? 'default' : 'outline'} size="sm" onClick={() => handleStockFilter('')}>
@@ -329,6 +375,48 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
                                     Out of Stock
                                 </Button>
                             </div>
+
+                            {/* Sorting Controls */}
+                            <div className="flex items-center space-x-2">
+                                <span className="text-sm text-muted-foreground">Sort by:</span>
+                                <Select value={sortBy} onValueChange={handleSort}>
+                                    <SelectTrigger className="w-32">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="created_at">Date Added</SelectItem>
+                                        <SelectItem value="name">Name</SelectItem>
+                                        <SelectItem value="category">Category</SelectItem>
+                                        <SelectItem value="brand">Brand</SelectItem>
+                                        <SelectItem value="price">Price</SelectItem>
+                                        <SelectItem value="quantity">Stock</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleSort(sortBy)}
+                                    className="px-2"
+                                >
+                                    {sortDirection === 'asc' ? '↑' : '↓'}
+                                </Button>
+                            </div>
+
+                            {/* Per Page Selector */}
+                            <div className="flex items-center space-x-2">
+                                <span className="text-sm text-muted-foreground">Show:</span>
+                                <Select value={perPage} onValueChange={handlePerPageChange}>
+                                    <SelectTrigger className="w-20">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="10">10</SelectItem>
+                                        <SelectItem value="20">20</SelectItem>
+                                        <SelectItem value="50">50</SelectItem>
+                                        <SelectItem value="100">100</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent className="p-3 sm:p-6">
@@ -336,11 +424,8 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
                         <div className="sm:hidden space-y-3">
                             {products.data.map((product) => {
                                 const stockStatus = getProductStockStatus(product);
-                                const totalQuantity = getProductTotalQuantity(product);
-                                const minPrice = getProductMinPrice(product);
-                                const maxPrice = getProductMaxPrice(product);
-                                const variantCount = getVariantCount(product);
-                                const hasStock = totalQuantity > 0;
+                                const currentPrice = getCurrentPrice(product);
+                                const hasDiscountPrice = hasDiscount(product);
 
                                 return (
                                     <Card key={product.id} className="overflow-hidden">
@@ -354,8 +439,7 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
                                                             alt={product.name}
                                                             className="h-16 w-16 rounded-lg border object-cover"
                                                             onError={(e) => {
-                                                                e.currentTarget.src =
-                                                                    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCAxMDBDODAgODkuNTQ0NCA4OS41NDQ0IDgwIDEwMCA4MEMxMTAuNDU2IDgwIDEyMCA4OS41NDQ0IDEyMCAxMEMxMjAgMTEwLjQ1NiAxMTAuNDU2IDEyMCAxMDAgMTIwQzg5LjU0NDQgMTIwIDgwIDExMC40NTYgODAgMTAwWiIgZmlsbD0iI0QxRDVFQ0EiLz4KPC9zdmc+';
+                                                                e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCAxMDBDODAgODkuNTQ0NCA4OS41NDQ0IDgwIDEwMCA4MEMxMTAuNDU2IDgwIDEyMCA4OS41NDQ0IDEyMCAxMEMxMjAgMTEwLjQ1NiAxMTAuNDU2IDEyMCAxMDAgMTIwQzg5LjU0NDQgMTIwIDgwIDExMC40NTYgODAgMTAwWiIgZmlsbD0iI0QxRDVFM0EiLz4KPC9zdmc+';
                                                             }}
                                                         />
                                                     ) : (
@@ -371,10 +455,15 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
                                                         <div className="flex-1 min-w-0">
                                                             <h3 className="font-semibold text-sm truncate">{product.name}</h3>
                                                             <div className="flex items-center space-x-2 mt-1">
-                                                                <span className="text-xs text-muted-foreground">{product.brand}</span>
-                                                                <span className="text-xs text-muted-foreground">•</span>
                                                                 <span className="text-xs text-muted-foreground">{product.category}</span>
+                                                                {product.brand && (
+                                                                    <>
+                                                                        <span className="text-xs text-muted-foreground">•</span>
+                                                                        <span className="text-xs text-muted-foreground">{product.brand}</span>
+                                                                    </>
+                                                                )}
                                                             </div>
+                                                            <p className="text-xs text-muted-foreground mt-1">SKU: {product.sku}</p>
                                                         </div>
                                                         <Badge variant={stockStatus.color} className="ml-2 text-xs">
                                                             {stockStatus.status}
@@ -385,25 +474,26 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
                                                         <div className="flex items-center space-x-4 text-sm">
                                                             <div>
                                                                 <span className="font-medium">
-                                                                    {minPrice === maxPrice ? (
-                                                                        formatCurrency(minPrice)
-                                                                    ) : (
+                                                                    {hasDiscountPrice ? (
                                                                         <>
-                                                                            {formatCurrency(minPrice)} - {formatCurrency(maxPrice)}
+                                                                            <span className="line-through text-muted-foreground">
+                                                                                {formatCurrency(product.selling_price)}
+                                                                            </span>
+                                                                            <span className="ml-2 text-green-600">
+                                                                                {formatCurrency(currentPrice)}
+                                                                            </span>
                                                                         </>
+                                                                    ) : (
+                                                                        formatCurrency(currentPrice)
                                                                     )}
                                                                 </span>
                                                             </div>
                                                             <div className="flex items-center space-x-1">
                                                                 <span className="text-muted-foreground">Stock:</span>
-                                                                <span className="font-medium">{totalQuantity}</span>
-                                                                {hasStock &&
-                                                                    product.variants?.some((v) => v.quantity > 0 && v.quantity <= v.low_stock_threshold) && (
-                                                                        <AlertTriangle className="h-3 w-3 text-amber-500" />
-                                                                    )}
-                                                            </div>
-                                                            <div className="text-muted-foreground">
-                                                                {variantCount} variants
+                                                                <span className="font-medium">{product.quantity}</span>
+                                                                {product.quantity > 0 && product.quantity <= product.low_stock_threshold && (
+                                                                    <AlertTriangle className="h-3 w-3 text-amber-500" />
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -439,10 +529,10 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
                                     <tr className="border-b">
                                         <th className="p-2 text-left font-medium">Image</th>
                                         <th className="p-2 text-left font-medium">Name</th>
-                                        <th className="p-2 text-left font-medium">Brand</th>
                                         <th className="p-2 text-left font-medium">Category</th>
-                                        <th className="p-2 text-left font-medium">Variants</th>
-                                        <th className="p-2 text-left font-medium">Price Range</th>
+                                        <th className="p-2 text-left font-medium">Brand</th>
+                                        <th className="p-2 text-left font-medium">SKU</th>
+                                        <th className="p-2 text-left font-medium">Price</th>
                                         <th className="p-2 text-left font-medium">Stock</th>
                                         <th className="p-2 text-left font-medium">Status</th>
                                         <th className="p-2 text-left font-medium">Actions</th>
@@ -451,11 +541,8 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
                                 <tbody>
                                     {products.data.map((product) => {
                                         const stockStatus = getProductStockStatus(product);
-                                        const totalQuantity = getProductTotalQuantity(product);
-                                        const minPrice = getProductMinPrice(product);
-                                        const maxPrice = getProductMaxPrice(product);
-                                        const variantCount = getVariantCount(product);
-                                        const hasStock = totalQuantity > 0;
+                                        const currentPrice = getCurrentPrice(product);
+                                        const hasDiscountPrice = hasDiscount(product);
 
                                         return (
                                             <tr key={product.id} className="border-b transition-colors hover:bg-muted/50">
@@ -466,8 +553,7 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
                                                             alt={product.name}
                                                             className="h-12 w-12 rounded-md border object-cover"
                                                             onError={(e) => {
-                                                                e.currentTarget.src =
-                                                                    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCAxMDBDODAgODkuNTQ0NCA4OS41NDQ0IDgwIDEwMCA4MEMxMTAuNDU2IDgwIDEyMCA4OS41NDQ0IDEyMCAxMEMxMjAgMTEwLjQ1NiAxMTAuNDU2IDEyMCAxMDAgMTIwQzg5LjU0NDQgMTIwIDgwIDExMC40NTYgODAgMTAwWiIgZmlsbD0iI0QxRDVFM0EiLz4KPC9zdmc+';
+                                                                e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCAxMDBDODAgODkuNTQ0NCA4OS41NDQ0IDgwIDEwMCA4MEMxMTAuNDU2IDgwIDEyMCA4OS41NDQ0IDEyMCAxMEMxMjAgMTEwLjQ1NiAxMTAuNDU2IDEyMCAxMDAgMTIwQzg5LjU0NDQgMTIwIDgwIDExMC40NTYgODAgMTAwWiIgZmlsbD0iI0QxRDVFM0EiLz4KPC9zdmc+';
                                                             }}
                                                         />
                                                     ) : (
@@ -486,32 +572,31 @@ export default function ProductsIndex({ products, filters, flash }: ProductsInde
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="p-2 text-sm">{product.brand}</td>
                                                 <td className="p-2 text-sm">{product.category}</td>
+                                                <td className="p-2 text-sm">{product.brand || '-'}</td>
+                                                <td className="p-2 text-sm font-mono">{product.sku}</td>
                                                 <td className="p-2">
                                                     <div className="text-sm">
-                                                        <span className="font-medium">{variantCount}</span>
-                                                        <span className="text-muted-foreground"> variants</span>
-                                                    </div>
-                                                </td>
-                                                <td className="p-2">
-                                                    <div className="text-sm">
-                                                        {minPrice === maxPrice ? (
-                                                            formatCurrency(minPrice)
-                                                        ) : (
+                                                        {hasDiscountPrice ? (
                                                             <>
-                                                                {formatCurrency(minPrice)} - {formatCurrency(maxPrice)}
+                                                                <div className="line-through text-muted-foreground">
+                                                                    {formatCurrency(product.selling_price)}
+                                                                </div>
+                                                                <div className="text-green-600 font-medium">
+                                                                    {formatCurrency(currentPrice)}
+                                                                </div>
                                                             </>
+                                                        ) : (
+                                                            formatCurrency(currentPrice)
                                                         )}
                                                     </div>
                                                 </td>
                                                 <td className="p-2">
                                                     <div className="flex items-center space-x-1">
-                                                        <span className="text-sm">{totalQuantity}</span>
-                                                        {hasStock &&
-                                                            product.variants?.some((v) => v.quantity > 0 && v.quantity <= v.low_stock_threshold) && (
-                                                                <AlertTriangle className="h-3 w-3 text-amber-500" />
-                                                            )}
+                                                        <span className="text-sm">{product.quantity}</span>
+                                                        {product.quantity > 0 && product.quantity <= product.low_stock_threshold && (
+                                                            <AlertTriangle className="h-3 w-3 text-amber-500" />
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="p-2">

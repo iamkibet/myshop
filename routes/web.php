@@ -43,7 +43,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // If user is a manager, provide products and cart data
         if ($user->isManager()) {
-            $query = \App\Models\Product::with('variants')->where('is_active', true);
+            $query = \App\Models\Product::where('is_active', true);
 
             // Add search functionality
             if (request('search')) {
@@ -52,9 +52,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     $q->where('name', 'like', "%{$search}%")
                         ->orWhere('brand', 'like', "%{$search}%")
                         ->orWhere('category', 'like', "%{$search}%")
-                        ->orWhereHas('variants', function ($vq) use ($search) {
-                            $vq->where('sku', 'like', "%{$search}%");
-                        });
+                        ->orWhere('sku', 'like', "%{$search}%");
                 });
             }
 
@@ -166,6 +164,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
             return response()->json(['message' => 'Test route hit', 'data' => request()->all()]);
         })->name('test.product.update');
 
+        // Debug route for form submission testing
+        Route::post('/debug-form', function () {
+            \Log::info('Debug form submission', [
+                'method' => request()->method(),
+                'all_data' => request()->all(),
+                'files' => request()->allFiles(),
+                'headers' => request()->headers->all(),
+                'content_type' => request()->header('Content-Type'),
+            ]);
+            
+            return response()->json([
+                'message' => 'Debug form received',
+                'method' => request()->method(),
+                'data' => request()->all(),
+                'files' => request()->allFiles(),
+                'headers' => request()->headers->all(),
+            ]);
+        })->name('debug.form');
+
         // Dashboard Analytics routes
         Route::get('/dashboard/analytics', [AnalyticsController::class, 'dashboard'])->name('dashboard.analytics');
         Route::get('/dashboard/sales-analytics', [AnalyticsController::class, 'salesAnalytics'])->name('dashboard.sales-analytics');
@@ -221,10 +238,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show'); // Allow managers to view products
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
     Route::post('/cart/items', [CartController::class, 'addItem'])->name('cart.add-item');
-    Route::put('/cart/items/{variantId}', [CartController::class, 'updateItem'])->name('cart.update-item');
-    Route::delete('/cart/items/{variantId}', [CartController::class, 'removeItem'])->name('cart.remove-item');
+    Route::put('/cart/items/{productId}', [CartController::class, 'updateItem'])->name('cart.update-item');
+    Route::delete('/cart/items/{productId}', [CartController::class, 'removeItem'])->name('cart.remove-item');
     Route::post('/cart/sync', [CartController::class, 'sync'])->name('cart.sync');
-Route::post('/cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
+    Route::post('/cart/checkout', [CartController::class, 'checkout'])->name('cart.checkout');
 
     // Wallet route for managers
     Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index')->middleware('ensure.wallet');

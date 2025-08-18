@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Notification;
+use App\Models\Product;
 use Illuminate\Support\Facades\Log;
 
 class NotificationService
@@ -83,23 +84,21 @@ class NotificationService
     /**
      * Create notification for low stock
      */
-    public function createLowStockNotification(\App\Models\ProductVariant $variant): void
+    public function createLowStockNotification(Product $product): void
     {
         $this->create([
             'type' => 'warning',
             'title' => 'Low Stock Alert',
-            'message' => "{$variant->product->name} ({$variant->getVariantName()}) is running low on stock ({$variant->quantity} remaining)",
+            'message' => "{$product->name} is running low on stock ({$product->quantity} remaining)",
             'icon' => 'alert-triangle',
             'category' => 'inventory',
             'action' => [
                 'type' => 'low_stock',
-                'product_id' => $variant->product_id,
-                'variant_id' => $variant->id,
+                'product_id' => $product->id,
             ],
             'metadata' => [
-                'product_id' => $variant->product_id,
-                'variant_id' => $variant->id,
-                'current_quantity' => $variant->quantity,
+                'product_id' => $product->id,
+                'current_quantity' => $product->quantity,
             ],
         ]);
     }
@@ -107,23 +106,21 @@ class NotificationService
     /**
      * Create notification for out of stock
      */
-    public function createOutOfStockNotification(\App\Models\ProductVariant $variant): void
+    public function createOutOfStockNotification(Product $product): void
     {
         $this->create([
             'type' => 'error',
             'title' => 'Out of Stock Alert',
-            'message' => "{$variant->product->name} ({$variant->getVariantName()}) is out of stock",
+            'message' => "{$product->name} is out of stock",
             'icon' => 'x-circle',
             'category' => 'inventory',
             'action' => [
                 'type' => 'out_of_stock',
-                'product_id' => $variant->product_id,
-                'product_name' => $variant->product->name,
-                'variant_id' => $variant->id,
+                'product_id' => $product->id,
+                'product_name' => $product->name,
             ],
             'metadata' => [
-                'product_id' => $variant->product_id,
-                'variant_id' => $variant->id,
+                'product_id' => $product->id,
                 'current_quantity' => 0,
             ],
         ]);
@@ -218,7 +215,7 @@ class NotificationService
     public function getRecentNotifications(int $limit = 10): \Illuminate\Database\Eloquent\Collection
     {
         return Notification::with('readBy')
-            ->orderBy('created_at', 'desc')
+            ->orderByDesc('created_at')
             ->limit($limit)
             ->get();
     }
@@ -230,8 +227,7 @@ class NotificationService
     {
         return Notification::with('readBy')
             ->where('category', $category)
-            ->orderBy('created_at', 'desc')
-            ->limit($limit)
+            ->orderByDesc('created_at')
             ->get();
     }
 

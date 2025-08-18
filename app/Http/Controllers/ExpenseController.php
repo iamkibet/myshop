@@ -47,44 +47,50 @@ class ExpenseController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        // Calculate summary statistics - only approved expenses count towards totals
         $totalExpenses = Expense::approved()->when(!$user->isAdmin(), function ($query) use ($user) {
             $query->where('added_by', $user->id);
         })->sum('amount');
-        
-        $totalSales = Sale::when(!$user->isAdmin(), function ($query) use ($user) {
-            $query->where('manager_id', $user->id);
-        })->sum('total_amount');
-        
-        // Calculate net profit using simple formula: Sales - Expenses
-        $netProfit = $totalSales - $totalExpenses;
-        
-        // For gross profit, still calculate it but it's not the main focus
-        $grossProfit = SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
-            ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
-            ->when(!$user->isAdmin(), function ($query) use ($user) {
-                $query->where('sales.manager_id', $user->id);
+
+        // Only calculate profit data for admins
+        $summary = [
+            'total_expenses' => $totalExpenses,
+            'monthly_expenses' => Expense::approved()->when(!$user->isAdmin(), function ($query) use ($user) {
+                $query->where('added_by', $user->id);
             })
-            ->selectRaw('SUM((sale_items.unit_price - product_variants.cost_price) * sale_items.quantity) as gross_profit')
-            ->value('gross_profit') ?? 0;
-        
-        // Calculate net profit (gross profit - expenses)
-        $netProfit = $grossProfit - $totalExpenses;
+                ->selectRaw('MONTH(expense_date) as month, SUM(amount) as total')
+                ->whereYear('expense_date', date('Y'))
+                ->groupBy('month')
+                ->get(),
+            'category_totals' => Expense::approved()->when(!$user->isAdmin(), function ($query) use ($user) {
+                $query->where('added_by', $user->id);
+            })
+                ->selectRaw('category, SUM(amount) as total')
+                ->groupBy('category')
+                ->get(),
+        ];
 
-        $monthlyExpenses = Expense::approved()->when(!$user->isAdmin(), function ($query) use ($user) {
-            $query->where('added_by', $user->id);
-        })
-            ->selectRaw('MONTH(expense_date) as month, SUM(amount) as total')
-            ->whereYear('expense_date', date('Y'))
-            ->groupBy('month')
-            ->get();
+        // Add profit data only for admins
+        if ($user->isAdmin()) {
+            $totalSales = Sale::when(!$user->isAdmin(), function ($query) use ($user) {
+                $query->where('manager_id', $user->id);
+            })->sum('total_amount');
 
-        $categoryTotals = Expense::approved()->when(!$user->isAdmin(), function ($query) use ($user) {
-            $query->where('added_by', $user->id);
-        })
-            ->selectRaw('category, SUM(amount) as total')
-            ->groupBy('category')
-            ->get();
+            $grossProfit = SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
+                ->join('products', 'sale_items.product_id', '=', 'products.id')
+                ->when(!$user->isAdmin(), function ($query) use ($user) {
+                    $query->where('sales.manager_id', $user->id);
+                })
+                ->selectRaw('SUM((sale_items.unit_price - products.cost_price) * sale_items.quantity) as gross_profit')
+                ->value('gross_profit') ?? 0;
+
+            $netProfit = $grossProfit - $totalExpenses;
+            $netProfitMargin = $totalSales > 0 ? ($netProfit / $totalSales) * 100 : 0;
+
+            $summary['total_sales'] = $totalSales;
+            $summary['total_gross_profit'] = $grossProfit;
+            $summary['total_profit'] = $netProfit;
+            $summary['net_profit_margin'] = round($netProfitMargin, 1);
+        }
 
         // Get pending expenses count for admins
         $pendingExpensesCount = $user->isAdmin() ? Expense::pending()->count() : 0;
@@ -92,14 +98,7 @@ class ExpenseController extends Controller
         return Inertia::render('Expenses/Index', [
             'expenses' => $expenses,
             'categories' => Expense::getCategories(),
-            'summary' => [
-                'total_expenses' => $totalExpenses,
-                'total_sales' => $totalSales,
-                'total_gross_profit' => $grossProfit,
-                'total_profit' => $netProfit, // Changed to net profit
-                'monthly_expenses' => $monthlyExpenses,
-                'category_totals' => $categoryTotals,
-            ],
+            'summary' => $summary,
             'filters' => $request->only(['search', 'category', 'date_from', 'date_to', 'status']),
             'userRole' => $user->role,
             'pendingExpensesCount' => $pendingExpensesCount,

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
-use App\Models\ProductVariant;
 use App\Services\ImageService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -11,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
@@ -22,39 +22,87 @@ class ProductController extends Controller
     }
 
     /**
-     * Display a listing of the resource.
+     * Display a listing of products
      */
     public function index(Request $request): Response
     {
-        $products = Product::with(['variants' => function ($query) {
-            $query->active();
-        }])
+        $products = Product::query()
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%")
                         ->orWhere('brand', 'like', "%{$search}%")
-                        ->orWhere('category', 'like', "%{$search}%");
+                        ->orWhere('category', 'like', "%{$search}%")
+                        ->orWhere('sku', 'like', "%{$search}%");
                 });
             })
+            ->when($request->category && $request->category !== 'all', function ($query, $category) {
+                $query->where('category', $category);
+            })
+            ->when($request->brand && $request->brand !== 'all', function ($query, $brand) {
+                $query->where('brand', $brand);
+            })
             ->when($request->stock_filter, function ($query, $filter) {
-                if ($filter === 'low_stock') {
-                    $query->whereHas('variants', function ($q) {
-                        $q->where('quantity', '>', 0)
-                            ->whereRaw('quantity <= low_stock_threshold');
-                    });
-                } elseif ($filter === 'out_of_stock') {
-                    $query->whereDoesntHave('variants', function ($q) {
-                        $q->where('quantity', '>', 0);
-                    });
+                switch ($filter) {
+                    case 'low_stock':
+                        $query->lowStock();
+                        break;
+                    case 'out_of_stock':
+                        $query->outOfStock();
+                        break;
+                    case 'in_stock':
+                        $query->inStock();
+                        break;
                 }
             })
-            ->orderBy('name')
-            ->paginate(12);
+            ->when($request->price_min || $request->price_max, function ($query) use ($request) {
+                $min = $request->price_min ?: 0;
+                $max = $request->price_max ?: 999999;
+                $query->priceRange($min, $max);
+            })
+            ->when($request->sort_by, function ($query, $sortBy) use ($request) {
+                $direction = $request->sort_direction === 'desc' ? 'desc' : 'asc';
+                switch ($sortBy) {
+                    case 'name':
+                        $query->orderBy('name', $direction);
+                        break;
+                    case 'category':
+                        $query->orderBy('category', $direction);
+                        break;
+                    case 'brand':
+                        $query->orderBy('brand', $direction);
+                        break;
+                    case 'price':
+                        $query->orderBy('selling_price', $direction);
+                        break;
+                    case 'quantity':
+                        $query->orderBy('quantity', $direction);
+                        break;
+                    case 'created_at':
+                        $query->orderBy('created_at', $direction);
+                        break;
+                    case 'updated_at':
+                        $query->orderBy('updated_at', $direction);
+                        break;
+                    default:
+                        $query->orderBy('created_at', 'desc'); // Default: newest first
+                }
+            }, function ($query) {
+                // Default sorting: newest products first
+                $query->orderBy('created_at', 'desc');
+            })
+            ->paginate($request->per_page ?: 20)
+            ->withQueryString();
+
+        // Get unique categories and brands for filters
+        $categories = Product::getAvailableCategories();
+        $brands = Product::getAvailableBrands();
 
         return Inertia::render('Products/Index', [
             'products' => $products,
-            'filters' => $request->only(['search', 'stock_filter']),
+            'categories' => $categories,
+            'brands' => $brands,
+            'filters' => $request->only(['search', 'category', 'brand', 'stock_filter', 'price_min', 'price_max', 'sort_by', 'sort_direction', 'per_page']),
             'flash' => [
                 'success' => session('success'),
                 'error' => session('error'),
@@ -63,279 +111,312 @@ class ProductController extends Controller
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Show the form for creating a new product
      */
     public function create(): Response
     {
-        $existingCategories = Product::distinct()
-            ->whereNotNull('category')
-            ->pluck('category')
-            ->sort()
-            ->values();
-
-        $existingBrands = Product::distinct()
-            ->whereNotNull('brand')
-            ->pluck('brand')
-            ->sort()
-            ->values();
-
-        $existingSizes = ProductVariant::distinct()
-            ->whereNotNull('size')
-            ->pluck('size')
-            ->sort()
-            ->values();
+        $existingCategories = Product::getAvailableCategories();
+        $existingBrands = Product::getAvailableBrands();
 
         return Inertia::render('Products/Create', [
             'existingCategories' => $existingCategories,
             'existingBrands' => $existingBrands,
-            'existingSizes' => $existingSizes,
         ]);
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Store a newly created product
      */
     public function store(Request $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            Log::info('Product store request received', [
-                'data' => $request->all()
+            // Log the incoming request data
+            Log::info('Product creation request', [
+                'data' => $request->all(),
+                'files' => $request->allFiles(),
+                'has_image_file' => $request->hasFile('image'),
+                'image_url_present' => $request->filled('image_url'),
+                'image_url_value' => $request->input('image_url'),
             ]);
 
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
+                'category' => 'required|string|max:100',
                 'description' => 'nullable|string',
                 'brand' => 'nullable|string|max:100',
-                'category' => 'nullable|string|max:100',
-                'image_url' => 'nullable|string',
-                'features' => 'nullable|array',
-                'meta_title' => 'nullable|string|max:255',
-                'meta_description' => 'nullable|string',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+                'image_url' => 'nullable|string|url',
+                'features' => 'nullable|string', // Changed from array to string since we're sending JSON
+                'sku' => 'nullable|string|max:100|unique:products,sku',
+                'quantity' => 'required|integer|min:0',
+                'cost_price' => 'required|numeric|min:0',
+                'selling_price' => 'required|numeric|min:0',
+                'discount_price' => 'nullable|numeric|min:0',
+                'low_stock_threshold' => 'required|integer|min:0',
                 'is_active' => 'boolean',
-                'variants' => 'required|array|min:1',
-                'variants.*.color' => 'nullable|string|max:50',
-                'variants.*.size' => 'nullable|string|max:20',
-                'variants.*.sku' => 'required|string|max:100',
-                'variants.*.quantity' => 'required|integer|min:0',
-                'variants.*.cost_price' => 'required|numeric|min:0',
-                'variants.*.selling_price' => 'required|numeric|min:0',
-                'variants.*.discount_price' => 'nullable|numeric|min:0',
-                'variants.*.image_url' => 'nullable|string',
-                'variants.*.is_active' => 'boolean',
-                'variants.*.low_stock_threshold' => 'required|integer|min:0',
             ]);
 
-            Log::info('Product validation passed', ['validated' => $validated]);
+            Log::info('Validation passed', ['validated' => $validated]);
 
-            $variants = $validated['variants'];
-            unset($validated['variants']);
-
-            Log::info('Creating product with data', ['product_data' => $validated]);
-
-            DB::beginTransaction();
-            try {
-                $product = Product::create($validated);
-
-                Log::info('Product created, now creating variants', ['product_id' => $product->id]);
-
-                // Create variants
-                foreach ($variants as $variantData) {
-                    Log::info('Creating variant', ['variant_data' => $variantData]);
-                    $product->variants()->create($variantData);
-                }
-
-                DB::commit();
-            } catch (\Exception $e) {
-                DB::rollBack();
-                throw $e;
+            // Handle image upload
+            $imagePath = null;
+            if ($request->hasFile('image')) {
+                Log::info('Processing image upload');
+                $image = $request->file('image');
+                $imageName = time() . '_' . $image->getClientOriginalName();
+                $imagePath = $image->storeAs('products', $imageName, 'public');
+                $imagePath = '/storage/' . $imagePath;
+                Log::info('Image stored', ['path' => $imagePath]);
+            } elseif ($request->filled('image_url')) {
+                Log::info('Using image URL', ['url' => $request->image_url]);
+                $imagePath = $request->image_url;
+            } else {
+                Log::info('No image provided');
             }
 
-            Log::info('Product created successfully', ['product_id' => $product->id]);
+            // Validate discount price is less than selling price
+            if (isset($validated['discount_price']) && $validated['discount_price'] >= $validated['selling_price']) {
+                return redirect()->back()->withInput()->withErrors([
+                    'discount_price' => 'Discount price must be less than selling price.'
+                ]);
+            }
+
+            // Prepare data for creation
+            $productData = array_merge($validated, [
+                'image_url' => $imagePath,
+            ]);
+
+            // Parse features from JSON string to array
+            if (isset($productData['features']) && is_string($productData['features'])) {
+                $productData['features'] = json_decode($productData['features'], true) ?: [];
+            }
+
+            // Remove the image file from validated data since we're storing the path
+            unset($productData['image']);
+
+            Log::info('Creating product with data', ['product_data' => $productData]);
+
+            $product = Product::create($productData);
+
+            Log::info('Product created successfully', [
+                'product_id' => $product->id,
+                'name' => $product->name,
+                'sku' => $product->sku,
+                'image_path' => $imagePath
+            ]);
 
             return redirect()->route('products.index')->with('success', 'Product created successfully!');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Product validation failed', [
+                'errors' => $e->errors(),
+                'input' => $request->all()
+            ]);
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Product creation failed', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
             ]);
 
-            return redirect()->back()->withInput()->withErrors(['general' => 'Failed to create product: ' . $e->getMessage()]);
+            return redirect()->back()->withInput()->withErrors([
+                'general' => 'Failed to create product: ' . $e->getMessage()
+            ]);
         }
     }
 
     /**
-     * Display the specified resource.
+     * Display the specified product
      */
     public function show(Product $product): Response
     {
-        $product->load(['variants' => function ($query) {
-            $query->orderBy('color')->orderBy('size');
-        }]);
-
         return Inertia::render('Products/Show', [
             'product' => $product,
         ]);
     }
 
     /**
-     * Show the form for editing the specified resource.
+     * Show the form for editing a product
      */
     public function edit(Product $product): Response
     {
-        $product->load(['variants' => function ($query) {
-            $query->orderBy('color')->orderBy('size');
-        }]);
+        $existingCategories = Product::getAvailableCategories();
+        $existingBrands = Product::getAvailableBrands();
 
-        $existingCategories = Product::distinct()
-            ->whereNotNull('category')
-            ->pluck('category')
-            ->sort()
-            ->values();
-
-        $existingBrands = Product::distinct()
-            ->whereNotNull('brand')
-            ->pluck('brand')
-            ->sort()
-            ->values();
-
-        $existingSizes = ProductVariant::distinct()
-            ->whereNotNull('size')
-            ->pluck('size')
-            ->sort()
-            ->values();
+        // Debug: Log what we're sending to the frontend
+        Log::info('Product edit request', [
+            'product_id' => $product->id,
+            'product_data' => $product->toArray(),
+            'existing_categories' => $existingCategories,
+            'existing_brands' => $existingBrands,
+        ]);
 
         return Inertia::render('Products/Edit', [
             'product' => $product,
             'existingCategories' => $existingCategories,
             'existingBrands' => $existingBrands,
-            'existingSizes' => $existingSizes,
         ]);
     }
 
     /**
-     * Update the specified resource in storage.
+     * Update the specified product
      */
     public function update(Request $request, Product $product): \Illuminate\Http\RedirectResponse
     {
         try {
-            Log::info('Product update request received', [
-                'product_id' => $product->id
+            // Enhanced debugging to see exactly what's being received
+            Log::info('Product update request - FULL REQUEST DEBUG', [
+                'product_id' => $product->id,
+                'product_exists' => $product->exists,
+                'product_was_recently_created' => $product->wasRecentlyCreated,
+                'method' => $request->method(),
+                'is_method_override' => $request->isMethod('PUT'),
+                'all_data' => $request->all(),
+                'input_data' => $request->input(),
+                'post_data' => $request->post(),
+                'query_data' => $request->query(),
+                'files' => $request->allFiles(),
+                'has_image_file' => $request->hasFile('image'),
+                'image_url_present' => $request->filled('image_url'),
+                'image_url_value' => $request->input('image_url'),
+                'current_image_url' => $product->image_url,
+                'content_type' => $request->header('Content-Type'),
+                'accept' => $request->header('Accept'),
+                'user_agent' => $request->header('User-Agent'),
+                'request_url' => $request->fullUrl(),
+                'request_path' => $request->path(),
+                'route_parameters' => $request->route()->parameters(),
+                'route_name' => $request->route()->getName(),
             ]);
+
+            // Check if we have any data at all
+            if (empty($request->all()) && empty($request->allFiles())) {
+                Log::error('Product update request has NO DATA at all', [
+                    'product_id' => $product->id,
+                    'request_method' => $request->method(),
+                    'headers' => $request->headers->all(),
+                ]);
+                
+                return redirect()->back()->withInput()->withErrors([
+                    'general' => 'No form data received. Please try again or contact support if the problem persists.'
+                ]);
+            }
+
+            // Check authentication and authorization
+            $user = auth()->user();
+            Log::info('Authentication check', [
+                'user_authenticated' => auth()->check(),
+                'user_id' => $user ? $user->id : null,
+                'user_email' => $user ? $user->email : null,
+                'user_role' => $user ? $user->role : null,
+                'is_admin' => $user ? $user->isAdmin() : false,
+                'can_edit_products' => $user ? $user->can('isAdmin') : false,
+            ]);
+
+            if (!$user || !$user->isAdmin()) {
+                Log::error('Unauthorized product update attempt', [
+                    'user_id' => $user ? $user->id : null,
+                    'user_role' => $user ? $user->role : null,
+                    'product_id' => $product->id,
+                ]);
+                
+                abort(403, 'Unauthorized access.');
+            }
 
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
+                'category' => 'required|string|max:100',
                 'description' => 'nullable|string',
                 'brand' => 'nullable|string|max:100',
-                'category' => 'nullable|string|max:100',
-                'image_url' => 'nullable|string',
-                'features' => 'nullable|array',
-                'meta_title' => 'nullable|string|max:255',
-                'meta_description' => 'nullable|string',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+                'image_url' => 'nullable|string|url',
+                'features' => 'nullable|string', // Changed from array to string since we're sending JSON
+                'sku' => 'nullable|string|max:100|unique:products,sku,' . $product->id,
+                'quantity' => 'required|integer|min:0',
+                'cost_price' => 'required|numeric|min:0',
+                'selling_price' => 'required|numeric|min:0',
+                'discount_price' => 'nullable|numeric|min:0',
+                'low_stock_threshold' => 'required|integer|min:0',
                 'is_active' => 'boolean',
-                'variants' => 'required|array|min:1',
-                'variants.*.id' => 'nullable|integer|exists:product_variants,id',
-                'variants.*.color' => 'nullable|string|max:50',
-                'variants.*.size' => 'nullable|string|max:20',
-                'variants.*.sku' => 'required|string|max:100',
-                'variants.*.quantity' => 'required|integer|min:0',
-                'variants.*.cost_price' => 'required|numeric|min:0',
-                'variants.*.selling_price' => 'required|numeric|min:0',
-                'variants.*.discount_price' => 'nullable|numeric|min:0',
-                'variants.*.image_url' => 'nullable|string',
-                'variants.*.is_active' => 'boolean',
-                'variants.*.low_stock_threshold' => 'required|integer|min:0',
             ]);
 
-            Log::info('Validation passed');
+            Log::info('Update validation passed', ['validated' => $validated]);
 
-            // Custom SKU validation to handle updates
-            $variants = $validated['variants'];
-            foreach ($variants as $index => $variant) {
-                if (isset($variant['id'])) {
-                    // For existing variants, check SKU uniqueness within the same product
-                    $existingVariant = $product->variants()->find($variant['id']);
-                    if ($existingVariant && $existingVariant->sku !== $variant['sku']) {
-                        // SKU changed, check if new SKU is unique within this product
-                        if ($product->variants()->where('sku', $variant['sku'])->where('id', '!=', $variant['id'])->exists()) {
-                            throw new \Illuminate\Validation\ValidationException(
-                                validator([], []),
-                                response()->json(['errors' => ['variants.' . $index . '.sku' => ['The SKU must be unique within this product.']]], 422)
-                            );
-                        }
-                    }
-                } else {
-                    // For new variants, check if SKU is unique within this product
-                    if ($product->variants()->where('sku', $variant['sku'])->exists()) {
-                        throw new \Illuminate\Validation\ValidationException(
-                            validator([], []),
-                            response()->json(['errors' => ['variants.' . $index . '.sku' => ['The SKU must be unique within this product.']]], 422)
-                        );
-                    }
-                }
+            // Handle image upload
+            $imagePath = $product->image_url; // Keep existing image by default
+            if ($request->hasFile('image')) {
+                Log::info('Processing image upload for update');
+                $image = $request->file('image');
+                $imageName = time() . '_' . $image->getClientOriginalName();
+                $imagePath = $image->storeAs('products', $imageName, 'public');
+                $imagePath = '/storage/' . $imagePath;
+                Log::info('New image stored', ['path' => $imagePath]);
+            } elseif ($request->filled('image_url')) {
+                Log::info('Using new image URL for update', ['url' => $request->image_url]);
+                $imagePath = $request->image_url;
+            } else {
+                Log::info('Keeping existing image', ['path' => $imagePath]);
             }
 
-            $variants = $validated['variants'];
-            unset($validated['variants']);
-
-            Log::info('Updating product');
-
-            $product->update($validated);
-
-            // Update or create variants
-            $existingVariantIds = [];
-            foreach ($variants as $index => $variantData) {
-                Log::info('Processing variant', ['index' => $index]);
-
-                if (isset($variantData['id'])) {
-                    // Update existing variant
-                    $variant = $product->variants()->find($variantData['id']);
-                    if ($variant) {
-                        Log::info('Updating existing variant', ['variant_id' => $variant->id]);
-                        $variant->update($variantData);
-                        $existingVariantIds[] = $variant->id;
-                    } else {
-                        Log::warning('Variant not found for update', ['variant_id' => $variantData['id']]);
-                    }
-                } else {
-                    // Create new variant
-                    Log::info('Creating new variant');
-                    $newVariant = $product->variants()->create($variantData);
-                    $existingVariantIds[] = $newVariant->id;
-                }
+            // Validate discount price is less than selling price
+            if (isset($validated['discount_price']) && $validated['discount_price'] >= $validated['selling_price']) {
+                return redirect()->back()->withInput()->withErrors([
+                    'discount_price' => 'Discount price must be less than selling price.'
+                ]);
             }
 
-            // Delete variants that are no longer in the list
-            $deletedVariants = $product->variants()->whereNotIn('id', $existingVariantIds)->delete();
-            Log::info('Deleted variants', ['deleted_count' => $deletedVariants]);
+            // Prepare data for update
+            $productData = array_merge($validated, [
+                'image_url' => $imagePath,
+            ]);
 
-            Log::info('Product update completed successfully');
+            // Parse features from JSON string to array
+            if (isset($productData['features']) && is_string($productData['features'])) {
+                $productData['features'] = json_decode($productData['features'], true) ?: [];
+            }
+
+            // Remove the image file from validated data since we're storing the path
+            unset($productData['image']);
+
+            Log::info('Updating product with data', ['product_data' => $productData]);
+
+            $product->update($productData);
+
+            Log::info('Product updated successfully', [
+                'product_id' => $product->id,
+                'name' => $product->name,
+                'image_path' => $imagePath
+            ]);
 
             return redirect()->route('products.index')->with('success', 'Product updated successfully!');
         } catch (\Illuminate\Validation\ValidationException $e) {
             Log::error('Product update validation failed', [
                 'errors' => $e->errors(),
+                'input' => $request->all(),
                 'product_id' => $product->id
             ]);
-
-            return redirect()->back()->withInput()->withErrors($e->errors());
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Product update failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'product_id' => $product->id
+                'product_id' => $product->id,
+                'request_data' => $request->all()
             ]);
 
-            return redirect()->back()->withInput()->withErrors(['general' => 'Failed to update product: ' . $e->getMessage()]);
+            return redirect()->back()->withInput()->withErrors([
+                'general' => 'Failed to update product: ' . $e->getMessage()
+            ]);
         }
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Remove the specified product
      */
     public function destroy(Product $product): JsonResponse
     {
-        // Check if product has any variants with sales
-        if ($product->variants()->whereHas('saleItems')->exists()) {
+        // Check if product has any sales
+        if ($product->sales()->exists()) {
             return response()->json([
                 'message' => 'Cannot delete product that has sales records.',
             ], 422);
@@ -343,20 +424,22 @@ class ProductController extends Controller
 
         $product->delete();
 
+        Log::info('Product deleted successfully', [
+            'product_id' => $product->id,
+            'name' => $product->name
+        ]);
+
         return response()->json([
             'message' => 'Product deleted successfully.',
         ]);
     }
 
     /**
-     * Display the product catalog for sales.
+     * Display the product catalog for sales
      */
     public function catalog(Request $request): Response
     {
-        $products = Product::with(['variants' => function ($query) {
-            $query->active()->inStock();
-        }])
-            ->active()
+        $products = Product::active()
             ->inStock()
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -366,66 +449,87 @@ class ProductController extends Controller
                         ->orWhere('category', 'like', "%{$search}%");
                 });
             })
+            ->when($request->category && $request->category !== 'all', function ($query, $category) {
+                $query->where('category', $category);
+            })
             ->orderBy('name')
-            ->paginate(12);
+            ->paginate(20);
+
+        $categories = Product::getAvailableCategories();
 
         return Inertia::render('Products/Catalog', [
             'products' => $products,
-            'filters' => $request->only(['search']),
-        ]);
-    }
-
-    /**
-     * Get product variants for sales interface.
-     */
-    public function getVariants(Product $product): JsonResponse
-    {
-        $variants = $product->variants()
-            ->active()
-            ->inStock()
-            ->orderBy('color')
-            ->orderBy('size')
-            ->get();
-
-        return response()->json([
-            'variants' => $variants,
-        ]);
-    }
-
-    /**
-     * Get available categories.
-     */
-    public function getCategories(): JsonResponse
-    {
-        $categories = Product::distinct()
-            ->whereNotNull('category')
-            ->pluck('category')
-            ->sort()
-            ->values();
-
-        return response()->json([
             'categories' => $categories,
+            'filters' => $request->only(['search', 'category']),
         ]);
     }
 
     /**
-     * Get available brands.
+     * Bulk restock products
      */
-    public function getBrands(): JsonResponse
+    public function restock(Request $request): \Illuminate\Http\RedirectResponse
     {
-        $brands = Product::distinct()
-            ->whereNotNull('brand')
-            ->pluck('brand')
-            ->sort()
-            ->values();
+        try {
+            $request->validate([
+                'items' => 'required|array',
+                'items.*.product_id' => 'required|integer|exists:products,id',
+                'items.*.new_quantity' => 'required|integer|min:0',
+            ]);
 
-        return response()->json([
-            'brands' => $brands,
-        ]);
+            $items = $request->input('items');
+            $updatedCount = 0;
+
+            foreach ($items as $item) {
+                $product = Product::find($item['product_id']);
+                if ($product) {
+                    $oldQuantity = $product->quantity;
+                    $product->update(['quantity' => $item['new_quantity']]);
+                    $updatedCount++;
+
+                    Log::info('Product restocked', [
+                        'product_id' => $product->id,
+                        'product_name' => $product->name,
+                        'old_quantity' => $oldQuantity,
+                        'new_quantity' => $item['new_quantity']
+                    ]);
+                }
+            }
+
+            $message = "Successfully restocked {$updatedCount} products";
+            return redirect()->back()->with('success', $message);
+        } catch (\Exception $e) {
+            Log::error('Restock failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return redirect()->back()->with('error', 'Failed to restock products: ' . $e->getMessage());
+        }
     }
 
     /**
-     * Save a new brand to the database.
+     * Get product statistics
+     */
+    public function stats(): JsonResponse
+    {
+        $stats = [
+            'total_products' => Product::count(),
+            'active_products' => Product::active()->count(),
+            'in_stock_products' => Product::inStock()->count(),
+            'low_stock_products' => Product::lowStock()->count(),
+            'out_of_stock_products' => Product::outOfStock()->count(),
+            'total_inventory_value' => Product::sum(DB::raw('quantity * cost_price')),
+            'total_retail_value' => Product::sum(DB::raw('quantity * selling_price')),
+            'products_by_category' => Product::getProductsByCategory(),
+            'low_stock_alerts' => Product::getLowStockProducts(5),
+            'out_of_stock_alerts' => Product::getOutOfStockProducts(5),
+        ];
+
+        return response()->json($stats);
+    }
+
+    /**
+     * Save a new brand to the database
      */
     public function saveBrand(Request $request): JsonResponse
     {
@@ -445,11 +549,14 @@ class ProductController extends Controller
             }
 
             // Create a temporary product with the new brand to ensure it's saved
-            // This is a workaround since we don't have a separate brands table
             $tempProduct = Product::create([
                 'name' => 'Temporary Product for Brand: ' . $request->brand,
-                'brand' => $request->brand,
                 'category' => 'Temporary',
+                'brand' => $request->brand,
+                'sku' => 'TEMP-BRAND-' . strtoupper(Str::random(4)),
+                'quantity' => 0,
+                'cost_price' => 0,
+                'selling_price' => 0,
                 'is_active' => false,
             ]);
 
@@ -470,7 +577,7 @@ class ProductController extends Controller
     }
 
     /**
-     * Save a new category to the database.
+     * Save a new category to the database
      */
     public function saveCategory(Request $request): JsonResponse
     {
@@ -492,8 +599,12 @@ class ProductController extends Controller
             // Create a temporary product with the new category to ensure it's saved
             $tempProduct = Product::create([
                 'name' => 'Temporary Product for Category: ' . $request->category,
-                'brand' => 'Temporary',
                 'category' => $request->category,
+                'brand' => 'Temporary',
+                'sku' => 'TEMP-CAT-' . strtoupper(Str::random(4)),
+                'quantity' => 0,
+                'cost_price' => 0,
+                'selling_price' => 0,
                 'is_active' => false,
             ]);
 
@@ -509,60 +620,6 @@ class ProductController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to save category: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Save a new size to the database.
-     */
-    public function saveSize(Request $request): JsonResponse
-    {
-        $request->validate([
-            'size' => 'required|string|max:20',
-        ]);
-
-        try {
-            // Check if size already exists
-            $existingSize = ProductVariant::where('size', $request->size)->first();
-            if ($existingSize) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Size already exists',
-                    'size' => $request->size,
-                ]);
-            }
-
-            // Create a temporary product and variant with the new size
-            $tempProduct = Product::create([
-                'name' => 'Temporary Product for Size: ' . $request->size,
-                'brand' => 'Temporary',
-                'category' => 'Temporary',
-                'is_active' => false,
-            ]);
-
-            $tempProduct->variants()->create([
-                'color' => 'Temporary',
-                'size' => $request->size,
-                'sku' => 'TEMP-' . $request->size,
-                'quantity' => 0,
-                'cost_price' => 0,
-                'selling_price' => 0,
-                'is_active' => false,
-            ]);
-
-            // Delete the temporary product (variants will be deleted via cascade)
-            $tempProduct->delete();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Size saved successfully',
-                'size' => $request->size,
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to save size: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -589,84 +646,6 @@ class ProductController extends Controller
                 'success' => false,
                 'message' => $e->getMessage(),
             ], 422);
-        }
-    }
-
-    /**
-     * Restock products
-     */
-    public function restock(Request $request)
-    {
-        try {
-            $request->validate([
-                'items' => 'required|array',
-                'items.*.product_variant_id' => 'required|integer|min:1',
-                'items.*.new_quantity' => 'required|integer|min:0',
-            ]);
-
-            $items = $request->input('items');
-            $updatedCount = 0;
-            $errors = [];
-
-            Log::info('Restock request received', ['items' => $items]);
-
-            foreach ($items as $item) {
-                $variantId = $item['product_variant_id'];
-                $newQuantity = $item['new_quantity'];
-
-                Log::info('Processing restock item', [
-                    'variant_id' => $variantId,
-                    'new_quantity' => $newQuantity
-                ]);
-
-                $variant = ProductVariant::find($variantId);
-                if ($variant) {
-                    $oldQuantity = $variant->quantity;
-                    $variant->update(['quantity' => $newQuantity]);
-                    $updatedCount++;
-
-                    Log::info('Variant updated', [
-                        'variant_id' => $variantId,
-                        'product_name' => $variant->product->name ?? 'Unknown',
-                        'old_quantity' => $oldQuantity,
-                        'new_quantity' => $newQuantity
-                    ]);
-                } else {
-                    $errors[] = "Variant ID {$variantId} not found";
-                    Log::warning('Variant not found', ['variant_id' => $variantId]);
-                }
-            }
-
-            $message = "Successfully restocked {$updatedCount} products";
-            if (!empty($errors)) {
-                $message .= ". Errors: " . implode(', ', $errors);
-            }
-
-            // Create notification for restock
-            if ($updatedCount > 0) {
-                $notificationService = new \App\Services\NotificationService();
-                $restockedItems = [];
-                foreach ($items as $item) {
-                    $variant = ProductVariant::find($item['product_variant_id']);
-                    if ($variant) {
-                        $restockedItems[] = [
-                            'product_name' => $variant->product->name,
-                            'variant_info' => $variant->getVariantName(),
-                            'quantity' => $item['new_quantity'],
-                        ];
-                    }
-                }
-                $notificationService->createRestockNotification($restockedItems);
-            }
-
-            return redirect()->back()->with('success', $message);
-        } catch (\Exception $e) {
-            Log::error('Restock failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            return redirect()->back()->with('error', 'Failed to restock products: ' . $e->getMessage());
         }
     }
 }

@@ -3,15 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
-use App\Models\ProductVariant;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\User;
+use App\Models\Wallet;
 use Carbon\Carbon;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class AnalyticsController extends Controller
 {
@@ -111,57 +112,44 @@ class AnalyticsController extends Controller
             });
 
         // Best selling products for the period
-        $bestSellingProductsQuery = SaleItem::with(['productVariant.product']);
+        $bestSellingProductsQuery = SaleItem::with(['product']);
         if ($startDate) {
             $bestSellingProductsQuery->where('sale_items.created_at', '>=', $startDate);
         }
         
         $bestSellingProducts = $bestSellingProductsQuery
-            ->selectRaw('product_variant_id, SUM(quantity) as total_sold, SUM(total_price) as total_revenue')
-            ->groupBy('product_variant_id')
+            ->selectRaw('product_id, SUM(quantity) as total_sold, SUM(total_price) as total_revenue')
+            ->groupBy('product_id')
             ->orderByDesc('total_sold')
             ->limit(10)
             ->get()
             ->map(function ($item) {
                 return [
-                    'product_name' => $item->productVariant->product->name ?? 'Unknown',
-                    'variant_info' => $this->getVariantInfo($item->productVariant),
+                    'product_name' => $item->product->name ?? 'Unknown',
+                    'variant_info' => 'Standard', // No variant info available
                     'total_sold' => $item->total_sold,
                     'total_revenue' => $item->total_revenue,
                 ];
             });
 
         // Sales by category for the period
-        $salesByCategoryQuery = SaleItem::with(['productVariant.product']);
+        $salesByCategoryQuery = SaleItem::with(['product']);
         if ($startDate) {
             $salesByCategoryQuery->where('sale_items.created_at', '>=', $startDate);
         }
         
         $salesByCategory = $salesByCategoryQuery
             ->selectRaw('products.category, SUM(sale_items.quantity) as total_sold, SUM(sale_items.total_price) as total_revenue')
-            ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
-            ->join('products', 'product_variants.product_id', '=', 'products.id')
+            ->join('products', 'sale_items.product_id', '=', 'products.id')
             ->groupBy('products.category')
             ->orderByDesc('total_revenue')
             ->get();
 
-        // Sales by size
-        $salesBySize = SaleItem::with(['productVariant'])
-            ->selectRaw('product_variants.size, SUM(sale_items.quantity) as total_sold, SUM(sale_items.total_price) as total_revenue')
-            ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
-            ->whereNotNull('product_variants.size')
-            ->groupBy('product_variants.size')
-            ->orderByDesc('total_sold')
-            ->get();
+        // Sales by size - simplified since products table doesn't have variants
+        $salesBySize = collect(); // Empty collection since size is no longer tracked
 
-        // Sales by color
-        $salesByColor = SaleItem::with(['productVariant'])
-            ->selectRaw('product_variants.color, SUM(sale_items.quantity) as total_sold, SUM(sale_items.total_price) as total_revenue')
-            ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
-            ->whereNotNull('product_variants.color')
-            ->groupBy('product_variants.color')
-            ->orderByDesc('total_sold')
-            ->get();
+        // Sales by color - simplified since products table doesn't have variants  
+        $salesByColor = collect(); // Empty collection since color is no longer tracked
 
         // Sales trends (last 30 days) - duplicate, removing this one
 
@@ -185,44 +173,42 @@ class AnalyticsController extends Controller
         $lowStockThreshold = 5; // Configurable
 
         // Low stock products
-        $lowStockProducts = ProductVariant::with(['product'])
-            ->where('quantity', '<=', $lowStockThreshold)
+        $lowStockProducts = Product::where('quantity', '<=', $lowStockThreshold)
             ->where('quantity', '>', 0)
             ->where('is_active', true)
             ->get()
-            ->map(function ($variant) {
+            ->map(function ($product) {
                 return [
-                    'product_variant_id' => $variant->id,
-                    'product_name' => $variant->product->name ?? 'Unknown',
-                    'variant_info' => $this->getVariantInfo($variant),
-                    'current_stock' => $variant->quantity,
-                    'low_stock_threshold' => $variant->low_stock_threshold,
+                    'product_id' => $product->id,
+                    'product_name' => $product->name ?? 'Unknown',
+                    'variant_info' => 'Standard', // No variant info available
+                    'current_stock' => $product->quantity,
+                    'low_stock_threshold' => $product->low_stock_threshold,
                 ];
             });
 
         // Out of stock products
-        $outOfStockProducts = ProductVariant::with(['product'])
-            ->where('quantity', 0)
+        $outOfStockProducts = Product::where('quantity', 0)
             ->where('is_active', true)
             ->get()
-            ->map(function ($variant) {
+            ->map(function ($product) {
                 return [
-                    'product_variant_id' => $variant->id,
-                    'product_name' => $variant->product->name ?? 'Unknown',
-                    'variant_info' => $this->getVariantInfo($variant),
-                    'last_restocked' => $variant->updated_at,
+                    'product_id' => $product->id,
+                    'product_name' => $product->name ?? 'Unknown',
+                    'variant_info' => 'Standard', // No variant info available
+                    'last_restocked' => $product->updated_at,
                 ];
             });
 
         // Inventory turnover rate (simplified calculation)
-        $totalInventoryValue = ProductVariant::sum(DB::raw('quantity * cost_price'));
+        $totalInventoryValue = Product::sum(DB::raw('quantity * cost_price'));
         $totalSalesValue = SaleItem::sum('total_price');
         $inventoryTurnoverRate = $totalInventoryValue > 0 ? $totalSalesValue / $totalInventoryValue : 0;
 
         // Stock value calculations
-        $totalCostValue = ProductVariant::sum(DB::raw('quantity * cost_price'));
-        $totalRetailValue = ProductVariant::sum(DB::raw('quantity * selling_price'));
-        $totalProducts = ProductVariant::where('is_active', true)->count();
+        $totalCostValue = Product::sum(DB::raw('quantity * cost_price'));
+        $totalRetailValue = Product::sum(DB::raw('quantity * selling_price'));
+        $totalProducts = Product::where('is_active', true)->count();
 
         return [
             'lowStockProducts' => $lowStockProducts,
@@ -262,36 +248,35 @@ class AnalyticsController extends Controller
             });
 
         // Top 5 best-selling products for the period
-        $topProductsQuery = SaleItem::with(['productVariant.product']);
+        $topProductsQuery = SaleItem::with(['product']);
         if ($startDate) {
             $topProductsQuery->where('sale_items.created_at', '>=', $startDate);
         }
         
         $topProducts = $topProductsQuery
-            ->selectRaw('product_variant_id, SUM(quantity) as total_sold, SUM(quantity * unit_price) as total_revenue')
-            ->groupBy('product_variant_id')
+            ->selectRaw('product_id, SUM(quantity) as total_sold, SUM(quantity * unit_price) as total_revenue')
+            ->groupBy('product_id')
             ->orderByDesc('total_sold')
             ->limit(5)
             ->get()
             ->map(function ($item) {
                 return [
-                    'product_name' => $item->productVariant->product->name ?? 'Unknown',
-                    'variant_info' => $this->getVariantInfo($item->productVariant),
+                    'product_name' => $item->product->name ?? 'Unknown',
+                    'variant_info' => 'Standard', // No variant info available
                     'total_sold' => $item->total_sold,
                     'total_revenue' => $item->total_revenue,
                 ];
             });
 
         // Top product categories for the period
-        $topCategoriesQuery = SaleItem::with(['productVariant.product']);
+        $topCategoriesQuery = SaleItem::with(['product']);
         if ($startDate) {
             $topCategoriesQuery->where('sale_items.created_at', '>=', $startDate);
         }
         
         $topCategories = $topCategoriesQuery
             ->selectRaw('products.category, SUM(sale_items.quantity) as total_sold, SUM(sale_items.quantity * sale_items.unit_price) as total_revenue')
-            ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
-            ->join('products', 'product_variants.product_id', '=', 'products.id')
+            ->join('products', 'sale_items.product_id', '=', 'products.id')
             ->groupBy('products.category')
             ->orderByDesc('total_revenue')
             ->limit(5)
@@ -310,12 +295,12 @@ class AnalyticsController extends Controller
     private function getProfitAnalytics($startDate): array
     {
         // Calculate gross profits per sale item for the period
-        $profitDataQuery = SaleItem::with(['productVariant'])
+        $profitDataQuery = SaleItem::with(['product'])
             ->selectRaw('
                 sale_items.*,
-                (sale_items.unit_price - product_variants.cost_price) * sale_items.quantity as gross_profit
+                (sale_items.unit_price - products.cost_price) * sale_items.quantity as gross_profit
             ')
-            ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id');
+            ->join('products', 'sale_items.product_id', '=', 'products.id');
         
         if ($startDate) {
             $profitDataQuery->where('sale_items.created_at', '>=', $startDate);
@@ -338,13 +323,13 @@ class AnalyticsController extends Controller
         $profitMargin = $totalRevenue > 0 ? ($totalNetProfit / $totalRevenue) * 100 : 0;
 
         // Profit trends (last 30 days) with expenses
-        $profitTrends = SaleItem::with(['productVariant'])
+        $profitTrends = SaleItem::with(['product'])
             ->selectRaw('
                 DATE(sale_items.created_at) as date,
-                SUM((sale_items.unit_price - product_variants.cost_price) * sale_items.quantity) as daily_gross_profit,
+                SUM((sale_items.unit_price - products.cost_price) * sale_items.quantity) as daily_gross_profit,
                 SUM(sale_items.total_price) as daily_revenue
             ')
-            ->join('product_variants', 'sale_items.product_variant_id', '=', 'product_variants.id')
+            ->join('products', 'sale_items.product_id', '=', 'products.id')
             ->where('sale_items.created_at', '>=', Carbon::now()->subDays(30))
             ->groupBy('date')
             ->orderBy('date')
@@ -422,10 +407,10 @@ class AnalyticsController extends Controller
     /**
      * Calculate recommended restock quantity based on historical sales
      */
-    private function getRecommendedRestockQuantity($variantId): int
+    private function getRecommendedRestockQuantity($productId): int
     {
         // Get sales data for the last 30 days
-        $recentSales = SaleItem::where('product_variant_id', $variantId)
+        $recentSales = SaleItem::where('product_id', $productId)
             ->where('created_at', '>=', Carbon::now()->subDays(30))
             ->sum('quantity');
 
@@ -485,19 +470,17 @@ class AnalyticsController extends Controller
     {
         $lowStockThreshold = 5;
 
-        $lowStockProducts = ProductVariant::with(['product'])
-            ->where('quantity', '<=', $lowStockThreshold)
+        $lowStockProducts = Product::where('quantity', '<=', $lowStockThreshold)
             ->where('quantity', '>', 0)
             ->where('is_active', true)
             ->get();
 
-        $outOfStockProducts = ProductVariant::with(['product'])
-            ->where('quantity', 0)
+        $outOfStockProducts = Product::where('quantity', 0)
             ->where('is_active', true)
             ->get();
 
-        $totalCostValue = ProductVariant::sum(DB::raw('quantity * cost_price'));
-        $totalRetailValue = ProductVariant::sum(DB::raw('quantity * selling_price'));
+        $totalCostValue = Product::sum(DB::raw('quantity * cost_price'));
+        $totalRetailValue = Product::sum(DB::raw('quantity * selling_price'));
 
         return response()->json([
             'low_stock_products' => $lowStockProducts,
@@ -519,29 +502,29 @@ class AnalyticsController extends Controller
             return response()->json(['error' => 'Product ID is required'], 400);
         }
 
-        $variants = ProductVariant::with(['product'])
-            ->where('product_id', $productId)
-            ->where('is_active', true)
-            ->get();
+        $product = Product::find($productId);
 
-        $recommendations = [];
-        foreach ($variants as $variant) {
-            $recommendedQuantity = $this->getRecommendedRestockQuantity($variant->id);
-
-            $recommendations[] = [
-                'variant_id' => $variant->id,
-                'variant_info' => $this->getVariantInfo($variant),
-                'current_quantity' => $variant->quantity,
-                'recommended_quantity' => $recommendedQuantity,
-                'cost_price' => $variant->cost_price,
-                'selling_price' => $variant->selling_price,
-                'last_restocked' => $variant->updated_at,
-            ];
+        if (!$product) {
+            return response()->json(['error' => 'Product not found'], 404);
         }
+
+        $recommendedQuantity = $this->getRecommendedRestockQuantity($product->id);
+
+        $recommendations = [
+            [
+                'product_id' => $product->id,
+                'variant_info' => 'Standard', // No variant info available
+                'current_quantity' => $product->quantity,
+                'recommended_quantity' => $recommendedQuantity,
+                'cost_price' => $product->cost_price,
+                'selling_price' => $product->selling_price,
+                'last_restocked' => $product->updated_at,
+            ]
+        ];
 
         return response()->json([
             'product_id' => $productId,
-            'product_name' => $variants->first()->product->name ?? 'Unknown',
+            'product_name' => $product->name ?? 'Unknown',
             'recommendations' => $recommendations,
         ]);
     }

@@ -34,27 +34,15 @@ interface Product {
     category: string;
     image_url?: string;
     features?: string[];
-    meta_title?: string;
-    meta_description?: string;
-    is_active: boolean;
-    created_at: string;
-    updated_at: string;
-    variants?: ProductVariant[];
-}
-
-interface ProductVariant {
-    id: number;
-    product_id: number;
-    color?: string;
-    size?: string;
     sku: string;
     quantity: number;
     cost_price: number;
     selling_price: number;
     discount_price?: number;
-    image_url?: string;
-    is_active: boolean;
     low_stock_threshold: number;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
 }
 
 interface PageProps {
@@ -75,123 +63,32 @@ interface PageProps {
     [key: string]: unknown;
 }
 
-// Helper function to get stock status for a product based on its variants
+// Helper function to get stock status for a product
 const getProductStockStatus = (product: Product) => {
-    if (!product.variants || product.variants.length === 0) {
-        return { status: 'No Variants', color: 'destructive' as const };
-    }
-
-    const inStockVariants = product.variants.filter((v) => v.quantity > 0);
-    const lowStockVariants = product.variants.filter((v) => v.quantity > 0 && v.quantity <= v.low_stock_threshold);
-
-    if (inStockVariants.length === 0) {
+    if (product.quantity === 0) {
         return { status: 'Out of Stock', color: 'destructive' as const };
     }
-
-    if (lowStockVariants.length > 0) {
+    
+    if (product.quantity <= product.low_stock_threshold) {
         return { status: 'Low Stock', color: 'secondary' as const };
     }
-
+    
     return { status: 'In Stock', color: 'default' as const };
 };
 
-// Helper function to get the minimum price from variants
-const getProductMinPrice = (product: Product): number => {
-    if (!product.variants || product.variants.length === 0) {
-        return 0;
-    }
-
-    const activeVariants = product.variants.filter((v) => v.is_active);
-    if (activeVariants.length === 0) {
-        return 0;
-    }
-
-    return Math.min(...activeVariants.map((v) => v.selling_price));
+// Helper function to get stock color
+const getStockColor = (product: Product) => {
+    if (product.quantity === 0) return 'destructive';
+    if (product.quantity <= product.low_stock_threshold) return 'secondary';
+    return 'default';
 };
 
-// Helper function to get total quantity from variants
-const getProductTotalQuantity = (product: Product): number => {
-    if (!product.variants || product.variants.length === 0) {
-        return 0;
-    }
-
-    return product.variants.reduce((total, variant) => total + variant.quantity, 0);
-};
-
-// Helper function to get available colors for a product
-const getAvailableColors = (product: Product | null): string[] => {
-    if (!product || !product.variants) return [];
-    
-    const colors = product.variants
-        .filter((v) => v.is_active && v.quantity > 0)
-        .map((v) => v.color)
-        .filter((color): color is string => Boolean(color));
-    
-    console.log('Available colors for product:', product.name, ':', colors);
-    return [...new Set(colors)];
-};
-
-// Helper function to get available sizes for a specific color
-const getAvailableSizesForColor = (product: Product | null, color: string): string[] => {
-    if (!product || !product.variants || !color) return [];
-    
-    const sizes = product.variants
-        .filter((v) => v.color === color && v.is_active && v.quantity > 0)
-        .map((v) => v.size)
-        .filter((size): size is string => Boolean(size));
-    
-    console.log('Available sizes for color', color, ':', sizes);
-    return [...new Set(sizes)];
-};
-
-// Helper function to convert color name to hex
-const getColorHex = (colorName: string): string => {
-    const colorMap: { [key: string]: string } = {
-        red: '#ef4444',
-        blue: '#3b82f6',
-        green: '#22c55e',
-        yellow: '#eab308',
-        purple: '#a855f7',
-        pink: '#ec4899',
-        orange: '#f97316',
-        brown: '#a16207',
-        black: '#000000',
-        white: '#ffffff',
-        gray: '#6b7280',
-        grey: '#6b7280',
-        navy: '#1e3a8a',
-        maroon: '#991b1b',
-        olive: '#65a30d',
-        lime: '#84cc16',
-        teal: '#14b8a6',
-        cyan: '#06b6d4',
-        indigo: '#6366f1',
-        violet: '#8b5cf6',
-        fuchsia: '#d946ef',
-        rose: '#f43f5e',
-        amber: '#f59e0b',
-        emerald: '#10b981',
-        sky: '#0ea5e9',
-        slate: '#64748b',
-        zinc: '#71717a',
-        neutral: '#737373',
-        stone: '#78716c',
-        'red-500': '#ef4444',
-        'blue-500': '#3b82f6',
-        'green-500': '#22c55e',
-        'yellow-500': '#eab308',
-        'purple-500': '#a855f7',
-        'pink-500': '#ec4899',
-        'orange-500': '#f97316',
-        'brown-500': '#a16207',
-        'black-500': '#000000',
-        'white-500': '#ffffff',
-        'gray-500': '#6b7280',
-        'grey-500': '#6b7280',
-    };
-
-    const normalizedColor = colorName.toLowerCase().trim();
-    return colorMap[normalizedColor] || '#6b7280'; // Default to gray if color not found
+// Helper function to get stock text
+const getStockText = (product: Product) => {
+    if (product.quantity === 0) return 'Out of Stock';
+    if (product.quantity === 1) return '1 remaining';
+    if (product.quantity <= product.low_stock_threshold) return `${product.quantity} remaining`;
+    return `${product.quantity} in stock`;
 };
 
 export default function Dashboard() {
@@ -211,11 +108,8 @@ export default function Dashboard() {
     const { cartCount: localCartCount, addToCart } = useCart();
     const [soldItems, setSoldItems] = useState<Set<number>>(new Set());
 
-    // Variant selection state
+    // Product selection state
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-    const [selectedColor, setSelectedColor] = useState<string>('');
-    const [selectedSize, setSelectedSize] = useState<string>('');
-    const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
     const [quantity, setQuantity] = useState<number>(1);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -249,37 +143,9 @@ export default function Dashboard() {
         );
     };
 
-
-
-    const handleColorChange = (color: string) => {
-        console.log('Color changed to:', color);
-        setSelectedColor(color);
-        setSelectedSize('');
-        setSelectedVariant(null);
-        setQuantity(1);
-    };
-
-    const handleSizeChange = (size: string) => {
-        console.log('Size changed to:', size, 'for color:', selectedColor);
-        setSelectedSize(size);
-        
-        // Find the specific variant
-        if (selectedProduct && selectedColor) {
-            const variant = selectedProduct.variants?.find((v) => 
-                v.color === selectedColor && 
-                v.size === size && 
-                v.is_active && 
-                v.quantity > 0
-            );
-            console.log('Found variant:', variant);
-            setSelectedVariant(variant || null);
-        }
-    };
-
     const handleAddToCart = async () => {
-        if (!selectedVariant || !selectedProduct) return;
+        if (!selectedProduct) return;
 
-        console.log('Adding to cart - selectedVariant:', selectedVariant);
         console.log('Adding to cart - selectedProduct:', selectedProduct);
         console.log('Adding to cart - quantity:', quantity);
 
@@ -288,13 +154,11 @@ export default function Dashboard() {
         try {
             // Add to cart using the hook first for immediate UI feedback
             const cartItem = {
-                variant_id: selectedVariant.id,
+                product_id: selectedProduct.id,
                 quantity: quantity,
-                unit_price: selectedVariant.selling_price,
+                unit_price: selectedProduct.discount_price || selectedProduct.selling_price,
                 product_name: selectedProduct.name,
-                color: selectedVariant.color,
-                size: selectedVariant.size,
-                image_url: selectedVariant.image_url || selectedProduct.image_url,
+                image_url: selectedProduct.image_url,
             };
             
             console.log('Adding cart item:', cartItem);
@@ -304,9 +168,6 @@ export default function Dashboard() {
             // Close modal after successful add
             setIsModalOpen(false);
             setSelectedProduct(null);
-            setSelectedColor('');
-            setSelectedSize('');
-            setSelectedVariant(null);
             setQuantity(1);
 
             // Show success feedback
@@ -324,19 +185,6 @@ export default function Dashboard() {
         } finally {
             setAddingToCart(null);
         }
-    };
-
-    const getStockText = (variant: ProductVariant) => {
-        if (variant.quantity === 0) return 'Out of Stock';
-        if (variant.quantity === 1) return '1 remaining';
-        if (variant.quantity <= variant.low_stock_threshold) return `${variant.quantity} remaining`;
-        return `${variant.quantity} in stock`;
-    };
-
-    const getStockColor = (variant: ProductVariant) => {
-        if (variant.quantity === 0) return 'destructive';
-        if (variant.quantity <= variant.low_stock_threshold) return 'secondary';
-        return 'default';
     };
 
     return (
@@ -489,12 +337,11 @@ export default function Dashboard() {
                                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                                     {products.data.map((product) => {
                                         const stockStatus = getProductStockStatus(product);
-                                        const minPrice = getProductMinPrice(product);
-                                        const totalQuantity = getProductTotalQuantity(product);
                                         const isSold = soldItems.has(product.id);
                                         const isAdding = addingToCart === product.id;
-                                        const hasStock = totalQuantity > 0;
-                                        const availableColors = getAvailableColors(product);
+                                        const hasStock = product.quantity > 0;
+                                        const finalPrice = product.discount_price || product.selling_price;
+                                        const hasDiscount = product.discount_price && product.discount_price < product.selling_price;
 
                                         return (
                                             <div key={product.id}>
@@ -504,189 +351,143 @@ export default function Dashboard() {
                                                     }`}
                                                     onClick={() => {
                                                         console.log('Product card clicked:', product.name);
-                                                        // Reset all selection state
-                                                        setSelectedColor('');
-                                                        setSelectedSize('');
-                                                        setSelectedVariant(null);
                                                         setQuantity(1);
-                                                        // Set product and open modal
                                                         setSelectedProduct(product);
                                                         setIsModalOpen(true);
                                                     }}
                                                 >
-                                                <CardHeader className="pb-3">
-                                                    <div className="flex items-start justify-between gap-2">
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="mb-1 flex items-center gap-2">
-                                                                <Package className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-                                                                <CardTitle className="truncate text-base font-bold">{product.name}</CardTitle>
-                                                            </div>
+                                                    <CardHeader className="pb-3">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="mb-1 flex items-center gap-2">
+                                                                    <Package className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                                                                    <CardTitle className="truncate text-base font-bold">{product.name}</CardTitle>
+                                                                </div>
 
-                                                            <div className="mb-2 flex flex-wrap gap-1">
-                                                                <Badge variant="secondary" className="px-1.5 py-0.5 text-xs font-medium">
-                                                                    {product.brand}
-                                                                </Badge>
-                                                                <Badge variant="secondary" className="px-1.5 py-0.5 text-xs font-medium">
-                                                                    {product.category}
-                                                                </Badge>
-                                                            </div>
-                                                        </div>
-
-                                                        <Badge variant={stockStatus.color} className="flex-shrink-0 px-2 py-1 text-xs font-medium">
-                                                            {stockStatus.status}
-                                                        </Badge>
-                                                    </div>
-                                                </CardHeader>
-
-                                                <CardContent className="space-y-4">
-                                                    {/* Product Image */}
-                                                    <div className="relative h-32 overflow-hidden rounded-lg bg-gray-50 dark:bg-gray-800">
-                                                        {product.image_url ? (
-                                                            <img
-                                                                src={product.image_url}
-                                                                alt={product.name}
-                                                                className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
-                                                                onError={(e) => {
-                                                                    e.currentTarget.src =
-                                                                        'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCAxMDBDODAgODkuNTQ0NCA4OS41NDQ0IDgwIDEwMCA4MEMxMTAuNDU2IDgwIDEyMCA4OS41NDQ0IDEyMCAxMEMxMjAgMTEwLjQ1NiAxMTAuNDU2IDEyMCAxMDAgMTIwQzg5LjU0NDQgMTIwIDgwIDExMC40NTYgODAgMTAwWiIgZmlsbD0iI0QxRDVFM0EiLz4KPC9zdmc+';
-                                                                }}
-                                                            />
-                                                        ) : (
-                                                            <div className="flex h-full flex-col items-center justify-center p-4 text-muted-foreground">
-                                                                <Package className="h-8 w-8" />
-                                                                <span className="mt-1 text-center text-xs">No image available</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Product Info */}
-                                                    <div className="space-y-3">
-                                                        {product.description && (
-                                                            <p className="line-clamp-2 text-xs text-muted-foreground">{product.description}</p>
-                                                        )}
-
-                                                        {product.features && Array.isArray(product.features) && (
-                                                            <div className="flex flex-wrap gap-1">
-                                                                {product.features.slice(0, 3).map((feature, index) => (
-                                                                    <Badge
-                                                                        key={index}
-                                                                        variant="outline"
-                                                                        className="px-1.5 py-0.5 text-xs font-normal text-muted-foreground"
-                                                                    >
-                                                                        {feature}
+                                                                <div className="mb-2 flex flex-wrap gap-1">
+                                                                    <Badge variant="secondary" className="px-1.5 py-0.5 text-xs font-medium">
+                                                                        {product.brand}
                                                                     </Badge>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Variants Summary */}
-                                                    {product.variants && product.variants.length > 0 && (
-                                                        <div className="space-y-2">
-                                                            <div className="flex items-center justify-between">
-                                                                <span className="text-xs font-medium text-muted-foreground">Available Variants</span>
-                                                                <span className="text-xs text-muted-foreground">
-                                                                    {product.variants.filter((v) => v.is_active && v.quantity > 0).length} options
-                                                                </span>
+                                                                    <Badge variant="secondary" className="px-1.5 py-0.5 text-xs font-medium">
+                                                                        {product.category}
+                                                                    </Badge>
+                                                                </div>
                                                             </div>
 
-                                                            <div className="flex flex-wrap gap-2">
-                                                                {availableColors.slice(0, 4).map((color) => (
-                                                                    <div
-                                                                        key={color}
-                                                                        className="h-5 w-5 rounded-full border shadow-sm"
-                                                                        style={{ backgroundColor: getColorHex(color) }}
-                                                                        title={color}
-                                                                    />
-                                                                ))}
-                                                                {availableColors.length > 4 && (
-                                                                    <div className="flex items-center text-xs text-muted-foreground">
-                                                                        +{availableColors.length - 4} more
+                                                            <Badge variant={stockStatus.color} className="flex-shrink-0 px-2 py-1 text-xs font-medium">
+                                                                {stockStatus.status}
+                                                            </Badge>
+                                                        </div>
+                                                    </CardHeader>
+
+                                                    <CardContent className="space-y-4">
+                                                        {/* Product Image */}
+                                                        <div className="relative h-32 overflow-hidden rounded-lg bg-gray-50 dark:bg-gray-800">
+                                                            {product.image_url ? (
+                                                                <img
+                                                                    src={product.image_url}
+                                                                    alt={product.name}
+                                                                    className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
+                                                                    onError={(e) => {
+                                                                        e.currentTarget.src =
+                                                                            'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCAxMDBDODAgODkuNTQ0NCA4OS41NDQ0IDgwIDEwMCA4MEMxMTAuNDU2IDgwIDEyMCA4OS41NDQ0IDEyMCAxMEMxMjAgMTEwLjQ1NiAxMTAuNDU2IDEyMCAxMDAgMTIwQzg5LjU0NDQgMTIwIDgwIDExMC40NTYgODAgMTAwWiIgZmlsbD0iI0QxRDVFM0EiLz4KPC9zdmc+';
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <div className="flex h-full flex-col items-center justify-center p-4 text-muted-foreground">
+                                                                    <Package className="h-8 w-8" />
+                                                                    <span className="mt-1 text-center text-xs">No image available</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Product Info */}
+                                                        <div className="space-y-3">
+                                                            {product.description && (
+                                                                <p className="line-clamp-2 text-xs text-muted-foreground">{product.description}</p>
+                                                            )}
+
+                                                            {product.features && Array.isArray(product.features) && (
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {product.features.slice(0, 3).map((feature, index) => (
+                                                                        <Badge
+                                                                            key={index}
+                                                                            variant="outline"
+                                                                            className="px-1.5 py-0.5 text-xs font-normal text-muted-foreground"
+                                                                        >
+                                                                            {feature}
+                                                                        </Badge>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Price and Stock */}
+                                                        <div className="grid grid-cols-2 gap-4 pt-2">
+                                                            <div>
+                                                                <div className="mb-1 text-xs text-muted-foreground">Price</div>
+                                                                <div className="space-y-1">
+                                                                    {hasDiscount && (
+                                                                        <div className="text-xs text-muted-foreground line-through">
+                                                                            {formatCurrency(product.selling_price)}
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="text-base font-bold text-green-600">
+                                                                        {formatCurrency(finalPrice)}
                                                                     </div>
-                                                                )}
+                                                                </div>
+                                                            </div>
+
+                                                            <div>
+                                                                <div className="mb-1 text-xs text-muted-foreground">Stock</div>
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-base font-semibold">{product.quantity}</span>
+                                                                    {product.quantity > 0 && product.quantity <= product.low_stock_threshold && (
+                                                                        <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    )}
 
-                                                    {/* Price and Stock */}
-                                                    <div className="grid grid-cols-2 gap-4 pt-2">
-                                                        <div>
-                                                            <div className="mb-1 text-xs text-muted-foreground">Price</div>
-                                                            <div className="text-base font-bold">{formatCurrency(minPrice)}</div>
-                                                        </div>
-
-                                                        <div>
-                                                            <div className="mb-1 text-xs text-muted-foreground">Stock</div>
-                                                            <div className="flex items-center gap-1">
-                                                                <span className="text-base font-semibold">{totalQuantity}</span>
-                                                                {product.variants?.some(
-                                                                    (v) => v.quantity > 0 && v.quantity <= v.low_stock_threshold,
-                                                                ) && <AlertTriangle className="h-4 w-4 text-yellow-500" />}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Sell Button */}
-                                                    <Button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation(); // Prevent card click
-                                                            console.log('Sell button clicked for:', product.name);
-                                                            // Reset all selection state
-                                                            setSelectedColor('');
-                                                            setSelectedSize('');
-                                                            setSelectedVariant(null);
-                                                            setQuantity(1);
-                                                            // Set product and open modal
-                                                            setSelectedProduct(product);
-                                                            setIsModalOpen(true);
-                                                        }}
-                                                        disabled={!hasStock || isAdding}
-                                                        className={`w-full transition-all duration-200 ${
-                                                            isSold
-                                                                ? 'bg-green-600 hover:bg-green-700'
-                                                                : 'bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800'
-                                                        }`}
-                                                        size="sm"
-                                                    >
-                                                        {isAdding ? (
-                                                            <>
-                                                                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                                                Adding...
-                                                            </>
-                                                        ) : isSold ? (
-                                                            <>
-                                                                <Check className="mr-2 h-4 w-4" />
-                                                                Added to Cart
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <ShoppingCart className="mr-2 h-4 w-4" />
-                                                                Sell Product
-                                                            </>
-                                                        )}
-                                                    </Button>
-
-
-
-
-
-
-                                                                
-                                                                
-
-
-
-
-
-                                                                
-
-
-
-                                                </CardContent>
-                                            </Card>
-                                        </div>
-                                    );
-                                })}
+                                                        {/* Sell Button */}
+                                                        <Button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation(); // Prevent card click
+                                                                console.log('Sell button clicked for:', product.name);
+                                                                setQuantity(1);
+                                                                setSelectedProduct(product);
+                                                                setIsModalOpen(true);
+                                                            }}
+                                                            disabled={!hasStock || isAdding}
+                                                            className={`w-full transition-all duration-200 ${
+                                                                isSold
+                                                                    ? 'bg-green-600 hover:bg-green-700'
+                                                                    : 'bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800'
+                                                            }`}
+                                                            size="sm"
+                                                        >
+                                                            {isAdding ? (
+                                                                <>
+                                                                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                                                    Adding...
+                                                                </>
+                                                            ) : isSold ? (
+                                                                <>
+                                                                    <Check className="mr-2 h-4 w-4" />
+                                                                    Added to Cart
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <ShoppingCart className="mr-2 h-4 w-4" />
+                                                                    Sell Product
+                                                                </>
+                                                            )}
+                                                        </Button>
+                                                    </CardContent>
+                                                </Card>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
 
                                 {products.data.length === 0 && (
@@ -748,7 +549,7 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* Variant Selection Modal */}
+            {/* Product Selection Modal */}
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogContent className="w-[95vw] max-w-lg p-4 sm:p-6 max-h-[85vh] sm:max-h-[80vh] overflow-y-auto">
                     <DialogTitle className="text-lg sm:text-xl font-bold text-center mb-2">
@@ -756,7 +557,7 @@ export default function Dashboard() {
                     </DialogTitle>
                     
                     <DialogDescription className="text-center text-xs sm:text-sm text-muted-foreground mb-4">
-                        Select your preferred color, size, and quantity to add this item to your cart
+                        Select quantity and add this item to your cart
                     </DialogDescription>
                     
                     <div className="space-y-4 sm:space-y-6">
@@ -766,112 +567,13 @@ export default function Dashboard() {
                             </div>
                         )}
                         
-                        {/* Instructions */}
-                        <div className="text-center space-y-3 px-2">
-                            <p className="text-xs sm:text-sm text-blue-600 dark:text-blue-400 font-medium">
-                                {!selectedColor ? 'First, select a color' : 
-                                 !selectedSize ? 'Now select a size' : 
-                                 'Choose quantity and add to cart'}
-                            </p>
-                            
-                            {/* Progress indicator */}
-                            <div className="flex justify-center items-center gap-2">
-                                <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all duration-300 ${selectedColor ? 'bg-blue-500 scale-110' : 'bg-gray-300'}`}></div>
-                                <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all duration-300 ${selectedSize ? 'bg-blue-500 scale-110' : 'bg-gray-300'}`}></div>
-                                <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all duration-300 ${selectedVariant ? 'bg-blue-500 scale-110' : 'bg-gray-300'}`}></div>
-                            </div>
-                        </div>
-
-                        {/* Color Selection */}
-                        {getAvailableColors(selectedProduct).length > 0 && (
-                            <div>
-                                <label className="text-xs sm:text-sm font-medium flex items-center gap-2 mb-3">
-                                    <span>Select Color</span>
-                                    {selectedColor && (
-                                        <Badge variant="secondary" className="text-xs px-2 py-1">
-                                            {selectedColor}
-                                        </Badge>
-                                    )}
-                                </label>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2 sm:gap-3">
-                                    {getAvailableColors(selectedProduct).map((color) => (
-                                        <button
-                                            key={color}
-                                            onClick={() => {
-                                                console.log('Color clicked:', color);
-                                                handleColorChange(color);
-                                            }}
-                                            className={`flex items-center gap-2 rounded-lg border p-2 sm:p-3 text-xs sm:text-sm font-medium transition-all duration-200 hover:scale-105 ${
-                                                selectedColor === color
-                                                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 shadow-md scale-105'
-                                                    : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
-                                            }`}
-                                        >
-                                            <div
-                                                className="h-4 w-4 sm:h-5 sm:w-5 rounded-full border-2 border-white shadow-sm"
-                                                style={{ backgroundColor: getColorHex(color) }}
-                                            />
-                                            <span className="capitalize truncate">{color}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Size Selection */}
-                        {selectedColor &&
-                            getAvailableSizesForColor(selectedProduct, selectedColor).length > 0 && (
-                                <div>
-                                    <label className="text-xs sm:text-sm font-medium flex items-center gap-2 mb-3">
-                                        <span>Select Size</span>
-                                        {selectedSize && (
-                                            <Badge variant="secondary" className="text-xs px-2 py-1">
-                                                {selectedSize}
-                                            </Badge>
-                                        )}
-                                    </label>
-                                    <div className="grid grid-cols-3 sm:grid-cols-4 lg:flex lg:flex-wrap gap-2 sm:gap-3">
-                                        {getAvailableSizesForColor(selectedProduct, selectedColor).map(
-                                            (size) => (
-                                                <button
-                                                    key={size}
-                                                    onClick={() => {
-                                                        console.log('Size clicked:', size);
-                                                        handleSizeChange(size);
-                                                    }}
-                                                    className={`rounded-lg border px-3 py-2 sm:px-4 sm:py-3 text-xs sm:text-sm font-medium transition-all duration-200 hover:scale-105 ${
-                                                        selectedSize === size
-                                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 shadow-md scale-105'
-                                                            : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
-                                                    }`}
-                                                >
-                                                    {size}
-                                                </button>
-                                            ),
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                        {/* Selected Variant Info */}
-                        {!selectedVariant && selectedColor && selectedSize && (
-                            <div className="text-center py-4">
-                                <div className="text-xs sm:text-sm text-amber-600 dark:text-amber-400">
-                                    <div className="animate-pulse flex items-center justify-center gap-2">
-                                        <div className="w-2 h-2 bg-amber-600 rounded-full animate-bounce"></div>
-                                        <span>Checking availability...</span>
-                                        <div className="w-2 h-2 bg-amber-600 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        {selectedVariant && (
+                        {/* Product Details */}
+                        {selectedProduct && (
                             <div className="space-y-4 rounded-lg border-2 border-green-200 bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 mx-2 sm:mx-0">
                                 <div className="text-center">
                                     <div className="inline-flex items-center gap-2 px-2 py-1 sm:px-3 sm:py-1 bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 rounded-full text-xs sm:text-sm font-medium">
                                         <Check className="h-3 w-3 sm:h-4 sm:w-4" />
-                                        Variant Selected
+                                        Product Selected
                                     </div>
                                 </div>
                                 
@@ -879,31 +581,32 @@ export default function Dashboard() {
                                     <div className="flex justify-between items-center">
                                         <span className="text-xs sm:text-sm font-medium">Price:</span>
                                         <span className="text-sm sm:text-base font-semibold">
-                                            {formatCurrency(selectedVariant.selling_price)}
+                                            {formatCurrency(selectedProduct.discount_price || selectedProduct.selling_price)}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-xs sm:text-sm font-medium">Stock:</span>
-                                        <Badge
-                                            variant={
-                                                getStockColor(selectedVariant) as
-                                                    | 'destructive'
-                                                    | 'secondary'
-                                                    | 'default'
-                                            }
-                                            className="text-xs px-2 py-1"
-                                        >
-                                            {getStockText(selectedVariant)}
-                                        </Badge>
-                                    </div>
-                                    {selectedVariant.discount_price && (
+                                    {selectedProduct.discount_price && (
                                         <div className="flex justify-between items-center">
-                                            <span className="text-xs sm:text-sm font-medium">Discount:</span>
-                                            <span className="text-sm sm:text-base font-semibold text-green-600">
-                                                {formatCurrency(selectedVariant.discount_price)}
+                                            <span className="text-xs sm:text-sm font-medium">Original Price:</span>
+                                            <span className="text-sm sm:text-base line-through text-muted-foreground">
+                                                {formatCurrency(selectedProduct.selling_price)}
                                             </span>
                                         </div>
                                     )}
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs sm:text-sm font-medium">Stock:</span>
+                                        <Badge
+                                            variant={getStockColor(selectedProduct) as 'destructive' | 'secondary' | 'default'}
+                                            className="text-xs px-2 py-1"
+                                        >
+                                            {getStockText(selectedProduct)}
+                                        </Badge>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs sm:text-sm font-medium">SKU:</span>
+                                        <span className="text-xs sm:text-sm font-mono text-muted-foreground">
+                                            {selectedProduct.sku}
+                                        </span>
+                                    </div>
 
                                     {/* Quantity Selection */}
                                     <div>
@@ -928,16 +631,26 @@ export default function Dashboard() {
                                                 type="button"
                                                 variant="outline"
                                                 size="sm"
-                                                onClick={() => setQuantity(Math.min(selectedVariant.quantity, quantity + 1))}
-                                                disabled={quantity >= selectedVariant.quantity}
+                                                onClick={() => setQuantity(Math.min(selectedProduct.quantity, quantity + 1))}
+                                                disabled={quantity >= selectedProduct.quantity}
                                                 className="h-8 w-8 p-0 flex-shrink-0"
                                             >
                                                 <span className="text-lg font-bold">+</span>
                                             </Button>
                                         </div>
                                         <p className="text-xs text-muted-foreground mt-1 text-center">
-                                            Max: {selectedVariant.quantity} available
+                                            Max: {selectedProduct.quantity} available
                                         </p>
+                                    </div>
+
+                                    {/* Total Price */}
+                                    <div className="pt-2 border-t border-green-200 dark:border-green-700">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm sm:text-base font-medium">Total:</span>
+                                            <span className="text-lg sm:text-xl font-bold text-green-600">
+                                                {formatCurrency((selectedProduct.discount_price || selectedProduct.selling_price) * quantity)}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -947,7 +660,7 @@ export default function Dashboard() {
                         <div className="flex flex-col gap-3 pt-4 sm:pt-6 px-2 sm:px-0">
                             <Button
                                 onClick={handleAddToCart}
-                                disabled={!selectedVariant || addingToCart === selectedProduct?.id}
+                                disabled={!selectedProduct || addingToCart === selectedProduct?.id}
                                 size="lg"
                                 className="w-full h-14 sm:h-10 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 shadow-lg text-sm sm:text-base font-medium rounded-xl sm:rounded-lg"
                             >

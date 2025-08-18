@@ -12,7 +12,7 @@ class SaleItem extends Model
 
     protected $fillable = [
         'sale_id',
-        'product_variant_id',
+        'product_id',
         'quantity',
         'unit_price',
         'total_price',
@@ -33,19 +33,11 @@ class SaleItem extends Model
     }
 
     /**
-     * Get the product variant for this item.
-     */
-    public function productVariant(): BelongsTo
-    {
-        return $this->belongsTo(ProductVariant::class);
-    }
-
-    /**
-     * Get the product through the variant.
+     * Get the product for this item.
      */
     public function product(): BelongsTo
     {
-        return $this->belongsTo(Product::class, 'product_id', 'id', 'product_variants');
+        return $this->belongsTo(Product::class);
     }
 
     /**

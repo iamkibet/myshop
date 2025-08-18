@@ -1,17 +1,15 @@
 import { useEffect, useState } from 'react';
 
 interface CartItem {
-    variant_id: number;
+    product_id: number;
     quantity: number;
     unit_price: number;
     product_name: string;
-    color?: string;
-    size?: string;
     image_url?: string;
 }
 
 interface Cart {
-    [variantId: number]: CartItem;
+    [productId: number]: CartItem;
 }
 
 export function useCart() {
@@ -50,7 +48,7 @@ export function useCart() {
     const addToCart = (item: CartItem) => {
         console.log('Adding to cart:', item);
         const newCart = { ...cart };
-        newCart[item.variant_id] = item;
+        newCart[item.product_id] = item;
         console.log('New cart state:', newCart);
         setCart(newCart);
         localStorage.setItem('cart', JSON.stringify(newCart));
@@ -59,10 +57,10 @@ export function useCart() {
     };
 
     // Update cart item
-    const updateCartItem = (variantId: number, quantity: number) => {
+    const updateCartItem = (productId: number, quantity: number) => {
         const newCart = { ...cart };
-        if (newCart[variantId]) {
-            newCart[variantId].quantity = quantity;
+        if (newCart[productId]) {
+            newCart[productId].quantity = quantity;
             setCart(newCart);
             localStorage.setItem('cart', JSON.stringify(newCart));
             updateCartCount(newCart);
@@ -70,9 +68,9 @@ export function useCart() {
     };
 
     // Remove item from cart
-    const removeFromCart = (variantId: number) => {
+    const removeFromCart = (productId: number) => {
         const newCart = { ...cart };
-        delete newCart[variantId];
+        delete newCart[productId];
         setCart(newCart);
         localStorage.setItem('cart', JSON.stringify(newCart));
         updateCartCount(newCart);

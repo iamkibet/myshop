@@ -21,20 +21,15 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 interface SaleItem {
     id: number;
-    product_variant_id: number;
+    product_id: number;
     quantity: number;
     unit_price: number;
     total_price: number;
-    product_variant: {
+    product: {
         id: number;
+        name: string;
         sku: string;
-        color?: string;
-        size?: string;
-        product: {
-            id: number;
-            name: string;
-            brand: string;
-        };
+        brand?: string;
     };
 }
 
@@ -67,6 +62,16 @@ export default function ShowReceipt() {
     const { sale } = props;
     const appName = props.app?.name || 'MyShop';
     const [showPassword, setShowPassword] = useState(false);
+
+    // Debug logging to see the actual data structure
+    console.log('Sale data received:', sale);
+    console.log('Sale items:', sale?.sale_items);
+    if (sale?.sale_items) {
+        sale.sale_items.forEach((item, index) => {
+            console.log(`Sale item ${index}:`, item);
+            console.log(`Product for item ${index}:`, item.product);
+        });
+    }
 
     const handlePrintReceipt = () => {
         window.print();
@@ -112,13 +117,6 @@ export default function ShowReceipt() {
             console.error('Failed to download receipt:', error);
             alert('Failed to download receipt. Please try again.');
         }
-    };
-
-    const getVariantInfo = (variant: SaleItem['product_variant']) => {
-        const parts = [];
-        if (variant.color) parts.push(variant.color);
-        if (variant.size) parts.push(variant.size);
-        return parts.length > 0 ? parts.join(' - ') : 'Standard';
     };
 
     return (
@@ -227,9 +225,9 @@ export default function ShowReceipt() {
                                             {/* Mobile Layout */}
                                             <div className="flex items-center justify-between sm:hidden">
                                                 <div className="flex-1">
-                                                    <h3 className="text-sm font-medium">{item.product_variant.product.name}</h3>
+                                                    <h3 className="text-sm font-medium">{item.product?.name || 'Unknown Product'}</h3>
                                                     <p className="text-xs text-muted-foreground">
-                                                        {getVariantInfo(item.product_variant)} • {item.product_variant.sku}
+                                                        {item.product?.sku || 'N/A'}
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
@@ -242,9 +240,9 @@ export default function ShowReceipt() {
 
                                             {/* Desktop Layout */}
                                             <div className="hidden sm:col-span-6 sm:block">
-                                                <h3 className="font-medium">{item.product_variant.product.name}</h3>
+                                                <h3 className="font-medium">{item.product?.name || 'Unknown Product'}</h3>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {getVariantInfo(item.product_variant)} • {item.product_variant.sku}
+                                                    {item.product?.sku || 'N/A'}
                                                 </p>
                                             </div>
                                             <div className="hidden sm:col-span-2 sm:block sm:text-right">{item.quantity}</div>
