@@ -185,9 +185,24 @@ export default function ProductForm({
                 
                 // Handle image - only send if changed
                 if (formData.imageFile) {
-                    // If there's a new file, we need to handle this differently
-                    setErrors({ general: 'Image upload not supported in edit mode yet. Please update other fields first.' });
-                    setIsSubmitting(false);
+                    // If there's a new file, we need to use FormData
+                    const formDataToSend = new FormData();
+                    
+                    // Add all the text fields
+                    Object.keys(dataToSend).forEach(key => {
+                        formDataToSend.append(key, dataToSend[key]);
+                    });
+                    
+                    // Add the image file
+                    formDataToSend.append('image', formData.imageFile);
+                    
+                    console.log('Sending FormData with image for edit');
+                    await router.visit(`/products/${product.id}`, {
+                        method: 'put',
+                        data: formDataToSend,
+                        preserveState: false,
+                        preserveScroll: false,
+                    });
                     return;
                 } else if (formData.image_url && formData.image_url !== product.image_url && !formData.image_url.startsWith('blob:')) {
                     dataToSend.image_url = formData.image_url;
@@ -232,10 +247,24 @@ export default function ProductForm({
                 }
 
                 if (formData.imageFile) {
-                    // If there's a file, we need to handle this differently
-                    setErrors({ general: 'Image upload not supported in create mode yet. Please add image URL instead.' });
-                    setIsSubmitting(false);
-                    return;
+                    // If there's a file, we need to use FormData
+                    const formDataToSend = new FormData();
+                    
+                    // Add all the text fields
+                    Object.keys(dataToSend).forEach(key => {
+                        formDataToSend.append(key, dataToSend[key]);
+                    });
+                    
+                    // Add the image file
+                    formDataToSend.append('image', formData.imageFile);
+                    
+                    console.log('Sending FormData with image for create');
+                    await router.visit('/products', {
+                        method: 'post',
+                        data: formDataToSend,
+                        preserveState: false,
+                        preserveScroll: false,
+                    });
                 } else {
                     console.log('Submitting new product:', dataToSend);
                     await router.post('/products', dataToSend);
