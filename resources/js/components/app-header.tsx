@@ -11,9 +11,10 @@ import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, Menu, Search } from 'lucide-react';
+import { BookOpen, Folder, LayoutGrid, Menu, Search, ShoppingCart } from 'lucide-react';
 import AppLogo from './app-logo';
 import AppLogoIcon from './app-logo-icon';
+import { useCart } from '@/hooks/use-cart';
 
 const mainNavItems: NavItem[] = [
     {
@@ -46,6 +47,8 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
     const page = usePage<SharedData>();
     const { auth } = page.props;
     const getInitials = useInitials();
+    const { cartCount } = useCart();
+    
     return (
         <>
             <div className="border-b border-sidebar-border/80">
@@ -129,6 +132,20 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
                             <Button variant="ghost" size="icon" className="group h-9 w-9 cursor-pointer">
                                 <Search className="!size-5 opacity-80 group-hover:opacity-100" />
                             </Button>
+                            
+                            {/* Cart Button - Desktop */}
+                            <Link href="/cart">
+                                <Button variant="ghost" size="icon" className="group relative h-9 w-9 cursor-pointer">
+                                    <ShoppingCart className="!size-5 opacity-80 group-hover:opacity-100" />
+                                    {/* Cart Badge - only show when items exist */}
+                                    {cartCount > 0 && (
+                                        <div className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold animate-in zoom-in-95 duration-200">
+                                            {cartCount > 99 ? '99+' : cartCount}
+                                        </div>
+                                    )}
+                                </Button>
+                            </Link>
+                            
                             <div className="hidden lg:flex">
                                 {rightNavItems.map((item) => (
                                     <TooltipProvider key={item.title} delayDuration={0}>

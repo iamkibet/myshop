@@ -15,7 +15,7 @@ import {
     Users,
     Wallet,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCart } from '@/hooks/use-cart';
 
 interface User {
@@ -44,6 +44,21 @@ export function BottomNavigation() {
 
     const [mobileActionDialogOpen, setMobileActionDialogOpen] = useState(false);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+    // Listen for cart updates to ensure immediate re-render
+    useEffect(() => {
+        const handleCartUpdate = () => {
+            console.log('BottomNavigation - cart update event received');
+            // Force re-render by updating a state variable
+            setMobileActionDialogOpen(prev => prev);
+        };
+
+        window.addEventListener('cartUpdated', handleCartUpdate);
+        
+        return () => {
+            window.removeEventListener('cartUpdated', handleCartUpdate);
+        };
+    }, []);
 
     // Check if a route is active
     const isActiveRoute = (path: string) => {
@@ -118,6 +133,25 @@ export function BottomNavigation() {
 
                         {/* Right Navigation Items */}
                         <div className="flex items-center space-x-4">
+                            {/* Cart with indicator - show for all users when items exist */}
+                            <Link 
+                                href="/cart" 
+                                className={`relative flex flex-col items-center space-y-1 p-2 rounded-xl transition-all duration-200 ${
+                                    isActiveRoute('/cart') 
+                                        ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                                }`}
+                            >
+                                <ShoppingCart className={`h-5 w-5 ${isActiveRoute('/cart') ? 'text-blue-600 dark:text-blue-400' : ''}`} />
+                                <span className="text-xs font-medium">Cart</span>
+                                {/* Cart Badge - only show when cartCount > 0 */}
+                                {cartCount > 0 && (
+                                    <div className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold animate-in zoom-in-95 duration-200">
+                                        {cartCount > 99 ? '99+' : cartCount}
+                                    </div>
+                                )}
+                            </Link>
+
                             {/* Role-specific right items */}
                             {isAdmin ? (
                                 <>
@@ -146,24 +180,6 @@ export function BottomNavigation() {
                                 </>
                             ) : (
                                 <>
-                                    {/* Cart with indicator - only show when items exist */}
-                                    <Link 
-                                        href="/cart" 
-                                        className={`relative flex flex-col items-center space-y-1 p-2 rounded-xl transition-all duration-200 ${
-                                            isActiveRoute('/cart') 
-                                                ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' 
-                                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
-                                        }`}
-                                    >
-                                        <ShoppingCart className={`h-5 w-5 ${isActiveRoute('/cart') ? 'text-blue-600 dark:text-blue-400' : ''}`} />
-                                        <span className="text-xs font-medium">Cart</span>
-                                        {/* Cart Badge - only show when cartCount > 0 */}
-                                        {cartCount > 0 && (
-                                            <div className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                                                {cartCount > 99 ? '99+' : cartCount}
-                                            </div>
-                                        )}
-                                    </Link>
                                     <Link 
                                         href="/sales" 
                                         className={`flex flex-col items-center space-y-1 p-2 rounded-xl transition-all duration-200 ${
@@ -177,10 +193,6 @@ export function BottomNavigation() {
                                     </Link>
                                 </>
                             )}
-
-                           
-
-                           
                         </div>
                     </div>
                 </div>
@@ -222,6 +234,25 @@ export function BottomNavigation() {
                                         <span className="text-sm font-medium">View Wallets</span>
                                     </Button>
                                 </Link>
+                                {/* Cart access for admins */}
+                                <Link href="/cart" onClick={() => setMobileActionDialogOpen(false)}>
+                                    <Button className="w-full h-20 flex-col space-y-2" variant="outline">
+                                        <ShoppingCart className="h-6 w-6" />
+                                        <span className="text-sm font-medium">View Cart</span>
+                                        {/* Show cart count if items exist */}
+                                        {cartCount > 0 && (
+                                            <div className="absolute -top-2 -right-2 h-6 w-6 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                                                {cartCount > 99 ? '99+' : cartCount}
+                                            </div>
+                                        )}
+                                    </Button>
+                                </Link>
+                                <Link href="/dashboard" onClick={() => setMobileActionDialogOpen(false)}>
+                                    <Button className="w-full h-20 flex-col space-y-2" variant="outline">
+                                        <Package className="h-6 w-6" />
+                                        <span className="text-sm font-medium">Browse Products</span>
+                                    </Button>
+                                </Link>
                             </>
                         ) : (
                             // Manager Actions
@@ -235,7 +266,13 @@ export function BottomNavigation() {
                                 <Link href="/cart" onClick={() => setMobileActionDialogOpen(false)}>
                                     <Button className="w-full h-20 flex-col space-y-2" variant="outline">
                                         <ShoppingCart className="h-6 w-6" />
-                                        <span className="text-sm font-history">View Cart</span>
+                                        <span className="text-sm font-medium">View Cart</span>
+                                        {/* Show cart count if items exist */}
+                                        {cartCount > 0 && (
+                                            <div className="absolute -top-2 -right-2 h-6 w-6 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                                                {cartCount > 99 ? '99+' : cartCount}
+                                            </div>
+                                        )}
                                     </Button>
                                 </Link>
                                 <Link href="/expenses/create" onClick={() => setMobileActionDialogOpen(false)}>
@@ -294,7 +331,7 @@ export function BottomNavigation() {
                                 </Link>
                                 <Link href="/wallets" onClick={() => setMobileSidebarOpen(false)}>
                                     <Button className="w-full justify-start" variant="ghost">
-                                        <Wallet className="mr-3 h-4 w-4" />
+                                        <DollarSign className="mr-3 h-4 w-4" />
                                         Manager Wallets
                                     </Button>
                                 </Link>
@@ -314,6 +351,19 @@ export function BottomNavigation() {
                                     <Button className="w-full justify-start" variant="ghost">
                                         <BarChart3 className="mr-3 h-4 w-4" />
                                         Commission Rates
+                                    </Button>
+                                </Link>
+                                {/* Cart access for admins */}
+                                <Link href="/cart" onClick={() => setMobileSidebarOpen(false)}>
+                                    <Button className="w-full justify-start" variant="ghost">
+                                        <ShoppingCart className="mr-3 h-4 w-4" />
+                                        Shopping Cart
+                                        {/* Show cart count if items exist */}
+                                        {cartCount > 0 && (
+                                            <div className="ml-auto h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                                                {cartCount > 99 ? '99+' : cartCount}
+                                            </div>
+                                        )}
                                     </Button>
                                 </Link>
                             </>
@@ -336,6 +386,12 @@ export function BottomNavigation() {
                                     <Button className="w-full justify-start" variant="ghost">
                                         <ShoppingCart className="mr-3 h-4 w-4" />
                                         Shopping Cart
+                                        {/* Show cart count if items exist */}
+                                        {cartCount > 0 && (
+                                            <div className="ml-auto h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                                                {cartCount > 99 ? '99+' : cartCount}
+                                            </div>
+                                        )}
                                     </Button>
                                 </Link>
                                 <Link href="/sales" onClick={() => setMobileSidebarOpen(false)}>

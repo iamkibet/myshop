@@ -107,6 +107,7 @@ export default function Dashboard() {
     const [addingToCart, setAddingToCart] = useState<number | null>(null);
     const { cartCount: localCartCount, addToCart } = useCart();
     const [soldItems, setSoldItems] = useState<Set<number>>(new Set());
+    const [forceUpdate, setForceUpdate] = useState(0); // Force re-render
 
     // Product selection state
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -164,6 +165,9 @@ export default function Dashboard() {
             console.log('Adding cart item:', cartItem);
             addToCart(cartItem);
             console.log('Cart item added, current cart count:', localCartCount);
+
+            // Force re-render to ensure cart count updates immediately
+            setForceUpdate(prev => prev + 1);
 
             // Close modal after successful add
             setIsModalOpen(false);
@@ -224,6 +228,24 @@ export default function Dashboard() {
                                 </Button>
                             </Link>
                             {/* Cart button - hidden on mobile, shows badge on large screens */}
+                            <Link href="/cart" className="hidden sm:block">
+                                <Button variant="outline" className="relative">
+                                    <ShoppingCart className="mr-2 h-4 w-4" />
+                                    <span>Cart</span>
+                                    {/* Cart Badge - only show when items exist */}
+                                    {localCartCount > 0 && (
+                                        <div className="absolute -top-2 -right-2 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                                            {localCartCount > 99 ? '99+' : localCartCount}
+                                        </div>
+                                    )}
+                                </Button>
+                            </Link>
+                        </div>
+                    )}
+
+                    {/* Cart button for admins - hidden on mobile, shows badge on large screens */}
+                    {isAdmin && (
+                        <div className="flex items-center space-x-2">
                             <Link href="/cart" className="hidden sm:block">
                                 <Button variant="outline" className="relative">
                                     <ShoppingCart className="mr-2 h-4 w-4" />
