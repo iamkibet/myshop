@@ -242,40 +242,32 @@ class ProductController extends Controller
      */
     public function update(Request $request, Product $product): \Illuminate\Http\RedirectResponse
     {
+        // Check authentication and authorization
+        $user = auth()->user();
+        if (!$user || !$user->isAdmin()) {
+            abort(403, 'Unauthorized access.');
+        }
+
         try {
-
-
-            // Check if we have any data at all
-            if (empty($request->all()) && empty($request->allFiles())) {
-                return redirect()->back()->withInput()->withErrors([
-                    'general' => 'No form data received. Please try again or contact support if the problem persists.'
-                ]);
-            }
-
-            // Check authentication and authorization
-            $user = auth()->user();
-            if (!$user || !$user->isAdmin()) {
-                abort(403, 'Unauthorized access.');
-            }
-
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'category' => 'required|string|max:100',
-                'description' => 'nullable|string',
-                'brand' => 'nullable|string|max:100',
-                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-                'image_url' => 'nullable|string|url',
-                'features' => 'nullable|string', // Changed from array to string since we're sending JSON
-                'sku' => 'nullable|string|max:100|unique:products,sku,' . $product->id,
-                'quantity' => 'required|integer|min:0',
-                'cost_price' => 'required|numeric|min:0',
-                'selling_price' => 'required|numeric|min:0',
-                'discount_price' => 'nullable|numeric|min:0',
-                'low_stock_threshold' => 'required|integer|min:0',
-                'is_active' => 'boolean',
-            ]);
-
-            Log::info('Update validation passed', ['validated' => $validated]);
+            // For partial updates, only validate fields that are present
+            $validationRules = [];
+            
+            if ($request->has('name')) $validationRules['name'] = 'required|string|max:255';
+            if ($request->has('category')) $validationRules['category'] = 'required|string|max:100';
+            if ($request->has('description')) $validationRules['description'] = 'nullable|string';
+            if ($request->has('brand')) $validationRules['brand'] = 'nullable|string|max:100';
+            if ($request->has('image')) $validationRules['image'] = 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048';
+            if ($request->has('image_url')) $validationRules['image_url'] = 'nullable|string|url';
+            if ($request->has('features')) $validationRules['features'] = 'nullable|string';
+            if ($request->has('sku')) $validationRules['sku'] = 'nullable|string|max:100|unique:products,sku,' . $product->id;
+            if ($request->has('quantity')) $validationRules['quantity'] = 'required|integer|min:0';
+            if ($request->has('cost_price')) $validationRules['cost_price'] = 'required|numeric|min:0';
+            if ($request->has('selling_price')) $validationRules['selling_price'] = 'required|numeric|min:0';
+            if ($request->has('discount_price')) $validationRules['discount_price'] = 'nullable|numeric|min:0';
+            if ($request->has('low_stock_threshold')) $validationRules['low_stock_threshold'] = 'required|integer|min:0';
+            if ($request->has('is_active')) $validationRules['is_active'] = 'boolean';
+            
+            $validated = $request->validate($validationRules);
 
             // Handle image upload
             $imagePath = $product->image_url; // Keep existing image by default
@@ -286,21 +278,22 @@ class ProductController extends Controller
                 $imagePath = '/storage/' . $imagePath;
             } elseif ($request->filled('image_url')) {
                 $imagePath = $request->image_url;
-            } else {
-                $imagePath = $product->image_url;
             }
 
-            // Validate discount price is less than selling price
-            if (isset($validated['discount_price']) && $validated['discount_price'] >= $validated['selling_price']) {
+            // Validate discount price is less than selling price (only if both are present)
+            if (isset($validated['discount_price']) && isset($validated['selling_price']) && $validated['discount_price'] >= $validated['selling_price']) {
                 return redirect()->back()->withInput()->withErrors([
                     'discount_price' => 'Discount price must be less than selling price.'
                 ]);
             }
 
-            // Prepare data for update
-            $productData = array_merge($validated, [
-                'image_url' => $imagePath,
-            ]);
+            // Prepare data for update - only include fields that were sent
+            $productData = $validated;
+            
+            // Only update image_url if it was changed
+            if ($request->hasFile('image') || $request->filled('image_url')) {
+                $productData['image_url'] = $imagePath;
+            }
 
             // Parse features from JSON string to array
             if (isset($productData['features']) && is_string($productData['features'])) {
@@ -310,26 +303,15 @@ class ProductController extends Controller
             // Remove the image file from validated data since we're storing the path
             unset($productData['image']);
 
-
-
             $product->update($productData);
-
-
 
             return redirect()->route('products.index')->with('success', 'Product updated successfully!');
         } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('Product update validation failed', [
-                'errors' => $e->errors(),
-                'input' => $request->all(),
-                'product_id' => $product->id
-            ]);
             throw $e;
         } catch (\Exception $e) {
             Log::error('Product update failed', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
                 'product_id' => $product->id,
-                'request_data' => $request->all()
             ]);
 
             return redirect()->back()->withInput()->withErrors([
@@ -341,22 +323,16 @@ class ProductController extends Controller
     /**
      * Remove the specified product
      */
-    public function destroy(Product $product): JsonResponse
+    public function destroy(Product $product): \Illuminate\Http\RedirectResponse
     {
         // Check if product has any sales
         if ($product->sales()->exists()) {
-            return response()->json([
-                'message' => 'Cannot delete product that has sales records.',
-            ], 422);
+            return redirect()->back()->with('error', 'Cannot delete product that has sales records.');
         }
 
         $product->delete();
 
-
-
-        return response()->json([
-            'message' => 'Product deleted successfully.',
-        ]);
+        return redirect()->back()->with('success', 'Product deleted successfully.');
     }
 
     /**

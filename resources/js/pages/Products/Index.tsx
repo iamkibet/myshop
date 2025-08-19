@@ -157,8 +157,16 @@ export default function ProductsIndex({ products, categories, brands, filters, f
     };
 
     const handleDelete = (productId: number) => {
-        if (confirm('Are you sure you want to delete this product?')) {
-            router.delete(`/products/${productId}`);
+        if (confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
+            router.delete(`/products/${productId}`, {
+                onSuccess: () => {
+                    // The success message will be shown via flash message
+                },
+                onError: (errors) => {
+                    // Handle any validation errors or other issues
+                    console.error('Delete failed:', errors);
+                },
+            });
         }
     };
 

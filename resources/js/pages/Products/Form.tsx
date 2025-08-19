@@ -81,31 +81,11 @@ export default function ProductForm({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [newFeature, setNewFeature] = useState('');
 
-    // Debug: Log form initialization
-    console.log('Form initialization:', {
-        isEditing,
-        product,
-        initialFormData: {
-            name: product?.name || '',
-            category: product?.category || '',
-            description: product?.description || '',
-            brand: product?.brand || '',
-            image_url: product?.image_url || '',
-            features: ensureFeaturesArray(product?.features),
-            sku: product?.sku || '',
-            quantity: product?.quantity || 0,
-            cost_price: product?.cost_price || 0,
-            selling_price: product?.selling_price || 0,
-            discount_price: product?.discount_price,
-            low_stock_threshold: product?.low_stock_threshold || 5,
-            is_active: product?.is_active ?? true,
-        }
-    });
+
 
     // Ensure form data is properly set when editing
     useEffect(() => {
         if (isEditing && product) {
-            console.log('Setting form data for editing:', product);
             const newFormData = {
                 name: product.name || '',
                 category: product.category || '',
@@ -122,43 +102,8 @@ export default function ProductForm({
                 is_active: product.is_active ?? true,
             };
             setFormData(newFormData);
-            console.log('Form data set successfully:', newFormData);
         }
     }, [isEditing, product]);
-
-    // CRITICAL FIX: Force form data initialization if it's empty
-    useEffect(() => {
-        if (isEditing && product && (!formData.name || !formData.category)) {
-            console.log('Form data is empty, re-initializing...');
-            const newFormData = {
-                name: product.name || '',
-                category: product.category || '',
-                description: product.description || '',
-                brand: product.brand || '',
-                image_url: product.image_url || '',
-                features: ensureFeaturesArray(product.features),
-                sku: product.sku || '',
-                quantity: product.quantity || 0,
-                cost_price: product.cost_price || 0,
-                selling_price: product.selling_price || 0,
-                discount_price: product.discount_price,
-                low_stock_threshold: product.low_stock_threshold || 5,
-                is_active: product.is_active ?? true,
-            };
-            setFormData(newFormData);
-            console.log('Form data re-initialized:', newFormData);
-        }
-    }, [isEditing, product, formData.name, formData.category]);
-
-    // Debug: Log whenever formData changes
-    useEffect(() => {
-        console.log('Form data changed:', formData);
-    }, [formData]);
-
-    // Debug: Log whenever product prop changes
-    useEffect(() => {
-        console.log('Product prop changed:', product);
-    }, [product]);
 
     const handleInputChange = (field: keyof Product, value: any) => {
         // Handle undefined values for optional fields
@@ -201,176 +146,100 @@ export default function ProductForm({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        console.log('Form submitted!');
+        console.log('Form data:', formData);
+        console.log('Is editing:', isEditing);
+        console.log('Product:', product);
+        
         setIsSubmitting(true);
         setErrors({});
 
-        // CRITICAL FIX: Check if form data is properly initialized
-        if (isEditing && (!formData.name || !formData.category)) {
-            console.error('Form data not properly initialized:', formData);
-            setErrors({ general: 'Form data not properly loaded. Please refresh the page and try again.' });
-            setIsSubmitting(false);
-            return;
-        }
-
-        // Remove the isFormReady check since we've simplified it
-        // if (isEditing && !isFormReady) {
-        //     console.error('Form not ready for submission');
-        //     setErrors({ general: 'Form is still loading. Please wait and try again.' });
-        //     setIsSubmitting(false);
-        //     return;
-        // }
-
-        // AGGRESSIVE VALIDATION: Check if all required fields are present
-        if (isEditing) {
-            const requiredFields = ['name', 'category', 'quantity', 'cost_price', 'selling_price', 'low_stock_threshold'];
-            const missingFields = requiredFields.filter(field => {
-                const value = formData[field as keyof Product];
-                return value === undefined || value === null || value === '';
-            });
-            
-            if (missingFields.length > 0) {
-                console.error('Missing required fields:', missingFields);
-                console.error('Current form data:', formData);
-                setErrors({ general: `Missing required fields: ${missingFields.join(', ')}. Please refresh the page and try again.` });
-                setIsSubmitting(false);
-                return;
-            }
-        }
-
         try {
-            // Create FormData for file uploads
-            const formDataToSend = new FormData();
-            
-            // Debug: Log the complete formData state
-            console.log('=== FORM SUBMISSION DEBUG ===');
-            console.log('Complete formData state:', formData);
-            console.log('Form data keys:', Object.keys(formData));
-            console.log('Form data values:', Object.values(formData));
-            console.log('isEditing:', isEditing);
-            console.log('product:', product);
-            
-            // Debug: Log what we're about to process
-            console.log('Processing form data:', {
-                hasImageFile: !!formData.imageFile,
-                imageUrl: formData.image_url,
-                isBlobUrl: formData.image_url?.startsWith('blob:')
-            });
-            
-            // SIMPLIFIED APPROACH: Just send all the form data directly
             if (isEditing && product) {
-                // For editing, send all the current form data
-                formDataToSend.append('_method', 'PUT');
+                // For editing, use PUT method with regular object (like CommissionRates)
+                console.log('Submitting product update for:', product.id);
+                console.log('Product ID:', product.id);
                 
-                // Add all form fields with explicit values
-                formDataToSend.append('name', formData.name || '');
-                formDataToSend.append('category', formData.category || '');
-                formDataToSend.append('description', formData.description || '');
-                formDataToSend.append('brand', formData.brand || '');
-                formDataToSend.append('sku', formData.sku || '');
-                formDataToSend.append('quantity', String(formData.quantity || 0));
-                formDataToSend.append('cost_price', String(formData.cost_price || 0));
-                formDataToSend.append('selling_price', String(formData.selling_price || 0));
-                formDataToSend.append('low_stock_threshold', String(formData.low_stock_threshold || 5));
-                formDataToSend.append('is_active', formData.is_active ? '1' : '0');
+                // Only send changed fields to avoid overwriting existing data
+                const dataToSend: any = {};
                 
-                // Handle features
-                if (formData.features && Array.isArray(formData.features) && formData.features.length > 0) {
-                    formDataToSend.append('features', JSON.stringify(formData.features));
-                } else {
-                    formDataToSend.append('features', JSON.stringify(ensureFeaturesArray(formData.features)));
+                // Check each field and only include if it changed
+                if (formData.name !== product.name) dataToSend.name = formData.name;
+                if (formData.category !== product.category) dataToSend.category = formData.category;
+                if (formData.description !== product.description) dataToSend.description = formData.description || '';
+                if (formData.brand !== product.brand) dataToSend.brand = formData.brand || '';
+                if (formData.sku !== product.sku) dataToSend.sku = formData.sku || '';
+                if (formData.quantity !== product.quantity) dataToSend.quantity = formData.quantity;
+                if (formData.cost_price !== product.cost_price) dataToSend.cost_price = formData.cost_price;
+                if (formData.selling_price !== product.selling_price) dataToSend.selling_price = formData.selling_price;
+                if (formData.discount_price !== product.discount_price) dataToSend.discount_price = formData.discount_price || '';
+                if (formData.low_stock_threshold !== product.low_stock_threshold) dataToSend.low_stock_threshold = formData.low_stock_threshold;
+                if (formData.is_active !== product.is_active) dataToSend.is_active = formData.is_active ? '1' : '0';
+                
+                // Handle features - only send if changed
+                const currentFeatures = JSON.stringify(formData.features || []);
+                const originalFeatures = JSON.stringify(product.features || []);
+                if (currentFeatures !== originalFeatures) {
+                    dataToSend.features = currentFeatures;
                 }
                 
-                // Handle image
+                // Handle image - only send if changed
                 if (formData.imageFile) {
-                    formDataToSend.append('image', formData.imageFile);
-                } else if (formData.image_url && !formData.image_url.startsWith('blob:')) {
-                    formDataToSend.append('image_url', formData.image_url);
+                    // If there's a new file, we need to handle this differently
+                    setErrors({ general: 'Image upload not supported in edit mode yet. Please update other fields first.' });
+                    setIsSubmitting(false);
+                    return;
+                } else if (formData.image_url && formData.image_url !== product.image_url && !formData.image_url.startsWith('blob:')) {
+                    dataToSend.image_url = formData.image_url;
                 }
                 
-                console.log('=== SIMPLIFIED FORM DATA ===');
-                console.log('Form data being sent:', Object.fromEntries(formDataToSend.entries()));
-                
-                // Use router.post with _method override instead of router.put for better compatibility
-                // Also try using the visit method as a fallback
-                try {
-                    await router.post(`/products/${product.id}`, formDataToSend as any);
-                } catch (error) {
-                    console.error('Router post failed, trying visit method:', error);
-                    // Fallback to visit method
-                    await router.visit(`/products/${product.id}`, {
-                        method: 'put',
-                        data: formDataToSend,
-                        preserveState: false,
-                        preserveScroll: false,
-                    });
+                // Only proceed if there are actual changes
+                if (Object.keys(dataToSend).length === 0) {
+                    setErrors({ general: 'No changes detected. Please modify at least one field before updating.' });
+                    setIsSubmitting(false);
+                    return;
                 }
+                
+                console.log('Data to send (only changed fields):', dataToSend);
+                console.log('URL:', `/products/${product.id}`);
+                
+                // Update the product
+                await router.put(`/products/${product.id}`, dataToSend);
             } else {
-                // For creating new products, use the original logic
-                // Add all form fields EXCEPT image_url (we'll handle it separately)
+                // For creating new products
+                const dataToSend: any = {};
+                
                 Object.keys(formData).forEach(key => {
                     if (key === 'features') {
-                        // Send features as proper JSON array
-                        const features = ensureFeaturesArray(formData.features);
-                        formDataToSend.append(key, JSON.stringify(features));
-                    } else if (key === 'imageFile') {
-                        // Handle file upload - only send if there's an actual file
-                        if (formData.imageFile) {
-                            formDataToSend.append('image', formData.imageFile);
-                            console.log('Added image file:', formData.imageFile.name);
-                        }
-                    } else if (key === 'image_url') {
-                        // Skip image_url here - we'll handle it separately
-                        console.log('Skipping image_url in main loop');
+                        dataToSend[key] = JSON.stringify(formData.features || []);
+                    } else if (key === 'imageFile' && formData.imageFile) {
+                        // Skip for now, handle separately
                     } else if (key !== 'imageFile') {
-                        // Handle other fields - send ALL values, including empty strings and 0
                         const value = formData[key as keyof Product];
                         if (value !== undefined && value !== null) {
                             if (typeof value === 'boolean') {
-                                formDataToSend.append(key, value ? '1' : '0');
+                                dataToSend[key] = value ? '1' : '0';
                             } else {
-                                // Send the value as is, even if it's an empty string or 0
-                                formDataToSend.append(key, String(value));
+                                dataToSend[key] = value;
                             }
-                            console.log(`Added field ${key}:`, value);
-                        } else {
-                            console.log(`Skipping field ${key}: undefined or null`);
                         }
                     }
                 });
 
-                // Handle image_url separately - only add if no file is uploaded AND it's a real URL
+                // Handle image_url separately
                 if (!formData.imageFile && formData.image_url && !formData.image_url.startsWith('blob:')) {
-                    formDataToSend.append('image_url', formData.image_url);
-                    console.log('Added image_url:', formData.image_url);
-                } else if (formData.imageFile) {
-                    console.log('Skipping image_url because we have imageFile');
-                } else if (formData.image_url?.startsWith('blob:')) {
-                    console.log('Skipping blob URL:', formData.image_url);
-                } else {
-                    console.log('No image_url to add - field is empty or null');
+                    dataToSend.image_url = formData.image_url;
                 }
 
-                // Debug: Log what we're sending
-                console.log('Final form data being sent:', Object.fromEntries(formDataToSend.entries()));
-                console.log('Form state:', {
-                    isEditing,
-                    productId: product?.id,
-                    hasImageFile: !!formData.imageFile,
-                    imageUrl: formData.image_url,
-                    originalImageUrl: product?.image_url
-                });
-
-                // FINAL VALIDATION: Ensure we have data to send
-                const formDataEntries = Array.from(formDataToSend.entries());
-                if (isEditing && formDataEntries.length === 0) {
-                    console.error('FormData is empty! This should not happen.');
-                    setErrors({ general: 'Form data is empty. Please refresh the page and try again.' });
+                if (formData.imageFile) {
+                    // If there's a file, we need to handle this differently
+                    setErrors({ general: 'Image upload not supported in create mode yet. Please add image URL instead.' });
                     setIsSubmitting(false);
                     return;
+                } else {
+                    console.log('Submitting new product:', dataToSend);
+                    await router.post('/products', dataToSend);
                 }
-
-                console.log('Creating new product');
-                await router.post('/products', formDataToSend as any);
             }
         } catch (error: any) {
             console.error('Form submission error:', error);
@@ -428,7 +297,7 @@ export default function ProductForm({
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6" noValidate>
                     {/* General Error Display */}
                     {errors.general && (
                         <Alert variant="destructive">
