@@ -28,11 +28,7 @@ class ProductRequest extends FormRequest
 
         $productId = $this->route('product')?->id;
 
-        Log::info('ProductRequest::rules called', [
-            'method' => $this->method(),
-            'all_data' => $this->all(),
-            'product_id' => $productId
-        ]);
+
 
         $rules = [
             'name' => 'required|string|max:255',
@@ -52,7 +48,7 @@ class ProductRequest extends FormRequest
             'is_active' => 'boolean',
         ];
 
-        Log::info('ProductRequest::rules - END', ['rules' => $rules]);
+
         return $rules;
     }
 
@@ -61,54 +57,37 @@ class ProductRequest extends FormRequest
      */
     public function withValidator($validator)
     {
-        Log::info('ProductRequest::withValidator - START');
+
 
         $validator->after(function ($validator) {
-            Log::info('ProductRequest::withValidator::after - START');
+
 
             // Custom validation for msrp >= cost_price
             $costPrice = $this->input('cost_price');
             $msrp = $this->input('msrp');
 
-            Log::info('ProductRequest::withValidator::after - checking prices', [
-                'cost_price' => $costPrice,
-                'msrp' => $msrp
-            ]);
+
 
             if ($costPrice && $msrp && floatval($msrp) < floatval($costPrice)) {
                 $validator->errors()->add('msrp', 'The MSRP must be greater than or equal to the cost price.');
             }
 
-            // Test JSON validation
-            Log::info('ProductRequest::withValidator::after - testing JSON fields');
+            // Validate JSON fields
             $jsonFields = ['sizes', 'colors', 'images'];
             foreach ($jsonFields as $field) {
                 $value = $this->input($field);
-                Log::info("Testing JSON field: {$field}", ['value' => $value]);
-
                 if ($value && is_string($value)) {
                     $decoded = json_decode($value, true);
                     if (json_last_error() !== JSON_ERROR_NONE) {
-                        Log::error("JSON decode error for {$field}", [
-                            'value' => $value,
-                            'error' => json_last_error_msg()
-                        ]);
                         $validator->errors()->add($field, "Invalid JSON format for {$field}");
-                    } else {
-                        Log::info("JSON decode successful for {$field}", ['decoded' => $decoded]);
                     }
                 }
             }
 
-            Log::info('ProductRequest validation completed', [
-                'errors' => $validator->errors()->toArray(),
-                'passes' => $validator->passes()
-            ]);
 
-            Log::info('ProductRequest::withValidator::after - END');
         });
 
-        Log::info('ProductRequest::withValidator - END');
+
     }
 
     /**

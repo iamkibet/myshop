@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import {  LayoutGrid, Package, Plus, Receipt, Users, DollarSign, Receipt as ReceiptIcon, Percent, ShoppingCart } from 'lucide-react';
+import {  LayoutGrid, Package, Plus, Receipt, Users, DollarSign, Receipt as ReceiptIcon, Percent } from 'lucide-react';
 import AppLogo from './app-logo';
 
 interface User {
@@ -82,11 +82,6 @@ export function AppSidebar() {
             title: 'Commission Rates',
             href: '/commission-rates',
             icon: Percent,
-        },
-        {
-            title: 'Shopping Cart',
-            href: '/cart',
-            icon: ShoppingCart,
         },
     ];
 

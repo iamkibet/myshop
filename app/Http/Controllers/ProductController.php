@@ -130,14 +130,7 @@ class ProductController extends Controller
     public function store(Request $request): \Illuminate\Http\RedirectResponse
     {
         try {
-            // Log the incoming request data
-            Log::info('Product creation request', [
-                'data' => $request->all(),
-                'files' => $request->allFiles(),
-                'has_image_file' => $request->hasFile('image'),
-                'image_url_present' => $request->filled('image_url'),
-                'image_url_value' => $request->input('image_url'),
-            ]);
+
 
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
@@ -156,22 +149,19 @@ class ProductController extends Controller
                 'is_active' => 'boolean',
             ]);
 
-            Log::info('Validation passed', ['validated' => $validated]);
+
 
             // Handle image upload
             $imagePath = null;
             if ($request->hasFile('image')) {
-                Log::info('Processing image upload');
                 $image = $request->file('image');
                 $imageName = time() . '_' . $image->getClientOriginalName();
                 $imagePath = $image->storeAs('products', $imageName, 'public');
                 $imagePath = '/storage/' . $imagePath;
-                Log::info('Image stored', ['path' => $imagePath]);
             } elseif ($request->filled('image_url')) {
-                Log::info('Using image URL', ['url' => $request->image_url]);
                 $imagePath = $request->image_url;
             } else {
-                Log::info('No image provided');
+                $imagePath = null;
             }
 
             // Validate discount price is less than selling price
@@ -194,16 +184,11 @@ class ProductController extends Controller
             // Remove the image file from validated data since we're storing the path
             unset($productData['image']);
 
-            Log::info('Creating product with data', ['product_data' => $productData]);
+
 
             $product = Product::create($productData);
 
-            Log::info('Product created successfully', [
-                'product_id' => $product->id,
-                'name' => $product->name,
-                'sku' => $product->sku,
-                'image_path' => $imagePath
-            ]);
+
 
             return redirect()->route('products.index')->with('success', 'Product created successfully!');
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -243,13 +228,7 @@ class ProductController extends Controller
         $existingCategories = Product::getAvailableCategories();
         $existingBrands = Product::getAvailableBrands();
 
-        // Debug: Log what we're sending to the frontend
-        Log::info('Product edit request', [
-            'product_id' => $product->id,
-            'product_data' => $product->toArray(),
-            'existing_categories' => $existingCategories,
-            'existing_brands' => $existingBrands,
-        ]);
+
 
         return Inertia::render('Products/Edit', [
             'product' => $product,
@@ -264,39 +243,10 @@ class ProductController extends Controller
     public function update(Request $request, Product $product): \Illuminate\Http\RedirectResponse
     {
         try {
-            // Enhanced debugging to see exactly what's being received
-            Log::info('Product update request - FULL REQUEST DEBUG', [
-                'product_id' => $product->id,
-                'product_exists' => $product->exists,
-                'product_was_recently_created' => $product->wasRecentlyCreated,
-                'method' => $request->method(),
-                'is_method_override' => $request->isMethod('PUT'),
-                'all_data' => $request->all(),
-                'input_data' => $request->input(),
-                'post_data' => $request->post(),
-                'query_data' => $request->query(),
-                'files' => $request->allFiles(),
-                'has_image_file' => $request->hasFile('image'),
-                'image_url_present' => $request->filled('image_url'),
-                'image_url_value' => $request->input('image_url'),
-                'current_image_url' => $product->image_url,
-                'content_type' => $request->header('Content-Type'),
-                'accept' => $request->header('Accept'),
-                'user_agent' => $request->header('User-Agent'),
-                'request_url' => $request->fullUrl(),
-                'request_path' => $request->path(),
-                'route_parameters' => $request->route()->parameters(),
-                'route_name' => $request->route()->getName(),
-            ]);
+
 
             // Check if we have any data at all
             if (empty($request->all()) && empty($request->allFiles())) {
-                Log::error('Product update request has NO DATA at all', [
-                    'product_id' => $product->id,
-                    'request_method' => $request->method(),
-                    'headers' => $request->headers->all(),
-                ]);
-                
                 return redirect()->back()->withInput()->withErrors([
                     'general' => 'No form data received. Please try again or contact support if the problem persists.'
                 ]);
@@ -304,22 +254,7 @@ class ProductController extends Controller
 
             // Check authentication and authorization
             $user = auth()->user();
-            Log::info('Authentication check', [
-                'user_authenticated' => auth()->check(),
-                'user_id' => $user ? $user->id : null,
-                'user_email' => $user ? $user->email : null,
-                'user_role' => $user ? $user->role : null,
-                'is_admin' => $user ? $user->isAdmin() : false,
-                'can_edit_products' => $user ? $user->can('isAdmin') : false,
-            ]);
-
             if (!$user || !$user->isAdmin()) {
-                Log::error('Unauthorized product update attempt', [
-                    'user_id' => $user ? $user->id : null,
-                    'user_role' => $user ? $user->role : null,
-                    'product_id' => $product->id,
-                ]);
-                
                 abort(403, 'Unauthorized access.');
             }
 
@@ -345,17 +280,14 @@ class ProductController extends Controller
             // Handle image upload
             $imagePath = $product->image_url; // Keep existing image by default
             if ($request->hasFile('image')) {
-                Log::info('Processing image upload for update');
                 $image = $request->file('image');
                 $imageName = time() . '_' . $image->getClientOriginalName();
                 $imagePath = $image->storeAs('products', $imageName, 'public');
                 $imagePath = '/storage/' . $imagePath;
-                Log::info('New image stored', ['path' => $imagePath]);
             } elseif ($request->filled('image_url')) {
-                Log::info('Using new image URL for update', ['url' => $request->image_url]);
                 $imagePath = $request->image_url;
             } else {
-                Log::info('Keeping existing image', ['path' => $imagePath]);
+                $imagePath = $product->image_url;
             }
 
             // Validate discount price is less than selling price
@@ -378,15 +310,11 @@ class ProductController extends Controller
             // Remove the image file from validated data since we're storing the path
             unset($productData['image']);
 
-            Log::info('Updating product with data', ['product_data' => $productData]);
+
 
             $product->update($productData);
 
-            Log::info('Product updated successfully', [
-                'product_id' => $product->id,
-                'name' => $product->name,
-                'image_path' => $imagePath
-            ]);
+
 
             return redirect()->route('products.index')->with('success', 'Product updated successfully!');
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -424,10 +352,7 @@ class ProductController extends Controller
 
         $product->delete();
 
-        Log::info('Product deleted successfully', [
-            'product_id' => $product->id,
-            'name' => $product->name
-        ]);
+
 
         return response()->json([
             'message' => 'Product deleted successfully.',
@@ -486,12 +411,7 @@ class ProductController extends Controller
                     $product->update(['quantity' => $item['new_quantity']]);
                     $updatedCount++;
 
-                    Log::info('Product restocked', [
-                        'product_id' => $product->id,
-                        'product_name' => $product->name,
-                        'old_quantity' => $oldQuantity,
-                        'new_quantity' => $item['new_quantity']
-                    ]);
+
                 }
             }
 

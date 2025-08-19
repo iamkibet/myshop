@@ -18,20 +18,15 @@ export function useCart() {
 
     // Initialize cart from localStorage
     useEffect(() => {
-        console.log('useCart useEffect - initializing cart');
         const storedCart = localStorage.getItem('cart');
-        console.log('useCart useEffect - storedCart from localStorage:', storedCart);
         if (storedCart) {
             try {
                 const parsedCart = JSON.parse(storedCart);
-                console.log('useCart useEffect - parsedCart:', parsedCart);
                 setCart(parsedCart);
                 updateCartCount(parsedCart);
             } catch (error) {
                 console.error('Error parsing cart from localStorage:', error);
             }
-        } else {
-            console.log('useCart useEffect - no stored cart found');
         }
     }, []);
 
@@ -39,7 +34,6 @@ export function useCart() {
     useEffect(() => {
         const handleStorageChange = (e: StorageEvent) => {
             if (e.key === 'cart') {
-                console.log('useCart - localStorage changed, updating cart');
                 if (e.newValue) {
                     try {
                         const newCart = JSON.parse(e.newValue);
@@ -61,7 +55,6 @@ export function useCart() {
 
         // Custom event listener for same-tab updates
         const handleCartUpdate = () => {
-            console.log('useCart - custom cart update event received');
             const storedCart = localStorage.getItem('cart');
             if (storedCart) {
                 try {
@@ -88,21 +81,13 @@ export function useCart() {
     // Update cart count
     const updateCartCount = (cartData: Cart) => {
         const count = Object.values(cartData).reduce((total, item) => total + item.quantity, 0);
-        console.log('updateCartCount - cartData:', cartData);
-        console.log('updateCartCount - calculated count:', count);
         setCartCount(count);
-        console.log('updateCartCount - cartCount state set to:', count);
     };
 
     // Add item to cart
     const addToCart = (item: CartItem) => {
-        console.log('Adding to cart:', item);
-        console.log('Current cart state before update:', cart);
-        console.log('Current cartCount before update:', cartCount);
-        
         const newCart = { ...cart };
         newCart[item.product_id] = item;
-        console.log('New cart state:', newCart);
         
         // Update cart state first
         setCart(newCart);
@@ -112,19 +97,14 @@ export function useCart() {
         
         // Calculate and update cart count immediately
         const newCount = Object.values(newCart).reduce((total, item) => total + item.quantity, 0);
-        console.log('New cart count calculated:', newCount);
         setCartCount(newCount);
         
         // Dispatch custom event to notify other components
         window.dispatchEvent(new CustomEvent('cartUpdated'));
-        
-        console.log('Cart count updated to:', newCount);
-        console.log('Final cart state:', newCart);
     };
 
     // Update cart item
     const updateCartItem = (productId: number, quantity: number) => {
-        console.log('Updating cart item:', productId, 'quantity:', quantity);
         const newCart = { ...cart };
         if (newCart[productId]) {
             newCart[productId].quantity = quantity;
@@ -146,7 +126,6 @@ export function useCart() {
 
     // Remove item from cart
     const removeFromCart = (productId: number) => {
-        console.log('Removing cart item:', productId);
         const newCart = { ...cart };
         delete newCart[productId];
         
@@ -166,8 +145,6 @@ export function useCart() {
 
     // Clear cart
     const clearCart = () => {
-        console.log('Clearing cart');
-        
         // Update cart state first
         setCart({});
         setCartCount(0);

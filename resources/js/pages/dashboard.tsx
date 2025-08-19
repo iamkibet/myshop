@@ -243,23 +243,7 @@ export default function Dashboard() {
                         </div>
                     )}
 
-                    {/* Cart button for admins - hidden on mobile, shows badge on large screens */}
-                    {isAdmin && (
-                        <div className="flex items-center space-x-2">
-                            <Link href="/cart" className="hidden sm:block">
-                                <Button variant="outline" className="relative">
-                                    <ShoppingCart className="mr-2 h-4 w-4" />
-                                    <span>Cart</span>
-                                    {/* Cart Badge - only show when items exist */}
-                                    {localCartCount > 0 && (
-                                        <div className="absolute -top-2 -right-2 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                                            {localCartCount > 99 ? '99+' : localCartCount}
-                                        </div>
-                                    )}
-                                </Button>
-                            </Link>
-                        </div>
-                    )}
+
                 </div>
 
                 {isAdmin && (

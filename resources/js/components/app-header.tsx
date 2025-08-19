@@ -49,6 +49,8 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
     const getInitials = useInitials();
     const { cartCount } = useCart();
     
+    const isAdmin = auth.user.role === 'admin';
+    
     return (
         <>
             <div className="border-b border-sidebar-border/80">
@@ -133,18 +135,20 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
                                 <Search className="!size-5 opacity-80 group-hover:opacity-100" />
                             </Button>
                             
-                            {/* Cart Button - Desktop */}
-                            <Link href="/cart">
-                                <Button variant="ghost" size="icon" className="group relative h-9 w-9 cursor-pointer">
-                                    <ShoppingCart className="!size-5 opacity-80 group-hover:opacity-100" />
-                                    {/* Cart Badge - only show when items exist */}
-                                    {cartCount > 0 && (
-                                        <div className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold animate-in zoom-in-95 duration-200">
-                                            {cartCount > 99 ? '99+' : cartCount}
-                                        </div>
-                                    )}
-                                </Button>
-                            </Link>
+                            {/* Cart Button - Desktop - Only show for managers */}
+                            {!isAdmin && (
+                                <Link href="/cart">
+                                    <Button variant="ghost" size="icon" className="group relative h-9 w-9 cursor-pointer">
+                                        <ShoppingCart className="!size-5 opacity-80 group-hover:opacity-100" />
+                                        {/* Cart Badge - only show when items exist */}
+                                        {cartCount > 0 && (
+                                            <div className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold animate-in zoom-in-95 duration-200">
+                                                {cartCount > 99 ? '99+' : cartCount}
+                                            </div>
+                                        )}
+                                    </Button>
+                                </Link>
+                            )}
                             
                             <div className="hidden lg:flex">
                                 {rightNavItems.map((item) => (
