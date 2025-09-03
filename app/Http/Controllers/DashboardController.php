@@ -79,10 +79,42 @@ class DashboardController extends Controller
             abort(403, 'Unauthorized access.');
         }
 
-        // Get comprehensive analytics data using AnalyticsController
+        // Get comprehensive analytics data directly
         $analyticsController = new AnalyticsController();
         $analyticsResponse = $analyticsController->dashboard($request);
-        $analyticsData = json_decode($analyticsResponse->getContent(), true);
+        
+        // Check if the response is successful
+        if ($analyticsResponse->getStatusCode() !== 200) {
+            Log::error('Failed to get analytics data', [
+                'status_code' => $analyticsResponse->getStatusCode(),
+                'content' => $analyticsResponse->getContent()
+            ]);
+            
+            // Return empty analytics data if there's an error
+            $analyticsData = [
+                'professional' => [
+                    'kpi' => [
+                        'totalSales' => ['value' => 0, 'change' => 0, 'changeType' => 'increase'],
+                        'totalSalesReturn' => ['value' => 0, 'change' => 0, 'changeType' => 'decrease'],
+                        'totalPurchase' => ['value' => 0, 'change' => 0, 'changeType' => 'increase'],
+                        'totalPurchaseReturn' => ['value' => 0, 'change' => 0, 'changeType' => 'increase']
+                    ],
+                    'financial' => [
+                        'profit' => ['value' => 0, 'change' => 0, 'changeType' => 'increase'],
+                        'invoiceDue' => ['value' => 0, 'change' => 0, 'changeType' => 'increase'],
+                        'totalExpenses' => ['value' => 0, 'change' => 0, 'changeType' => 'increase'],
+                        'totalPaymentReturns' => ['value' => 0, 'change' => 0, 'changeType' => 'decrease']
+                    ],
+                    'recentOrders' => [],
+                    'topCustomers' => [],
+                    'categories' => ['categories' => [], 'totalCategories' => 0, 'totalProducts' => 0],
+                    'orderStatistics' => [],
+                    'lowStockAlerts' => []
+                ]
+            ];
+        } else {
+            $analyticsData = json_decode($analyticsResponse->getContent(), true);
+        }
 
         $data = [
             'auth' => [

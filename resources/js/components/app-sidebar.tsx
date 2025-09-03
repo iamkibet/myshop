@@ -14,7 +14,33 @@ import {
 } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import {  LayoutGrid, Package, Plus, Receipt, Users, DollarSign, Receipt as ReceiptIcon, Percent } from 'lucide-react';
+import { 
+    LayoutGrid, 
+    Package, 
+    Plus, 
+    Receipt, 
+    Users, 
+    DollarSign, 
+    Receipt as ReceiptIcon, 
+    Percent,
+    Building2,
+    Warehouse,
+    User as UserIcon,
+    Users2,
+    ClipboardList,
+    Clock,
+    Calendar,
+    Leaf,
+    Gift,
+    FileText,
+    BarChart3,
+    ShoppingCart,
+    CheckSquare,
+    UserCheck,
+    Box,
+    TrendingUp,
+    Calculator
+} from 'lucide-react';
 import AppLogo from './app-logo';
 
 interface User {
@@ -43,6 +69,83 @@ export function AppSidebar() {
             title: 'Dashboard',
             href: '/dashboard',
             icon: LayoutGrid,
+        },
+    ];
+
+    // Stores section - using existing routes
+    const storesNavItems: NavItem[] = [
+        {
+            title: 'Products',
+            href: '/products',
+            icon: Package,
+        },
+        {
+            title: 'Inventory',
+            href: '/products',
+            icon: Warehouse,
+        },
+    ];
+
+    // HRM section - using existing routes
+    const hrmNavItems: NavItem[] = [
+        {
+            title: 'Users',
+            href: '/users',
+            icon: UserIcon,
+        },
+        {
+            title: 'Managers',
+            href: '/users',
+            icon: Users2,
+        },
+        {
+            title: 'Wallets',
+            href: '/wallets',
+            icon: DollarSign,
+        },
+        {
+            title: 'Expenses',
+            href: '/expenses',
+            icon: ReceiptIcon,
+        },
+        {
+            title: 'Sales',
+            href: '/sales',
+            icon: Receipt,
+        },
+        {
+            title: 'Commission Rates',
+            href: '/commission-rates',
+            icon: Percent,
+        },
+    ];
+
+    // Reports section - using existing routes
+    const reportsNavItems: NavItem[] = [
+        {
+            title: 'Sales Report',
+            href: '/sales',
+            icon: BarChart3,
+        },
+        {
+            title: 'Product Report',
+            href: '/products',
+            icon: Box,
+        },
+        {
+            title: 'Expense Report',
+            href: '/expenses',
+            icon: ReceiptIcon,
+        },
+        {
+            title: 'Wallet Report',
+            href: '/wallets',
+            icon: DollarSign,
+        },
+        {
+            title: 'User Report',
+            href: '/users',
+            icon: Users,
         },
     ];
 
@@ -127,6 +230,56 @@ export function AppSidebar() {
 
             <SidebarContent>
                 <NavMain items={mainNavItems} />
+
+                {/* Stores Section */}
+                <SidebarGroup className="px-2 py-0">
+                    <SidebarMenu>
+                        {storesNavItems.map((item) => (
+                            <SidebarMenuItem key={item.title}>
+                                <SidebarMenuButton asChild isActive={page.url.startsWith(item.href)} tooltip={{ children: item.title }}>
+                                    <Link href={item.href} prefetch>
+                                        {item.icon && <item.icon />}
+                                        <span>{item.title}</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        ))}
+                    </SidebarMenu>
+                </SidebarGroup>
+
+                {/* HRM Section */}
+                <SidebarGroup className="px-2 py-0">
+                    <SidebarGroupLabel>HRM</SidebarGroupLabel>
+                    <SidebarMenu>
+                        {hrmNavItems.map((item) => (
+                            <SidebarMenuItem key={item.title}>
+                                <SidebarMenuButton asChild isActive={page.url.startsWith(item.href)} tooltip={{ children: item.title }}>
+                                    <Link href={item.href} prefetch>
+                                        {item.icon && <item.icon />}
+                                        <span>{item.title}</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        ))}
+                    </SidebarMenu>
+                </SidebarGroup>
+
+                {/* Reports Section */}
+                <SidebarGroup className="px-2 py-0">
+                    <SidebarGroupLabel>Reports</SidebarGroupLabel>
+                    <SidebarMenu>
+                        {reportsNavItems.map((item) => (
+                            <SidebarMenuItem key={item.title}>
+                                <SidebarMenuButton asChild isActive={page.url.startsWith(item.href)} tooltip={{ children: item.title }}>
+                                    <Link href={item.href} prefetch>
+                                        {item.icon && <item.icon />}
+                                        <span>{item.title}</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        ))}
+                    </SidebarMenu>
+                </SidebarGroup>
 
                 {/* Admin Navigation */}
                 {isAdmin && (

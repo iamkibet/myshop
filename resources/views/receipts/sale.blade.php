@@ -121,15 +121,9 @@
             <tbody>
                 @foreach ($sale->saleItems as $item)
                     <tr>
-                        <td>{{ $item->productVariant->product->name ?? 'Unknown Product' }}</td>
-                        <td>
-                            @if ($item->productVariant->color || $item->productVariant->size)
-                                {{ $item->productVariant->color ?? '' }}{{ $item->productVariant->color && $item->productVariant->size ? ' - ' : '' }}{{ $item->productVariant->size ?? '' }}
-                            @else
-                                Standard
-                            @endif
-                        </td>
-                        <td>{{ $item->productVariant->sku ?? 'N/A' }}</td>
+                        <td>{{ $item->product->name ?? 'Unknown Product' }}</td>
+                        <td>Standard</td>
+                        <td>{{ $item->product->sku ?? 'N/A' }}</td>
                         <td>{{ $item->quantity }}</td>
                         <td>KSH {{ number_format($item->unit_price, 2) }}</td>
                         <td>KSH {{ number_format($item->total_price, 2) }}</td>
