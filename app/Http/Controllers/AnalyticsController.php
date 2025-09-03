@@ -563,6 +563,9 @@ class AnalyticsController extends Controller
         // Low Stock Alerts
         $lowStockAlerts = $this->getLowStockAlerts();
         
+        // Out of Stock Alerts
+        $outOfStockAlerts = $this->getOutOfStockAlerts();
+        
         // Sales & Purchase Chart Data
         $salesPurchaseChartData = $this->getSalesPurchaseChartData($period);
         $chartTotals = $this->getChartTotals($period);
@@ -575,6 +578,7 @@ class AnalyticsController extends Controller
             'categories' => $categoriesData,
             'orderStatistics' => $orderStatistics,
             'lowStockAlerts' => $lowStockAlerts,
+            'outOfStockAlerts' => $outOfStockAlerts,
             'salesPurchaseChartData' => $salesPurchaseChartData,
             'chartTotals' => $chartTotals,
         ];
@@ -763,21 +767,19 @@ class AnalyticsController extends Controller
                 break;
                 
             case '1M':
-                // For 1 month, show daily data but skip some days to avoid crowding
-                $allDates = $this->generateDateRange($startDate, $endDate);
-                $step = max(1, floor(count($allDates) / 15)); // Show max 15 points
-                foreach ($allDates as $index => $date) {
-                    if ($index % $step === 0 || $index === count($allDates) - 1) {
-                        $dateStr = $date->format('Y-m-d');
-                        $sales = $salesData->where('date', $dateStr)->first();
-                        $purchase = $cogsData->where('date', $dateStr)->first();
-                        
-                        $chartData[] = [
-                            'time' => $date->format('M j'),
-                            'sales' => $sales ? (float)$sales->sales : 0,
-                            'purchase' => $purchase ? (float)$purchase->purchase : 0
-                        ];
-                    }
+                // For 1 month, show weekly data to avoid crowding
+                $current = $startDate->copy()->startOfWeek();
+                while ($current->lte($endDate)) {
+                    $weekEnd = $current->copy()->endOfWeek();
+                    $weekSales = $salesData->whereBetween('date', [$current->format('Y-m-d'), $weekEnd->format('Y-m-d')])->sum('sales');
+                    $weekPurchase = $cogsData->whereBetween('date', [$current->format('Y-m-d'), $weekEnd->format('Y-m-d')])->sum('purchase');
+                    
+                    $chartData[] = [
+                        'time' => $current->format('M j'),
+                        'sales' => (float)$weekSales,
+                        'purchase' => (float)$weekPurchase
+                    ];
+                    $current->addWeek();
                 }
                 break;
                 
@@ -1247,14 +1249,31 @@ class AnalyticsController extends Controller
         return Product::where('quantity', '<=', 5)
             ->where('quantity', '>', 0)
             ->where('is_active', true)
-            ->limit(3)
+            ->limit(5)
             ->get()
             ->map(function ($product) {
                 return [
                     'id' => $product->id,
                     'name' => $product->name,
+                    'sku' => $product->sku ?? 'N/A',
                     'quantity' => $product->quantity,
                     'threshold' => 5
+                ];
+            })->toArray();
+    }
+
+    private function getOutOfStockAlerts(): array
+    {
+        return Product::where('quantity', '=', 0)
+            ->where('is_active', true)
+            ->limit(5)
+            ->get()
+            ->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'sku' => $product->sku ?? 'N/A',
+                    'quantity' => 0
                 ];
             })->toArray();
     }

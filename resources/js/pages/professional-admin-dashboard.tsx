@@ -27,7 +27,9 @@ import {
     Hash,
     AtSign,
     ArrowUpRight,
-    ArrowDownRight
+    ArrowDownRight,
+    CheckSquare,
+    TriangleAlert
 } from 'lucide-react';
 import { useEffect } from 'react';
 import * as am5 from '@amcharts/amcharts5';
@@ -340,6 +342,267 @@ function CategoriesChart({ data }: { data: any }) {
     return <div ref={setChartRef} style={{ width: "180px", height: "180px" }} />;
 }
 
+// Sales Expenses Chart Component
+function SalesExpensesChart({ data }: { data: any[] }) {
+    const [chartRef, setChartRef] = useState<HTMLDivElement | null>(null);
+    const [chartType, setChartType] = useState<'column' | 'line'>('column');
+
+    useEffect(() => {
+        if (!chartRef) return;
+
+        let root: any = null;
+        try {
+            root = am5.Root.new(chartRef);
+            root.setThemes([am5themes_Animated.new(root)]);
+
+        const chart = root.container.children.push(
+            am5xy.XYChart.new(root, {
+                panX: false,
+                panY: false,
+                wheelX: "panX",
+                wheelY: "zoomX",
+                layout: root.verticalLayout,
+                paddingLeft: 0,
+                paddingRight: 0,
+            })
+        );
+
+        // Create axes
+        const xAxis = chart.xAxes.push(
+            am5xy.CategoryAxis.new(root, {
+                categoryField: "time",
+                renderer: am5xy.AxisRendererX.new(root, {
+                    cellStartLocation: 0.1,
+                    cellEndLocation: 0.9,
+                    minGridDistance: 40,
+                }),
+            })
+        );
+
+        // Configure x-axis labels
+        xAxis.get("renderer").labels.template.setAll({
+            rotation: -45,
+            centerX: 0,
+            centerY: 0,
+            fontSize: 11,
+        });
+
+        const yAxis = chart.yAxes.push(
+            am5xy.ValueAxis.new(root, {
+                renderer: am5xy.AxisRendererY.new(root, {
+                    minGridDistance: 30,
+                }),
+            })
+        );
+
+        // Process data to make expenses negative
+        const processedData = data.length > 0 ? data.map(item => ({
+            ...item,
+            sales: item.sales || 0,
+            expenses: -(item.purchase || 0) // Make expenses negative
+        })) : [
+            { time: "Jan", sales: 15, expenses: -8 },
+            { time: "Feb", sales: 25, expenses: -12 },
+            { time: "Mar", sales: 20, expenses: -10 },
+            { time: "Apr", sales: 18, expenses: -15 },
+            { time: "May", sales: 22, expenses: -8 },
+            { time: "Jun", sales: 16, expenses: -6 },
+            { time: "Jul", sales: 28, expenses: -18 },
+            { time: "Aug", sales: 12, expenses: -5 },
+            { time: "Sep", sales: 20, expenses: -10 },
+            { time: "Oct", sales: 15, expenses: -8 },
+            { time: "Nov", sales: 18, expenses: -12 },
+            { time: "Dec", sales: 25, expenses: -15 }
+        ];
+
+        let salesSeries, expensesSeries;
+
+        if (chartType === 'column') {
+            // Create column series for Sales (positive values)
+            salesSeries = chart.series.push(
+                am5xy.ColumnSeries.new(root, {
+                    name: "Sales",
+                    xAxis: xAxis,
+                    yAxis: yAxis,
+                    valueYField: "sales",
+                    categoryXField: "time",
+                    fill: am5.color("#14b8a6"), // Teal color
+                    stroke: am5.color("#14b8a6"),
+                })
+            );
+
+            // Create column series for Expenses (negative values)
+            expensesSeries = chart.series.push(
+                am5xy.ColumnSeries.new(root, {
+                    name: "Expenses",
+                    xAxis: xAxis,
+                    yAxis: yAxis,
+                    valueYField: "expenses",
+                    categoryXField: "time",
+                    fill: am5.color("#f97316"), // Orange color
+                    stroke: am5.color("#f97316"),
+                })
+            );
+        } else {
+            // Create line series for Sales
+            salesSeries = chart.series.push(
+                am5xy.LineSeries.new(root, {
+                    name: "Sales",
+                    xAxis: xAxis,
+                    yAxis: yAxis,
+                    valueYField: "sales",
+                    categoryXField: "time",
+                    stroke: am5.color("#14b8a6"), // Teal color
+                    fill: am5.color("#14b8a6"),
+                    fillOpacity: 0.2,
+                })
+            );
+
+            // Create line series for Expenses
+            expensesSeries = chart.series.push(
+                am5xy.LineSeries.new(root, {
+                    name: "Expenses",
+                    xAxis: xAxis,
+                    yAxis: yAxis,
+                    valueYField: "expenses",
+                    categoryXField: "time",
+                    stroke: am5.color("#f97316"), // Orange color
+                    fill: am5.color("#f97316"),
+                    fillOpacity: 0.2,
+                })
+            );
+        }
+
+        xAxis.data.setAll(processedData);
+        salesSeries.data.setAll(processedData);
+        expensesSeries.data.setAll(processedData);
+
+        // Add cursor for interactivity
+        chart.set("cursor", am5xy.XYCursor.new(root, {}));
+
+        // Add tooltips for hover data
+        const tooltip = chart.set("tooltip", am5.Tooltip.new(root, {
+            getFillFromSprite: false,
+            autoTextColor: false,
+            getStrokeFromSprite: false,
+            getLabelFillFromSprite: false,
+            pointerOrientation: "horizontal",
+            getPointerOrientation: "horizontal",
+        }));
+
+        // Configure tooltip styling safely
+        if (tooltip.label) {
+            tooltip.label.setAll({
+                fill: am5.color("#ffffff"),
+                fontSize: 12,
+                fontWeight: "500",
+            });
+        }
+
+        if (tooltip.background) {
+            tooltip.background.setAll({
+                fill: am5.color("#1f2937"),
+                stroke: am5.color("#374151"),
+                strokeWidth: 1,
+                cornerRadius: 6,
+                shadowColor: am5.color("#000000"),
+                shadowBlur: 10,
+                shadowOffsetX: 2,
+                shadowOffsetY: 2,
+                shadowOpacity: 0.3,
+            });
+        }
+
+        // Configure tooltip content
+        salesSeries.set("tooltipText", "{name}: {valueY.formatNumber('#,###.00')}");
+        expensesSeries.set("tooltipText", "{name}: {valueY.formatNumber('#,###.00')}");
+
+        // Add legend
+        const legend = chart.children.push(
+            am5.Legend.new(root, {
+                centerX: am5.p50,
+                x: am5.p50,
+                marginTop: 15,
+                marginBottom: 15,
+            })
+        );
+
+        legend.data.setAll([salesSeries, expensesSeries]);
+
+        } catch (error) {
+            console.error('Error initializing SalesExpensesChart:', error);
+        }
+
+        return () => {
+            if (root) {
+                root.dispose();
+            }
+        };
+    }, [chartRef, data, chartType]);
+
+    return (
+        <div className="w-full">
+            {/* Chart Type Toggle - Mobile Responsive */}
+            <div className="flex justify-between items-center mb-4">
+                <div className="text-sm text-gray-600 hidden sm:block">
+                    Chart Type
+                </div>
+                <div className="flex bg-gray-100 rounded-lg p-1 w-full sm:w-auto">
+                    <button
+                        onClick={() => setChartType('column')}
+                        className={`flex-1 sm:flex-none px-3 py-1 text-xs rounded-md transition-colors ${
+                            chartType === 'column' 
+                                ? 'bg-white text-gray-900 shadow-sm' 
+                                : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                    >
+                        <span className="hidden sm:inline">Column</span>
+                        <span className="sm:hidden">📊</span>
+                    </button>
+                    <button
+                        onClick={() => setChartType('line')}
+                        className={`flex-1 sm:flex-none px-3 py-1 text-xs rounded-md transition-colors ${
+                            chartType === 'line' 
+                                ? 'bg-white text-gray-900 shadow-sm' 
+                                : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                    >
+                        <span className="hidden sm:inline">Line</span>
+                        <span className="sm:hidden">📈</span>
+                    </button>
+                </div>
+            </div>
+            
+            {/* Chart Container - Mobile Responsive */}
+            <div className="w-full overflow-hidden">
+                <div 
+                    ref={setChartRef} 
+                    style={{ 
+                        width: "100%", 
+                        height: "300px",
+                        minHeight: "250px"
+                    }} 
+                    className="chart-container"
+                />
+            </div>
+            
+            {/* Mobile Legend - Show on small screens */}
+            <div className="flex justify-center mt-4 sm:hidden">
+                <div className="flex space-x-4 text-xs">
+                    <div className="flex items-center">
+                        <div className="w-3 h-3 bg-teal-500 rounded mr-2"></div>
+                        <span className="text-gray-600">Sales</span>
+                    </div>
+                    <div className="flex items-center">
+                        <div className="w-3 h-3 bg-orange-500 rounded mr-2"></div>
+                        <span className="text-gray-600">Expenses</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // Order Statistics Heatmap Component
 function OrderStatisticsHeatmap({ data }: { data: any[] }) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -460,6 +723,7 @@ export default function ProfessionalAdminDashboard() {
     const { analytics, flash } = usePage<PageProps>().props;
     const [selectedPeriod, setSelectedPeriod] = useState('1M'); // Default to 1 month
     const [selectedTimePeriod, setSelectedTimePeriod] = useState(usePage().props.timePeriod || 'Last 7 Days');
+    const [selectedChartPeriod, setSelectedChartPeriod] = useState(usePage().props.chartPeriod || '1M'); // For Sales Statistics chart
 
     // Provide default data if analytics is not available
     const defaultData = {
@@ -889,39 +1153,194 @@ export default function ProfessionalAdminDashboard() {
                     </div>
                 </div>
 
-                {/* Overall Information Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Card className="bg-white border-0 shadow-sm hover:shadow-md transition-shadow">
-                        <CardContent className="p-6 text-center">
-                            <div className="flex items-center justify-center mb-3">
-                                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <Users className="h-6 w-6 text-blue-600" />
+                {/* Sales Statistics and Recent Transactions Side by Side */}
+                <div className="col-span-full grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Sales Statistics Section */}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <CardTitle className="flex items-center">
+                                    <TriangleAlert className="h-5 w-5 mr-2 text-red-500" />
+                                    Sales Statistics
+                                </CardTitle>
+                                <Select 
+                                    value={selectedChartPeriod} 
+                                    onValueChange={(value) => {
+                                        setSelectedChartPeriod(value);
+                                        router.get('/admin-dashboard', { period: value }, { preserveState: true });
+                                    }}
+                                >
+                                    <SelectTrigger className="w-full sm:w-24">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="1W">Weekly</SelectItem>
+                                        <SelectItem value="1M">1 Month</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-6">
+                                {/* KPI Cards - Mobile Responsive */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-xl sm:text-2xl font-bold text-green-600 truncate">{formatCurrency(analytics?.professional?.kpi?.totalSales?.value || 0)}</p>
+                                            <p className="text-sm text-gray-600">Revenue</p>
+                                        </div>
+                                        <div className="flex items-center ml-2">
+                                            <Badge className="bg-green-100 text-green-800 text-xs">25%</Badge>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-xl sm:text-2xl font-bold text-red-600 truncate">{formatCurrency(analytics?.professional?.financial?.totalExpenses?.value || 0)}</p>
+                                            <p className="text-sm text-gray-600">Expense</p>
+                                        </div>
+                                        <div className="flex items-center ml-2">
+                                            <Badge className="bg-red-100 text-red-800 text-xs">25%</Badge>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* AmCharts Stacked Bar Chart */}
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-semibold text-gray-700">Monthly Overview</h4>
+                                    <SalesExpensesChart data={analytics?.professional?.salesPurchaseChartData || []} />
                                 </div>
                             </div>
-                            <p className="text-2xl font-bold text-gray-900 mb-1">6,987</p>
-                            <p className="text-sm text-gray-600">Suppliers</p>
                         </CardContent>
                     </Card>
-                    <Card className="bg-white border-0 shadow-sm hover:shadow-md transition-shadow">
-                        <CardContent className="p-6 text-center">
-                            <div className="flex items-center justify-center mb-3">
-                                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                                    <Users className="h-6 w-6 text-green-600" />
-                                </div>
+
+                    {/* Recent Transactions Section */}
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="flex items-center">
+                                    <TriangleAlert className="h-5 w-5 mr-2 text-orange-500" />
+                                    Recent Transactions
+                                </CardTitle>
+                                <Button variant="outline" size="sm" className="text-orange-600 border-orange-200 hover:bg-orange-50">
+                                    View All
+                                </Button>
                             </div>
-                            <p className="text-2xl font-bold text-gray-900 mb-1">4,896</p>
-                            <p className="text-sm text-gray-600">Customer</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="bg-white border-0 shadow-sm hover:shadow-md transition-shadow">
-                        <CardContent className="p-6 text-center">
-                            <div className="flex items-center justify-center mb-3">
-                                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                                    <ShoppingCart className="h-6 w-6 text-purple-600" />
-                                </div>
-                            </div>
-                            <p className="text-2xl font-bold text-gray-900 mb-1">487</p>
-                            <p className="text-sm text-gray-600">Orders</p>
+                        </CardHeader>
+                        <CardContent>
+                            <Tabs defaultValue="sale" className="w-full">
+                                <TabsList className="grid w-full grid-cols-5 mb-6">
+                                    <TabsTrigger value="sale" className="text-sm">Sale</TabsTrigger>
+                                    <TabsTrigger value="purchase" className="text-sm">Purchase</TabsTrigger>
+                                    <TabsTrigger value="quotation" className="text-sm">Quotation</TabsTrigger>
+                                    <TabsTrigger value="expenses" className="text-sm">Expenses</TabsTrigger>
+                                    <TabsTrigger value="invoices" className="text-sm">Invoices</TabsTrigger>
+                                </TabsList>
+                                
+                                <TabsContent value="sale" className="mt-0">
+                                    <div className="space-y-3">
+                                        {analytics?.professional?.recentSales?.slice(0, 5).map((sale: any, index: number) => (
+                                            <div key={index} className="flex items-center justify-between p-4 border-b border-gray-100 last:border-b-0">
+                                                <div className="flex items-center space-x-4">
+                                                    <div className="flex-shrink-0">
+                                                        <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                                            <span className="text-sm font-medium text-blue-600">
+                                                                {sale.customer?.name?.charAt(0) || 'S'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                                            {sale.customer?.name || `Sale #${sale.id}`}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">#{sale.id}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center space-x-4">
+                                                    <div className="text-right">
+                                                        <p className="text-sm font-medium text-gray-900">{formatCurrency(sale.amount || sale.total || 0)}</p>
+                                                        <p className="text-xs text-gray-500">{sale.date}</p>
+                                                    </div>
+                                                    <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
+                                                        Completed
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </TabsContent>
+                                
+                                <TabsContent value="purchase" className="mt-0">
+                                    <div className="space-y-3">
+                                        {analytics?.professional?.lowStockAlerts?.slice(0, 5).map((product: any, index: number) => (
+                                            <div key={index} className="flex items-center justify-between p-4 border-b border-gray-100 last:border-b-0">
+                                                <div className="flex items-center space-x-4">
+                                                    <div className="flex-shrink-0">
+                                                        <div className="h-10 w-10 bg-orange-100 rounded-full flex items-center justify-center">
+                                                            <Package className="h-5 w-5 text-orange-600" />
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                                                        <p className="text-xs text-gray-500">SKU: {product.sku}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center space-x-4">
+                                                    <div className="text-right">
+                                                        <p className="text-sm font-medium text-gray-900">{product.quantity} units</p>
+                                                        <p className="text-xs text-gray-500">Low stock</p>
+                                                    </div>
+                                                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                                                        Low Stock
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </TabsContent>
+                                
+                                <TabsContent value="quotation" className="mt-0">
+                                    <div className="space-y-3">
+                                        {analytics?.professional?.outOfStockAlerts?.slice(0, 5).map((product: any, index: number) => (
+                                            <div key={index} className="flex items-center justify-between p-4 border-b border-gray-100 last:border-b-0">
+                                                <div className="flex items-center space-x-4">
+                                                    <div className="flex-shrink-0">
+                                                        <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center">
+                                                            <Package className="h-5 w-5 text-red-600" />
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                                                        <p className="text-xs text-gray-500">SKU: {product.sku}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center space-x-4">
+                                                    <div className="text-right">
+                                                        <p className="text-sm font-medium text-gray-900">0 units</p>
+                                                        <p className="text-xs text-gray-500">Out of stock</p>
+                                                    </div>
+                                                    <Badge variant="secondary" className="bg-red-100 text-red-800 border-red-200">
+                                                        Out of Stock
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </TabsContent>
+                                
+                                <TabsContent value="expenses" className="mt-0">
+                                    <div className="text-center py-8 text-gray-500">
+                                        <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                                        <p className="text-sm">No expenses recorded</p>
+                                    </div>
+                                </TabsContent>
+                                
+                                <TabsContent value="invoices" className="mt-0">
+                                    <div className="text-center py-8 text-gray-500">
+                                        <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                                        <p className="text-sm">No invoices available</p>
+                                    </div>
+                                </TabsContent>
+                            </Tabs>
                         </CardContent>
                     </Card>
                 </div>
