@@ -105,11 +105,15 @@ class DashboardController extends Controller
                         'totalExpenses' => ['value' => 0, 'change' => 0, 'changeType' => 'increase'],
                         'totalPaymentReturns' => ['value' => 0, 'change' => 0, 'changeType' => 'decrease']
                     ],
-                    'recentOrders' => [],
-                    'topCustomers' => [],
+                    'recentSales' => [],
+                    'topProducts' => [],
                     'categories' => ['categories' => [], 'totalCategories' => 0, 'totalProducts' => 0],
                     'orderStatistics' => [],
-                    'lowStockAlerts' => []
+                    'lowStockAlerts' => [],
+                    'outOfStockAlerts' => [],
+                    'recentExpenses' => [],
+                    'salesPurchaseChartData' => [],
+                    'chartTotals' => ['totalSales' => 0, 'totalPurchase' => 0]
                 ]
             ];
         } else {

@@ -54,23 +54,25 @@ interface User {
 interface ProfessionalData {
     kpi: {
         totalSales: { value: number; change: number; changeType: string };
-        totalSalesReturn: { value: number; change: number; changeType: string };
+        totalOrders: { value: number; change: number; changeType: string };
         totalPurchase: { value: number; change: number; changeType: string };
-        totalPurchaseReturn: { value: number; change: number; changeType: string };
+        totalInventoryValue: { value: number; change: number; changeType: string };
     };
     financial: {
-        profit: { value: number; change: number; changeType: string };
+        grossProfit: { value: number; change: number; changeType: string };
+        netProfit: { value: number; change: number; changeType: string };
         invoiceDue: { value: number; change: number; changeType: string };
         totalExpenses: { value: number; change: number; changeType: string };
-        totalPaymentReturns: { value: number; change: number; changeType: string };
     };
-    recentOrders: Array<{
+    recentSales: Array<{
         id: number;
         date: string;
-        customer: { name: string; id: string; avatar?: string };
-        product: { name: string; category: string; image?: string };
         amount: number;
-        status: string;
+        items_count: number;
+        items: Array<{
+            product_name: string;
+            quantity: number;
+        }>;
     }>;
     topProducts: Array<{
         id: number;
@@ -97,6 +99,29 @@ interface ProfessionalData {
         quantity: number;
         threshold: number;
     }>;
+    outOfStockAlerts: Array<{
+        id: number;
+        name: string;
+        sku: string;
+    }>;
+    recentExpenses: Array<{
+        id: number;
+        title: string;
+        amount: number;
+        category: string;
+        date: string;
+        added_by: string;
+        status: string;
+    }>;
+    salesPurchaseChartData: Array<{
+        time: string;
+        sales: number;
+        purchase: number;
+    }>;
+    chartTotals: {
+        totalSales: number;
+        totalPurchase: number;
+    };
 }
 
 interface PageProps {
@@ -143,24 +168,15 @@ function KPICard({ title, value, change, changeType, icon: Icon, color, bgColor,
 
     return (
         <Card className={`${bgColor} text-white border-0 shadow-lg`}>
-            <CardContent className="p-6">
+            <CardContent className="px-6 py-2">
                 <div className="flex items-center justify-between">
                     <div className="flex-1">
                         <div className="flex items-center justify-between mb-2">
                             <p className="text-sm font-medium opacity-90">{title}</p>
                             <Icon className="h-6 w-6 opacity-80" />
                         </div>
-                        <p className="text-3xl font-bold mb-2">{formatValue(value)}</p>
-                        <div className="flex items-center">
-                            {isPositive ? (
-                                <ArrowUpRight className="h-4 w-4 text-green-300 mr-1" />
-                            ) : (
-                                <ArrowDownRight className="h-4 w-4 text-red-300 mr-1" />
-                            )}
-                            <span className={`text-sm font-medium ${isPositive ? 'text-green-300' : 'text-red-300'}`}>
-                                {isPositive ? '+' : ''}{Math.abs(change)}%
-                            </span>
-                        </div>
+                        <p className="text-2xl font-bold mb-2">{formatValue(value)}</p>
+                        
                     </div>
                 </div>
             </CardContent>
@@ -189,9 +205,7 @@ function FinancialCard({ title, value, change, changeType, icon: Icon }: {
                             <span className={`text-sm font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
                                 {isPositive ? '+' : ''}{change}% vs Last Month
                             </span>
-                            <Link href="#" className="text-sm text-blue-600 hover:underline">
-                                View All
-                            </Link>
+                            
                         </div>
                     </div>
                     <div className="ml-4">
@@ -599,6 +613,9 @@ function SalesExpensesChart({ data }: { data: any[] }) {
                     </div>
                 </div>
             </div>
+            
+            {/* Bottom padding for mobile navigation */}
+            <div className="h-20 sm:h-0"></div>
         </div>
     );
 }
@@ -720,10 +737,10 @@ function OrderStatisticsHeatmap({ data }: { data: any[] }) {
 }
 
 export default function ProfessionalAdminDashboard() {
-    const { analytics, flash } = usePage<PageProps>().props;
+    const { analytics, flash } = usePage().props as any;
     const [selectedPeriod, setSelectedPeriod] = useState('1M'); // Default to 1 month
-    const [selectedTimePeriod, setSelectedTimePeriod] = useState(usePage().props.timePeriod || 'Last 7 Days');
-    const [selectedChartPeriod, setSelectedChartPeriod] = useState(usePage().props.chartPeriod || '1M'); // For Sales Statistics chart
+    const [selectedTimePeriod, setSelectedTimePeriod] = useState((usePage().props as any).timePeriod || 'Last 7 Days');
+    const [selectedChartPeriod, setSelectedChartPeriod] = useState((usePage().props as any).chartPeriod || '1M'); // For Sales Statistics chart
 
     // Provide default data if analytics is not available
     const defaultData = {
@@ -774,12 +791,12 @@ export default function ProfessionalAdminDashboard() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Admin Dashboard" />
-            <div className="flex h-full flex-1 flex-col gap-4 sm:gap-6 overflow-x-auto rounded-xl p-3 sm:p-4 bg-gray-50">
+            <div className="flex h-full flex-1 flex-col gap-4 sm:gap-6 overflow-x-auto rounded-xl p-3 sm:p-4 bg-gray-50 pb-24 sm:pb-4">
                 {/* Welcome Section */}
                 <div className="space-y-4">
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Welcome, Admin</h1>
-                        <p className="text-sm sm:text-base text-gray-600">You have 200+ Orders, Today.</p>
+                        
                     </div>
                     
                     {/* Low Stock Alert */}
@@ -812,7 +829,7 @@ export default function ProfessionalAdminDashboard() {
                         changeType={kpi.totalSales.changeType}
                         icon={DollarSign}
                         color="orange"
-                        bgColor="bg-orange-500"
+                        bgColor="bg-orange-800"
                     />
                     <KPICard
                         title="Total Orders"
@@ -821,7 +838,7 @@ export default function ProfessionalAdminDashboard() {
                         changeType={kpi.totalOrders.changeType}
                         icon={TrendingDown}
                         color="blue"
-                        bgColor="bg-blue-600"
+                        bgColor="bg-blue-800"
                         format="number"
                     />
                     <KPICard
@@ -831,7 +848,7 @@ export default function ProfessionalAdminDashboard() {
                         changeType={kpi.totalPurchase.changeType}
                         icon={Package}
                         color="green"
-                        bgColor="bg-green-500"
+                        bgColor="bg-green-800"
                     />
                     <KPICard
                         title="Total Inventory Value"
@@ -840,7 +857,7 @@ export default function ProfessionalAdminDashboard() {
                         changeType={kpi.totalInventoryValue.changeType}
                         icon={TrendingUp}
                         color="blue"
-                        bgColor="bg-blue-400"
+                        bgColor="bg-gray-900"
                     />
                 </div>
 
@@ -970,7 +987,7 @@ export default function ProfessionalAdminDashboard() {
                         </CardHeader>
                             <CardContent>
                                                             <div className="space-y-3">
-                                {recentSales.map((sale) => (
+                                {recentSales.map((sale: any) => (
                                     <div
                                         key={sale.id}
                                         className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
@@ -1005,7 +1022,7 @@ export default function ProfessionalAdminDashboard() {
                                             <p className="text-sm font-semibold text-gray-900">{formatCurrency(sale.amount)}</p>
                                             <p className="text-xs text-gray-500">
                                                 {sale.items && sale.items.length > 0 && (
-                                                    <span>{sale.items.reduce((total, item) => total + item.quantity, 0)} items</span>
+                                                    <span>{sale.items.reduce((total: any, item: any) => total + item.quantity, 0)} items</span>
                                                 )}
                                             </p>
                                         </div>
@@ -1033,7 +1050,7 @@ export default function ProfessionalAdminDashboard() {
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
-                                    {topProducts.map((product, index) => (
+                                    {topProducts.map((product: any, index: number) => (
                                         <div key={product.id} className="flex items-center justify-between py-2">
                                             <div className="flex items-center space-x-3">
                                                 <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-orange-100 to-orange-200 flex items-center justify-center shadow-sm">
@@ -1083,7 +1100,7 @@ export default function ProfessionalAdminDashboard() {
                                         {/* Category Legend */}
                                         <div className="space-y-2">
                                             <h4 className="text-sm font-semibold text-gray-700 mb-2">Categories</h4>
-                                            {categories.categories.map((category, index) => (
+                                            {categories.categories.map((category: any, index: number) => (
                                                 <div key={index} className="flex items-center justify-between text-sm">
                                                     <div className="flex items-center">
                                                         <div className={`w-3 h-3 rounded-full mr-3 ${
@@ -1130,13 +1147,13 @@ export default function ProfessionalAdminDashboard() {
                                 </CardTitle>
                                 <Select 
                                     value={selectedTimePeriod} 
-                                    onValueChange={(value) => {
+                                    onValueChange={(value: string) => {
                                         setSelectedTimePeriod(value);
                                         router.get('/admin-dashboard', { timePeriod: value }, { preserveState: true });
                                     }}
                                 >
                                     <SelectTrigger className="w-32">
-                                        <SelectValue />
+                                        <SelectValue placeholder="Select period" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="Last 7 Days">Last 7 Days</SelectItem>
@@ -1154,7 +1171,7 @@ export default function ProfessionalAdminDashboard() {
                 </div>
 
                 {/* Sales Statistics and Recent Transactions Side by Side */}
-                <div className="col-span-full grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="col-span-full grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6 sm:mb-0">
                     {/* Sales Statistics Section */}
                     <Card>
                         <CardHeader>
@@ -1165,13 +1182,13 @@ export default function ProfessionalAdminDashboard() {
                                 </CardTitle>
                                 <Select 
                                     value={selectedChartPeriod} 
-                                    onValueChange={(value) => {
+                                    onValueChange={(value: string) => {
                                         setSelectedChartPeriod(value);
                                         router.get('/admin-dashboard', { period: value }, { preserveState: true });
                                     }}
                                 >
                                     <SelectTrigger className="w-full sm:w-24">
-                                        <SelectValue />
+                                        <SelectValue placeholder="Select period" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="1W">Weekly</SelectItem>
@@ -1214,54 +1231,54 @@ export default function ProfessionalAdminDashboard() {
                     </Card>
 
                     {/* Recent Transactions Section */}
-                    <Card>
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="flex items-center">
-                                    <TriangleAlert className="h-5 w-5 mr-2 text-orange-500" />
-                                    Recent Transactions
+                    <Card className="h-fit">
+                        <CardHeader className="pb-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <CardTitle className="flex items-center text-lg">
+                                    <TriangleAlert className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-orange-500" />
+                                    <span className="text-base sm:text-lg">Recent Transactions</span>
                                 </CardTitle>
-                                <Button variant="outline" size="sm" className="text-orange-600 border-orange-200 hover:bg-orange-50">
+                                <Button variant="outline" size="sm" className="text-orange-600 border-orange-200 hover:bg-orange-50 text-xs sm:text-sm w-fit">
                                     View All
                                 </Button>
                             </div>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="pt-0 pb-6 sm:pb-6">
                             <Tabs defaultValue="sale" className="w-full">
-                                <TabsList className="grid w-full grid-cols-5 mb-6">
-                                    <TabsTrigger value="sale" className="text-sm">Sale</TabsTrigger>
-                                    <TabsTrigger value="purchase" className="text-sm">Purchase</TabsTrigger>
-                                    <TabsTrigger value="quotation" className="text-sm">Quotation</TabsTrigger>
-                                    <TabsTrigger value="expenses" className="text-sm">Expenses</TabsTrigger>
-                                    <TabsTrigger value="invoices" className="text-sm">Invoices</TabsTrigger>
+                                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 mb-4 sm:mb-6 h-auto">
+                                    <TabsTrigger value="sale" className="text-xs sm:text-sm py-2 px-2 sm:px-3">Sales</TabsTrigger>
+                                    <TabsTrigger value="low-stock" className="text-xs sm:text-sm py-2 px-2 sm:px-3">Low Stock</TabsTrigger>
+                                    <TabsTrigger value="out-of-stock" className="text-xs sm:text-sm py-2 px-2 sm:px-3">Out of Stock</TabsTrigger>
+                                    <TabsTrigger value="expenses" className="text-xs sm:text-sm py-2 px-2 sm:px-3">Expenses</TabsTrigger>
                                 </TabsList>
                                 
                                 <TabsContent value="sale" className="mt-0">
-                                    <div className="space-y-3">
-                                        {analytics?.professional?.recentSales?.slice(0, 5).map((sale: any, index: number) => (
-                                            <div key={index} className="flex items-center justify-between p-4 border-b border-gray-100 last:border-b-0">
-                                                <div className="flex items-center space-x-4">
+                                    <div className="space-y-2 sm:space-y-3">
+                                        {analytics?.professional?.recentSales?.slice(0, 4).map((sale: any, index: number) => (
+                                            <div key={index} className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100 last:border-b-0">
+                                                <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
                                                     <div className="flex-shrink-0">
-                                                        <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                                            <span className="text-sm font-medium text-blue-600">
+                                                        <div className="h-8 w-8 sm:h-10 sm:w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                                            <span className="text-xs sm:text-sm font-medium text-blue-600">
                                                                 {sale.customer?.name?.charAt(0) || 'S'}
                                                             </span>
                                                         </div>
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                                        <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
                                                             {sale.customer?.name || `Sale #${sale.id}`}
                                                         </p>
                                                         <p className="text-xs text-gray-500">#{sale.id}</p>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center space-x-4">
+                                                <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
                                                     <div className="text-right">
-                                                        <p className="text-sm font-medium text-gray-900">{formatCurrency(sale.amount || sale.total || 0)}</p>
-                                                        <p className="text-xs text-gray-500">{sale.date}</p>
+                                                        <p className="text-xs sm:text-sm font-medium text-gray-900">{formatCurrency(sale.amount || sale.total || 0)}</p>
+                                                        <p className="text-xs text-gray-500 hidden sm:block">{sale.date}</p>
                                                     </div>
-                                                    <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">
-                                                        Completed
+                                                    <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 text-xs">
+                                                        <span className="hidden sm:inline">Completed</span>
+                                                        <span className="sm:hidden">✓</span>
                                                     </Badge>
                                                 </div>
                                             </div>
@@ -1269,28 +1286,29 @@ export default function ProfessionalAdminDashboard() {
                                     </div>
                                 </TabsContent>
                                 
-                                <TabsContent value="purchase" className="mt-0">
-                                    <div className="space-y-3">
-                                        {analytics?.professional?.lowStockAlerts?.slice(0, 5).map((product: any, index: number) => (
-                                            <div key={index} className="flex items-center justify-between p-4 border-b border-gray-100 last:border-b-0">
-                                                <div className="flex items-center space-x-4">
+                                <TabsContent value="low-stock" className="mt-0">
+                                    <div className="space-y-2 sm:space-y-3">
+                                        {analytics?.professional?.lowStockAlerts?.slice(0, 4).map((product: any, index: number) => (
+                                            <div key={index} className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100 last:border-b-0">
+                                                <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
                                                     <div className="flex-shrink-0">
-                                                        <div className="h-10 w-10 bg-orange-100 rounded-full flex items-center justify-center">
-                                                            <Package className="h-5 w-5 text-orange-600" />
+                                                        <div className="h-8 w-8 sm:h-10 sm:w-10 bg-orange-100 rounded-full flex items-center justify-center">
+                                                            <Package className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
                                                         </div>
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                                                        <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{product.name}</p>
                                                         <p className="text-xs text-gray-500">SKU: {product.sku}</p>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center space-x-4">
+                                                <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
                                                     <div className="text-right">
-                                                        <p className="text-sm font-medium text-gray-900">{product.quantity} units</p>
-                                                        <p className="text-xs text-gray-500">Low stock</p>
+                                                        <p className="text-xs sm:text-sm font-medium text-gray-900">{product.quantity} units</p>
+                                                        <p className="text-xs text-gray-500 hidden sm:block">Low stock</p>
                                                     </div>
-                                                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200">
-                                                        Low Stock
+                                                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">
+                                                        <span className="hidden sm:inline">Low Stock</span>
+                                                        <span className="sm:hidden">⚠</span>
                                                     </Badge>
                                                 </div>
                                             </div>
@@ -1298,28 +1316,29 @@ export default function ProfessionalAdminDashboard() {
                                     </div>
                                 </TabsContent>
                                 
-                                <TabsContent value="quotation" className="mt-0">
-                                    <div className="space-y-3">
-                                        {analytics?.professional?.outOfStockAlerts?.slice(0, 5).map((product: any, index: number) => (
-                                            <div key={index} className="flex items-center justify-between p-4 border-b border-gray-100 last:border-b-0">
-                                                <div className="flex items-center space-x-4">
+                                <TabsContent value="out-of-stock" className="mt-0">
+                                    <div className="space-y-2 sm:space-y-3">
+                                        {analytics?.professional?.outOfStockAlerts?.slice(0, 4).map((product: any, index: number) => (
+                                            <div key={index} className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100 last:border-b-0">
+                                                <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
                                                     <div className="flex-shrink-0">
-                                                        <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center">
-                                                            <Package className="h-5 w-5 text-red-600" />
+                                                        <div className="h-8 w-8 sm:h-10 sm:w-10 bg-red-100 rounded-full flex items-center justify-center">
+                                                            <Package className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" />
                                                         </div>
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                                                        <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{product.name}</p>
                                                         <p className="text-xs text-gray-500">SKU: {product.sku}</p>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center space-x-4">
+                                                <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
                                                     <div className="text-right">
-                                                        <p className="text-sm font-medium text-gray-900">0 units</p>
-                                                        <p className="text-xs text-gray-500">Out of stock</p>
+                                                        <p className="text-xs sm:text-sm font-medium text-gray-900">0 units</p>
+                                                        <p className="text-xs text-gray-500 hidden sm:block">Out of stock</p>
                                                     </div>
-                                                    <Badge variant="secondary" className="bg-red-100 text-red-800 border-red-200">
-                                                        Out of Stock
+                                                    <Badge variant="secondary" className="bg-red-100 text-red-800 border-red-200 text-xs">
+                                                        <span className="hidden sm:inline">Out of Stock</span>
+                                                        <span className="sm:hidden">❌</span>
                                                     </Badge>
                                                 </div>
                                             </div>
@@ -1328,16 +1347,41 @@ export default function ProfessionalAdminDashboard() {
                                 </TabsContent>
                                 
                                 <TabsContent value="expenses" className="mt-0">
-                                    <div className="text-center py-8 text-gray-500">
-                                        <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                                        <p className="text-sm">No expenses recorded</p>
-                                    </div>
-                                </TabsContent>
-                                
-                                <TabsContent value="invoices" className="mt-0">
-                                    <div className="text-center py-8 text-gray-500">
-                                        <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                                        <p className="text-sm">No invoices available</p>
+                                    <div className="space-y-2 sm:space-y-3">
+                                        {analytics?.professional?.recentExpenses && analytics.professional.recentExpenses.length > 0 ? (
+                                            analytics.professional.recentExpenses.slice(0, 4).map((expense: any, index: number) => (
+                                                <div key={index} className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100 last:border-b-0">
+                                                    <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+                                                        <div className="flex-shrink-0">
+                                                            <div className="h-8 w-8 sm:h-10 sm:w-10 bg-purple-100 rounded-full flex items-center justify-center">
+                                                                <span className="text-xs sm:text-sm font-medium text-purple-600">
+                                                                    {expense.title?.charAt(0) || 'E'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{expense.title}</p>
+                                                            <p className="text-xs text-gray-500">{expense.category} • {expense.added_by}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
+                                                        <div className="text-right">
+                                                            <p className="text-xs sm:text-sm font-medium text-gray-900">{formatCurrency(expense.amount)}</p>
+                                                            <p className="text-xs text-gray-500 hidden sm:block">{expense.date}</p>
+                                                        </div>
+                                                        <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
+                                                            <span className="hidden sm:inline">{expense.status}</span>
+                                                            <span className="sm:hidden">$</span>
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="text-center py-8 text-gray-500">
+                                                <div className="text-4xl mb-2">💰</div>
+                                                <p className="text-sm">No expenses recorded</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </TabsContent>
                             </Tabs>

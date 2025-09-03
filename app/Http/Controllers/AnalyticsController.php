@@ -566,6 +566,9 @@ class AnalyticsController extends Controller
         // Out of Stock Alerts
         $outOfStockAlerts = $this->getOutOfStockAlerts();
         
+        // Recent Expenses
+        $recentExpenses = $this->getRecentExpenses();
+        
         // Sales & Purchase Chart Data
         $salesPurchaseChartData = $this->getSalesPurchaseChartData($period);
         $chartTotals = $this->getChartTotals($period);
@@ -579,6 +582,7 @@ class AnalyticsController extends Controller
             'orderStatistics' => $orderStatistics,
             'lowStockAlerts' => $lowStockAlerts,
             'outOfStockAlerts' => $outOfStockAlerts,
+            'recentExpenses' => $recentExpenses,
             'salesPurchaseChartData' => $salesPurchaseChartData,
             'chartTotals' => $chartTotals,
         ];
@@ -1274,6 +1278,29 @@ class AnalyticsController extends Controller
                     'name' => $product->name,
                     'sku' => $product->sku ?? 'N/A',
                     'quantity' => 0
+                ];
+            })->toArray();
+    }
+
+    /**
+     * Get recent expenses
+     */
+    private function getRecentExpenses(): array
+    {
+        return \App\Models\Expense::with(['addedBy'])
+            ->where('status', 'approved')
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get()
+            ->map(function ($expense) {
+                return [
+                    'id' => $expense->id,
+                    'title' => $expense->title,
+                    'amount' => $expense->amount,
+                    'category' => $expense->category,
+                    'date' => $expense->created_at->format('M j, Y'),
+                    'added_by' => $expense->addedBy->name ?? 'Unknown',
+                    'status' => $expense->status
                 ];
             })->toArray();
     }
