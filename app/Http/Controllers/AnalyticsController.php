@@ -902,6 +902,16 @@ class AnalyticsController extends Controller
             ->sum('amount');
         $previousNetProfit = $previousSales - $previousExpenses;
 
+        // Calculate Average Order Value
+        $totalOrders = Sale::count();
+        $averageOrderValue = $totalOrders > 0 ? $totalSales / $totalOrders : 0;
+        
+        // Calculate previous month's average order value
+        $previousMonthOrders = Sale::whereMonth('created_at', $previousMonth->month)
+            ->whereYear('created_at', $previousMonth->year)
+            ->count();
+        $previousAverageOrderValue = $previousMonthOrders > 0 ? $previousSales / $previousMonthOrders : 0;
+        
         // Calculate percentage changes
         $netProfitChange = 0;
         if ($previousNetProfit != 0) {
@@ -916,6 +926,13 @@ class AnalyticsController extends Controller
         } else if ($totalExpenses > 0) {
             $expenseChange = 100; // New expenses from zero
         }
+        
+        $averageOrderValueChange = 0;
+        if ($previousAverageOrderValue > 0) {
+            $averageOrderValueChange = (($averageOrderValue - $previousAverageOrderValue) / $previousAverageOrderValue) * 100;
+        } else if ($averageOrderValue > 0) {
+            $averageOrderValueChange = 100; // New average from zero
+        }
 
         return [
             'grossProfit' => [
@@ -928,10 +945,10 @@ class AnalyticsController extends Controller
                 'change' => round($netProfitChange, 1),
                 'changeType' => $netProfitChange >= 0 ? 'increase' : 'decrease'
             ],
-            'invoiceDue' => [
-                'value' => $totalSales * 0.1, // 10% of sales as due
-                'change' => 35,
-                'changeType' => 'increase'
+            'averageOrderValue' => [
+                'value' => $averageOrderValue,
+                'change' => round($averageOrderValueChange, 1),
+                'changeType' => $averageOrderValueChange >= 0 ? 'increase' : 'decrease'
             ],
             'totalExpenses' => [
                 'value' => $totalExpenses,

@@ -61,7 +61,7 @@ interface ProfessionalData {
     financial: {
         grossProfit: { value: number; change: number; changeType: string };
         netProfit: { value: number; change: number; changeType: string };
-        invoiceDue: { value: number; change: number; changeType: string };
+        averageOrderValue: { value: number; change: number; changeType: string };
         totalExpenses: { value: number; change: number; changeType: string };
     };
     recentSales: Array<{
@@ -308,6 +308,19 @@ function SalesChart({ data }: { data: any[] }) {
         };
     }, [chartRef, data]);
 
+    // If no data, show empty state
+    if (data.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center py-12 text-center" style={{ height: "300px" }}>
+                <div className="text-6xl mb-4">📈</div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Sales Data</h3>
+                <p className="text-gray-500 text-sm max-w-sm">
+                    Sales and purchase data will appear here once you start recording transactions.
+                </p>
+            </div>
+        );
+    }
+
     return <div ref={setChartRef} style={{ width: "100%", height: "300px" }} />;
 }
 
@@ -414,20 +427,7 @@ function SalesExpensesChart({ data }: { data: any[] }) {
             ...item,
             sales: item.sales || 0,
             expenses: -(item.purchase || 0) // Make expenses negative
-        })) : [
-            { time: "Jan", sales: 15, expenses: -8 },
-            { time: "Feb", sales: 25, expenses: -12 },
-            { time: "Mar", sales: 20, expenses: -10 },
-            { time: "Apr", sales: 18, expenses: -15 },
-            { time: "May", sales: 22, expenses: -8 },
-            { time: "Jun", sales: 16, expenses: -6 },
-            { time: "Jul", sales: 28, expenses: -18 },
-            { time: "Aug", sales: 12, expenses: -5 },
-            { time: "Sep", sales: 20, expenses: -10 },
-            { time: "Oct", sales: 15, expenses: -8 },
-            { time: "Nov", sales: 18, expenses: -12 },
-            { time: "Dec", sales: 25, expenses: -15 }
-        ];
+        })) : [];
 
         let salesSeries, expensesSeries;
 
@@ -553,6 +553,23 @@ function SalesExpensesChart({ data }: { data: any[] }) {
             }
         };
     }, [chartRef, data, chartType]);
+
+    // If no data, show empty state
+    if (data.length === 0) {
+        return (
+            <div className="w-full">
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="text-6xl mb-4">📊</div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Available</h3>
+                    <p className="text-gray-500 text-sm max-w-sm">
+                        Sales and expenses data will appear here once you start recording transactions.
+                    </p>
+                </div>
+                {/* Bottom padding for mobile navigation */}
+                <div className="h-20 sm:h-0"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="w-full">
@@ -753,7 +770,7 @@ export default function ProfessionalAdminDashboard() {
         financial: {
             grossProfit: { value: 0, change: 0, changeType: 'increase' },
             netProfit: { value: 0, change: 0, changeType: 'increase' },
-            invoiceDue: { value: 0, change: 0, changeType: 'increase' },
+            averageOrderValue: { value: 0, change: 0, changeType: 'increase' },
             totalExpenses: { value: 0, change: 0, changeType: 'increase' }
         },
         recentSales: [],
@@ -769,9 +786,7 @@ export default function ProfessionalAdminDashboard() {
     const { kpi, financial, recentSales, topProducts, categories, orderStatistics, lowStockAlerts, salesPurchaseChartData, chartTotals } = professionalData;
 
     // Use real chart data from analytics
-    const chartData = salesPurchaseChartData && salesPurchaseChartData.length > 0 ? salesPurchaseChartData : [
-        { time: "No Data", sales: 0, purchase: 0 }
-    ];
+    const chartData = salesPurchaseChartData && salesPurchaseChartData.length > 0 ? salesPurchaseChartData : [];
 
     // Handle period change
     const handlePeriodChange = (newPeriod: string) => {
@@ -878,10 +893,10 @@ export default function ProfessionalAdminDashboard() {
                         icon={Clock}
                     />
                     <FinancialCard
-                        title="Invoice Due"
-                        value={financial.invoiceDue.value}
-                        change={financial.invoiceDue.change}
-                        changeType={financial.invoiceDue.changeType}
+                        title="Average Order Value"
+                        value={financial.averageOrderValue.value}
+                        change={financial.averageOrderValue.change}
+                        changeType={financial.averageOrderValue.changeType}
                         icon={AtSign}
                     />
                     <FinancialCard

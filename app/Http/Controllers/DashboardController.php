@@ -95,15 +95,15 @@ class DashboardController extends Controller
                 'professional' => [
                     'kpi' => [
                         'totalSales' => ['value' => 0, 'change' => 0, 'changeType' => 'increase'],
-                        'totalSalesReturn' => ['value' => 0, 'change' => 0, 'changeType' => 'decrease'],
+                        'totalOrders' => ['value' => 0, 'change' => 0, 'changeType' => 'increase'],
                         'totalPurchase' => ['value' => 0, 'change' => 0, 'changeType' => 'increase'],
-                        'totalPurchaseReturn' => ['value' => 0, 'change' => 0, 'changeType' => 'increase']
+                        'totalInventoryValue' => ['value' => 0, 'change' => 0, 'changeType' => 'increase']
                     ],
                     'financial' => [
-                        'profit' => ['value' => 0, 'change' => 0, 'changeType' => 'increase'],
-                        'invoiceDue' => ['value' => 0, 'change' => 0, 'changeType' => 'increase'],
-                        'totalExpenses' => ['value' => 0, 'change' => 0, 'changeType' => 'increase'],
-                        'totalPaymentReturns' => ['value' => 0, 'change' => 0, 'changeType' => 'decrease']
+                        'grossProfit' => ['value' => 0, 'change' => 0, 'changeType' => 'increase'],
+                        'netProfit' => ['value' => 0, 'change' => 0, 'changeType' => 'increase'],
+                        'averageOrderValue' => ['value' => 0, 'change' => 0, 'changeType' => 'increase'],
+                        'totalExpenses' => ['value' => 0, 'change' => 0, 'changeType' => 'increase']
                     ],
                     'recentSales' => [],
                     'topProducts' => [],
