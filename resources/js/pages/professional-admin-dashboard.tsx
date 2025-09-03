@@ -8,6 +8,7 @@ import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, usePage, router } from '@inertiajs/react';
+import { useState } from 'react';
 import {
     AlertTriangle,
     BarChart3,
@@ -28,7 +29,7 @@ import {
     ArrowUpRight,
     ArrowDownRight
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import * as am5 from '@amcharts/amcharts5';
 import * as am5xy from '@amcharts/amcharts5/xy';
 import * as am5percent from '@amcharts/amcharts5/percent';
@@ -69,12 +70,13 @@ interface ProfessionalData {
         amount: number;
         status: string;
     }>;
-    topCustomers: Array<{
+    topProducts: Array<{
+        id: number;
         name: string;
-        location: string;
-        orderCount: number;
-        totalSpent: number;
-        avatar?: string;
+        initials: string;
+        sku: string;
+        total_quantity: number;
+        total_revenue: number;
     }>;
     categories: {
         categories: Array<{ name: string; sales: number; percentage: number }>;
@@ -318,10 +320,14 @@ function CategoriesChart({ data }: { data: any }) {
             })
         );
 
+        // Hide all labels on the chart
         series.labels.template.setAll({
-            textType: "circular",
-            centerX: 0,
-            centerY: 0
+            forceHidden: true
+        });
+        
+        // Also hide tick labels
+        series.ticks.template.setAll({
+            forceHidden: true
         });
 
         series.data.setAll(data.categories);
@@ -331,49 +337,121 @@ function CategoriesChart({ data }: { data: any }) {
         };
     }, [chartRef, data]);
 
-    return <div ref={setChartRef} style={{ width: "100%", height: "200px" }} />;
+    return <div ref={setChartRef} style={{ width: "180px", height: "180px" }} />;
 }
 
 // Order Statistics Heatmap Component
 function OrderStatisticsHeatmap({ data }: { data: any[] }) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const hours = ['2 Am', '4 Am', '6 Am', '8 Am', '10 Am', '12 Am', '14 Pm', '16 Pm', '18 Pm'];
+    const hours = ['8 Am', '10 Am', '12 Am', '14 Pm', '16 Pm', '18 Pm', '20 Pm', '22 Pm'];
+    const [hoveredCell, setHoveredCell] = useState<{day: string, hour: string} | null>(null);
+    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
     const getIntensityColor = (intensity: string) => {
         switch (intensity) {
             case 'high': return 'bg-orange-600';
             case 'medium': return 'bg-orange-400';
             case 'low': return 'bg-orange-200';
+            case 'none': return 'bg-gray-100';
             default: return 'bg-gray-100';
         }
     };
 
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('en-KE', {
+            style: 'currency',
+            currency: 'KES',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(amount);
+    };
+
+    const handleMouseEnter = (day: string, hour: string, event: React.MouseEvent) => {
+        setHoveredCell({ day, hour });
+        setMousePosition({ x: event.clientX, y: event.clientY });
+    };
+
+    const handleMouseLeave = () => {
+        setHoveredCell(null);
+    };
+
+    const handleMouseMove = (event: React.MouseEvent) => {
+        setMousePosition({ x: event.clientX, y: event.clientY });
+    };
+
+    const getTooltipContent = () => {
+        if (!hoveredCell) return null;
+        
+        const cellData = data.find(d => d.day === hoveredCell.day && d.hour === hoveredCell.hour);
+        
+        if (!cellData || cellData.orders === 0) {
+            return (
+                <div className="bg-gray-800 text-white p-2 rounded shadow-lg text-xs">
+                    <div className="font-semibold">{hoveredCell.day} {hoveredCell.hour}</div>
+                    <div>No sales recorded</div>
+                </div>
+            );
+        }
+        
+        const intensityText = cellData.intensity === 'high' ? 'High Activity' : 
+                             cellData.intensity === 'medium' ? 'Medium Activity' : 
+                             cellData.intensity === 'low' ? 'Low Activity' : 'No Activity';
+        
+        return (
+            <div className="bg-gray-800 text-white p-3 rounded shadow-lg text-xs min-w-[200px]">
+                <div className="font-semibold text-orange-300 mb-1">{hoveredCell.day} {hoveredCell.hour}</div>
+                <div className="mb-1">{cellData.orders} {cellData.orders === 1 ? 'order' : 'orders'}</div>
+                <div className="mb-1 text-orange-200">{intensityText}</div>
+                <div className="mb-1">Total: {formatCurrency(cellData.total_amount || 0)}</div>
+                <div className="mb-1">Avg: {formatCurrency(cellData.avg_amount || 0)}</div>
+                <div>Items: {cellData.items_sold || 0}</div>
+            </div>
+        );
+    };
+
     return (
-        <div className="grid grid-cols-8 gap-1">
-            {/* Header row */}
-            <div></div>
-            {days.map(day => (
-                <div key={day} className="text-xs text-center font-medium text-gray-600">
-                    {day}
-                </div>
-            ))}
+        <div className="relative">
+            <div className="grid grid-cols-8 gap-1">
+                {/* Header row */}
+                <div></div>
+                {days.map(day => (
+                    <div key={day} className="text-xs text-center font-medium text-gray-600">
+                        {day}
+                    </div>
+                ))}
+                
+                {/* Data rows */}
+                {hours.map(hour => (
+                    <div key={hour} className="contents">
+                        <div className="text-xs text-gray-600 pr-2">{hour}</div>
+                        {days.map(day => {
+                            const cellData = data.find(d => d.day === day && d.hour === hour);
+                            return (
+                                <div
+                                    key={`${day}-${hour}`}
+                                    className={`w-6 h-6 rounded-sm ${getIntensityColor(cellData?.intensity || 'none')} hover:opacity-80 cursor-pointer transition-all duration-200 hover:scale-105`}
+                                    onMouseEnter={(e) => handleMouseEnter(day, hour, e)}
+                                    onMouseLeave={handleMouseLeave}
+                                    onMouseMove={handleMouseMove}
+                                />
+                            );
+                        })}
+                    </div>
+                ))}
+            </div>
             
-            {/* Data rows */}
-            {hours.map(hour => (
-                <div key={hour} className="contents">
-                    <div className="text-xs text-gray-600 pr-2">{hour}</div>
-                    {days.map(day => {
-                        const cellData = data.find(d => d.day === day && d.hour === hour);
-                        return (
-                            <div
-                                key={`${day}-${hour}`}
-                                className={`w-6 h-6 rounded-sm ${getIntensityColor(cellData?.intensity || 'low')} hover:opacity-80 cursor-pointer`}
-                                title={`${day} ${hour}: ${cellData?.orders || 0} orders`}
-                            />
-                        );
-                    })}
+            {/* Custom Tooltip */}
+            {hoveredCell && (
+                <div 
+                    className="fixed z-50 pointer-events-none"
+                    style={{
+                        left: mousePosition.x + 10,
+                        top: mousePosition.y - 10,
+                    }}
+                >
+                    {getTooltipContent()}
                 </div>
-            ))}
+            )}
         </div>
     );
 }
@@ -381,7 +459,7 @@ function OrderStatisticsHeatmap({ data }: { data: any[] }) {
 export default function ProfessionalAdminDashboard() {
     const { analytics, flash } = usePage<PageProps>().props;
     const [selectedPeriod, setSelectedPeriod] = useState('1M'); // Default to 1 month
-    const [selectedTimeframe, setSelectedTimeframe] = useState('Today');
+    const [selectedTimePeriod, setSelectedTimePeriod] = useState(usePage().props.timePeriod || 'Last 7 Days');
 
     // Provide default data if analytics is not available
     const defaultData = {
@@ -398,7 +476,7 @@ export default function ProfessionalAdminDashboard() {
             totalExpenses: { value: 0, change: 0, changeType: 'increase' }
         },
         recentSales: [],
-        topCustomers: [],
+        topProducts: [],
         categories: { categories: [], totalCategories: 0, totalProducts: 0 },
         orderStatistics: [],
         lowStockAlerts: [],
@@ -407,7 +485,7 @@ export default function ProfessionalAdminDashboard() {
     };
 
     const professionalData = analytics?.professional || defaultData;
-    const { kpi, financial, recentSales, topCustomers, categories, orderStatistics, lowStockAlerts, salesPurchaseChartData, chartTotals } = professionalData;
+    const { kpi, financial, recentSales, topProducts, categories, orderStatistics, lowStockAlerts, salesPurchaseChartData, chartTotals } = professionalData;
 
     // Use real chart data from analytics
     const chartData = salesPurchaseChartData && salesPurchaseChartData.length > 0 ? salesPurchaseChartData : [
@@ -677,37 +755,42 @@ export default function ProfessionalAdminDashboard() {
 
                 {/* Bottom Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Top Customers */}
+                    {/* Top Products */}
                     <div>
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between">
                                 <CardTitle className="flex items-center">
-                                    <Users className="h-5 w-5 mr-2" />
-                                    Top Customers
+                                    <Package className="h-5 w-5 mr-2" />
+                                    Top Products
                                 </CardTitle>
-                                <Link href="#" className="text-sm text-blue-600 hover:underline">
+                                <Link href="/products" className="text-sm text-blue-600 hover:underline">
                                     View All
                                 </Link>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
-                                    {topCustomers.map((customer, index) => (
-                                        <div key={index} className="flex items-center justify-between">
+                                    {topProducts.map((product, index) => (
+                                        <div key={product.id} className="flex items-center justify-between py-2">
                                             <div className="flex items-center space-x-3">
-                                                <Avatar className="h-8 w-8">
-                                                    <AvatarImage src={customer.avatar} />
-                                                    <AvatarFallback>
-                                                        {customer.name.split(' ').map(n => n[0]).join('')}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div>
-                                                    <p className="text-sm font-medium">{customer.name}</p>
-                                                    <p className="text-xs text-gray-500">
-                                                        {customer.location} • {customer.orderCount} Orders
+                                                <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-orange-100 to-orange-200 flex items-center justify-center shadow-sm">
+                                                    <span className="text-sm font-semibold text-orange-700">
+                                                        {product.initials}
+                                                    </span>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-semibold text-gray-900 truncate">
+                                                        {product.name}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 mt-0.5">
+                                                        {product.sku} • {product.total_quantity} sold
                                                     </p>
                                                 </div>
                                             </div>
-                                            <p className="text-sm font-medium">{formatCurrency(customer.totalSpent)}</p>
+                                            <div className="text-right">
+                                                <p className="text-sm font-bold text-gray-900">
+                                                    {formatCurrency(product.total_revenue)}
+                                                </p>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -718,54 +801,55 @@ export default function ProfessionalAdminDashboard() {
                     {/* Top Categories */}
                     <div>
                         <Card>
-                            <CardHeader className="flex flex-row items-center justify-between">
+                            <CardHeader>
                                 <CardTitle className="flex items-center">
                                     <Users className="h-5 w-5 mr-2" />
                                     Top Categories
                                 </CardTitle>
-                                <Select value={selectedTimeframe} onValueChange={setSelectedTimeframe}>
-                                    <SelectTrigger className="w-24">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Today">Today</SelectItem>
-                                        <SelectItem value="Weekly">Weekly</SelectItem>
-                                        <SelectItem value="Monthly">Monthly</SelectItem>
-                                    </SelectContent>
-                                </Select>
                             </CardHeader>
                             <CardContent>
-                                <div className="flex items-center justify-center mb-4">
-                                    <CategoriesChart data={categories} />
-                                </div>
-                                <div className="space-y-2">
-                                    {categories.categories.map((category, index) => (
-                                        <div key={index} className="flex items-center justify-between text-sm">
-                                            <div className="flex items-center">
-                                                <div className={`w-3 h-3 rounded-full mr-2 ${
-                                                    index === 0 ? 'bg-orange-500' : 
-                                                    index === 1 ? 'bg-blue-600' : 'bg-orange-300'
-                                                }`}></div>
-                                                <span>{category.name}</span>
-                                            </div>
-                                            <span className="font-medium">{category.sales} Sales</span>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="mt-4 pt-4 border-t space-y-2">
-                                    <div className="flex items-center justify-between text-sm">
-                                        <div className="flex items-center">
-                                            <div className="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
-                                            <span>Total Number Of Categories</span>
-                                        </div>
-                                        <span className="font-medium">{categories.totalCategories}</span>
+                                <div className="flex items-center space-x-6">
+                                    {/* Chart Section */}
+                                    <div className="flex-shrink-0">
+                                        <CategoriesChart data={categories} />
                                     </div>
-                                    <div className="flex items-center justify-between text-sm">
-                                        <div className="flex items-center">
-                                            <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
-                                            <span>Total Number Of Products</span>
+                                    
+                                    {/* Key Section */}
+                                    <div className="flex-1 space-y-3">
+                                        {/* Category Legend */}
+                                        <div className="space-y-2">
+                                            <h4 className="text-sm font-semibold text-gray-700 mb-2">Categories</h4>
+                                            {categories.categories.map((category, index) => (
+                                                <div key={index} className="flex items-center justify-between text-sm">
+                                                    <div className="flex items-center">
+                                                        <div className={`w-3 h-3 rounded-full mr-3 ${
+                                                            index === 0 ? 'bg-orange-500' : 
+                                                            index === 1 ? 'bg-blue-600' : 'bg-orange-300'
+                                                        }`}></div>
+                                                        <span className="text-gray-600">{category.name}</span>
+                                                    </div>
+                                                    <span className="font-medium text-gray-900">{category.sales} Sales</span>
+                                                </div>
+                                            ))}
                                         </div>
-                                        <span className="font-medium">{categories.totalProducts}</span>
+                                        
+                                        {/* Summary Stats */}
+                                        <div className="pt-3 border-t border-gray-100 space-y-2">
+                                            <div className="flex items-center justify-between text-sm">
+                                                <div className="flex items-center">
+                                                    <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
+                                                    <span className="text-gray-600">Total Categories</span>
+                                                </div>
+                                                <span className="font-medium text-gray-900">{categories.totalCategories}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-sm">
+                                                <div className="flex items-center">
+                                                    <div className="w-3 h-3 bg-orange-400 rounded-full mr-3"></div>
+                                                    <span className="text-gray-600">Total Products</span>
+                                                </div>
+                                                <span className="font-medium text-gray-900">{categories.totalProducts}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </CardContent>
@@ -780,14 +864,21 @@ export default function ProfessionalAdminDashboard() {
                                     <BarChart3 className="h-5 w-5 mr-2" />
                                     Order Statistics
                                 </CardTitle>
-                                <Select value={selectedTimeframe} onValueChange={setSelectedTimeframe}>
-                                    <SelectTrigger className="w-24">
+                                <Select 
+                                    value={selectedTimePeriod} 
+                                    onValueChange={(value) => {
+                                        setSelectedTimePeriod(value);
+                                        router.get('/admin-dashboard', { timePeriod: value }, { preserveState: true });
+                                    }}
+                                >
+                                    <SelectTrigger className="w-32">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="Today">Today</SelectItem>
-                                        <SelectItem value="Weekly">Weekly</SelectItem>
-                                        <SelectItem value="Monthly">Monthly</SelectItem>
+                                        <SelectItem value="Last 7 Days">Last 7 Days</SelectItem>
+                                        <SelectItem value="Last 30 Days">Last 30 Days</SelectItem>
+                                        <SelectItem value="Last 90 Days">Last 90 Days</SelectItem>
+                                        <SelectItem value="All Time">All Time</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </CardHeader>

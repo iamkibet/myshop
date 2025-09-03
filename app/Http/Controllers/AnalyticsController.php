@@ -25,6 +25,7 @@ class AnalyticsController extends Controller
         try {
             $period = $request->get('period', 'month');
             $now = Carbon::now();
+             
 
             // Set start date based on period
             switch ($period) {
@@ -63,8 +64,9 @@ class AnalyticsController extends Controller
             $notifications = $this->getNotifications();
 
             // Professional Dashboard Data
-            $period = request('period', '1M');
-            $professionalData = $this->getProfessionalDashboardData($startDate, $period);
+            $period = $request->get('period', '1M');
+            $timePeriod = $request->get('timePeriod', 'Last 7 Days');
+            $professionalData = $this->getProfessionalDashboardData($startDate, $period, $timePeriod);
 
             return response()->json([
                 'sales' => $salesData,
@@ -538,7 +540,7 @@ class AnalyticsController extends Controller
     /**
      * Get professional dashboard data
      */
-    private function getProfessionalDashboardData($startDate, $period = '1M'): array
+    private function getProfessionalDashboardData($startDate, $period = '1M', $timePeriod = 'Last 7 Days'): array
     {
         // KPI Cards Data
         $kpiData = $this->getKPIData($startDate);
@@ -549,14 +551,14 @@ class AnalyticsController extends Controller
         // Recent Orders
         $recentSales = $this->getRecentSales();
         
-        // Top Customers
-        $topCustomers = $this->getTopCustomers($startDate);
+        // Top Products (all-time, not filtered by date)
+        $topProducts = $this->getTopProducts(null);
         
         // Categories Data
         $categoriesData = $this->getCategoriesData($startDate);
         
-        // Order Statistics (Heatmap data)
-        $orderStatistics = $this->getOrderStatistics();
+        // Order Statistics (Heatmap data) - uses its own time period logic
+        $orderStatistics = $this->getOrderStatistics($timePeriod);
         
         // Low Stock Alerts
         $lowStockAlerts = $this->getLowStockAlerts();
@@ -569,7 +571,7 @@ class AnalyticsController extends Controller
             'kpi' => $kpiData,
             'financial' => $financialData,
             'recentSales' => $recentSales,
-            'topCustomers' => $topCustomers,
+            'topProducts' => $topProducts,
             'categories' => $categoriesData,
             'orderStatistics' => $orderStatistics,
             'lowStockAlerts' => $lowStockAlerts,
@@ -990,32 +992,35 @@ class AnalyticsController extends Controller
     }
 
     /**
-     * Get top customers
+     * Get top products
      */
-    private function getTopCustomers($startDate): array
+    private function getTopProducts($startDate): array
     {
         try {
-            $query = Sale::with('manager');
+            $query = SaleItem::with('product');
             if ($startDate) {
-                $query->where('created_at', '>=', $startDate);
+                $query->whereHas('sale', function($q) use ($startDate) {
+                    $q->where('created_at', '>=', $startDate);
+                });
             }
 
-            return $query->selectRaw('manager_id, COUNT(*) as order_count, SUM(total_amount) as total_spent')
-                ->groupBy('manager_id')
-                ->orderByDesc('total_spent')
+            return $query->selectRaw('product_id, SUM(quantity) as total_quantity, SUM(total_price) as total_revenue')
+                ->groupBy('product_id')
+                ->orderByDesc('total_quantity')
                 ->limit(5)
                 ->get()
-                ->map(function ($sale) {
+                ->map(function ($saleItem) {
                     return [
-                        'name' => $sale->manager->name ?? 'Unknown',
-                        'location' => 'USA', // Default location
-                        'orderCount' => $sale->order_count,
-                        'totalSpent' => $sale->total_spent,
-                        'avatar' => null
+                        'id' => $saleItem->product_id,
+                        'name' => $saleItem->product->name ?? 'Unknown Product',
+                        'initials' => $saleItem->product ? strtoupper(substr($saleItem->product->name, 0, 1)) : '?',
+                        'sku' => $saleItem->product->sku ?? 'N/A',
+                        'total_quantity' => $saleItem->total_quantity,
+                        'total_revenue' => $saleItem->total_revenue,
                     ];
                 })->toArray();
         } catch (\Exception $e) {
-            Log::error('Error getting top customers: ' . $e->getMessage());
+            Log::error('Error getting top products: ' . $e->getMessage());
             return [];
         }
     }
@@ -1080,27 +1085,158 @@ class AnalyticsController extends Controller
     /**
      * Get order statistics for heatmap
      */
-    private function getOrderStatistics(): array
+    private function getOrderStatistics($timePeriod = 'Last 7 Days'): array
     {
-        // Generate heatmap data for the last 7 days
-        $data = [];
-        $days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        $hours = ['2 Am', '4 Am', '6 Am', '8 Am', '10 Am', '12 Am', '14 Pm', '16 Pm', '18 Pm'];
+        try {
+            // Determine date range based on time period
+            $startDate = match($timePeriod) {
+                'Last 7 Days' => now()->subDays(7),
+                'Last 30 Days' => now()->subDays(30),
+                'Last 90 Days' => now()->subDays(90),
+                'All Time' => null, // No date filter for all time
+                default => now()->subDays(7)
+            };
 
-        foreach ($days as $dayIndex => $day) {
-            foreach ($hours as $hourIndex => $hour) {
-                // Generate random data for demonstration
-                $orders = rand(0, 20);
-                $data[] = [
-                    'day' => $day,
-                    'hour' => $hour,
-                    'orders' => $orders,
-                    'intensity' => $orders > 15 ? 'high' : ($orders > 8 ? 'medium' : 'low')
-                ];
+            $salesQuery = Sale::with('saleItems')
+                ->select('id', 'created_at', 'total_amount');
+            
+            // Only apply date filter if not "All Time"
+            if ($startDate !== null) {
+                $salesQuery->where('created_at', '>=', $startDate);
             }
-        }
+            
+            $sales = $salesQuery->get();
 
-        return $data;
+            // Initialize data structure - match the image design
+            $data = [];
+            $days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            $hours = ['8 Am', '10 Am', '12 Am', '14 Pm', '16 Pm', '18 Pm', '20 Pm', '22 Pm'];
+            
+            // Create a matrix to count orders by day and hour
+            $orderMatrix = [];
+            foreach ($days as $day) {
+                $orderMatrix[$day] = [];
+                foreach ($hours as $hour) {
+                    $orderMatrix[$day][$hour] = 0;
+                }
+            }
+
+            // Count actual orders by day and hour with detailed statistics
+            $detailedMatrix = [];
+            foreach ($days as $day) {
+                $detailedMatrix[$day] = [];
+                foreach ($hours as $hour) {
+                    $detailedMatrix[$day][$hour] = [
+                        'orders' => 0,
+                        'total_amount' => 0,
+                        'avg_amount' => 0,
+                        'items_sold' => 0
+                    ];
+                }
+            }
+
+            foreach ($sales as $sale) {
+                $dayOfWeek = $sale->created_at->format('D'); // Mon, Tue, etc.
+                $hour = $sale->created_at->format('H'); // 24-hour format
+                
+                // Map 24-hour format to our display hours
+                $displayHour = $this->mapHourToDisplay($hour);
+                
+                if (isset($orderMatrix[$dayOfWeek][$displayHour])) {
+                    $orderMatrix[$dayOfWeek][$displayHour]++;
+                    
+                    // Update detailed statistics
+                    $detailedMatrix[$dayOfWeek][$displayHour]['orders']++;
+                    $detailedMatrix[$dayOfWeek][$displayHour]['total_amount'] += $sale->total_amount;
+                    $detailedMatrix[$dayOfWeek][$displayHour]['items_sold'] += $sale->saleItems->sum('quantity');
+                }
+            }
+
+            // Calculate averages
+            foreach ($detailedMatrix as $day => $dayHours) {
+                foreach ($dayHours as $hour => $stats) {
+                    if ($stats['orders'] > 0) {
+                        $detailedMatrix[$day][$hour]['avg_amount'] = $stats['total_amount'] / $stats['orders'];
+                    }
+                }
+            }
+
+            // Find max orders for intensity calculation
+            $maxOrders = 0;
+            foreach ($orderMatrix as $day => $dayHours) {
+                foreach ($dayHours as $hour => $count) {
+                    $maxOrders = max($maxOrders, $count);
+                }
+            }
+
+            // Build the data array with detailed statistics
+            foreach ($days as $day) {
+                foreach ($hours as $hour) {
+                    $orders = $orderMatrix[$day][$hour] ?? 0;
+                    $intensity = $this->calculateIntensity($orders, $maxOrders);
+                    $detailedStats = $detailedMatrix[$day][$hour] ?? [
+                        'orders' => 0,
+                        'total_amount' => 0,
+                        'avg_amount' => 0,
+                        'items_sold' => 0
+                    ];
+                    
+                    $data[] = [
+                        'day' => $day,
+                        'hour' => $hour,
+                        'orders' => $orders,
+                        'intensity' => $intensity,
+                        'total_amount' => $detailedStats['total_amount'],
+                        'avg_amount' => $detailedStats['avg_amount'],
+                        'items_sold' => $detailedStats['items_sold']
+                    ];
+                }
+            }
+
+            return $data;
+        } catch (\Exception $e) {
+            Log::error('Error getting order statistics: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Map 24-hour format to display hours
+     */
+    private function mapHourToDisplay($hour24): string
+    {
+        $hour = (int) $hour24;
+        
+        // Combine early morning sales (0-8) into 8 Am
+        if ($hour >= 0 && $hour < 8) return '8 Am';
+        if ($hour >= 8 && $hour < 10) return '8 Am';
+        if ($hour >= 10 && $hour < 12) return '10 Am';
+        if ($hour >= 12 && $hour < 14) return '12 Am';
+        if ($hour >= 14 && $hour < 16) return '14 Pm';
+        if ($hour >= 16 && $hour < 18) return '16 Pm';
+        if ($hour >= 18 && $hour < 20) return '18 Pm';
+        if ($hour >= 20 && $hour < 22) return '20 Pm';
+        // Combine late night sales (22-24) into 22 Pm
+        if ($hour >= 22 && $hour < 24) return '22 Pm';
+        
+        // Default to 10 Am for other hours
+        return '10 Am';
+    }
+
+    /**
+     * Calculate intensity based on order count
+     */
+    private function calculateIntensity($orders, $maxOrders): string
+    {
+        if ($maxOrders == 0) return 'none';
+        
+        $percentage = $orders / $maxOrders;
+        
+        if ($percentage >= 0.7) return 'high';
+        if ($percentage >= 0.3) return 'medium';
+        if ($percentage > 0) return 'low';
+        
+        return 'none';
     }
 
     /**
