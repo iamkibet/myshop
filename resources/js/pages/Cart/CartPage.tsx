@@ -101,13 +101,16 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
         }
     };
 
-    const handleCheckout = async () => {
+    const handleCheckout = async (retryCount = 0) => {
         if (cartItems.length === 0) {
             alert('Your cart is empty.');
             return;
         }
 
         setIsCheckingOut(true);
+        let saleId: number | null = null;
+        const maxRetries = 2;
+        
         try {
             // Prepare cart data for backend sync
             const cartDataForSync = cartItems.map(item => ({
@@ -116,28 +119,73 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
                 unit_price: item.unit_price,
             }));
 
-            console.log('Syncing cart data:', cartDataForSync);
+            console.log('Starting checkout process...', { cartItems: cartDataForSync });
 
-            // First, sync the cart with the backend
+            // Step 1: Sync the cart with the backend
+            console.log('Step 1: Syncing cart data...');
             await router.post('/cart/sync', { cart: cartDataForSync });
-            console.log('Cart synced successfully');
+            console.log('✅ Cart synced successfully');
             
-            // Then proceed with checkout - this will redirect to receipt page
+            // Step 2: Proceed with checkout
+            console.log('Step 2: Processing checkout...');
             await router.post('/cart/checkout');
+            console.log('✅ Checkout completed');
             
-            // If we reach here, checkout was successful, clear the frontend cart
-            clearCart();
-            console.log('Cart cleared after successful checkout');
-            
-            // Show success animation briefly before redirect
-            setCheckoutSuccess(true);
-            
+            // Step 3: Since Inertia redirects, we'll skip sale ID extraction for now
             // The backend will handle the redirect to the receipt page
-            // We don't need to manually redirect
+            console.log('✅ Checkout process completed, backend will redirect to receipt');
             
-        } catch (error) {
-            console.error('Error during checkout:', error);
-            alert('Checkout failed. Please try again.');
+            // Since Inertia handles the redirect, show success and clear cart
+            setCheckoutSuccess(true);
+            clearCart();
+            console.log('✅ Frontend cart cleared after successful checkout');
+            
+        } catch (error: any) {
+            console.error('❌ Checkout failed:', error);
+            
+            // Handle specific error types and retry logic
+            if (error.response?.status === 422) {
+                const errorMessage = error.response.data?.message || 'Validation error occurred';
+                alert(`Validation Error: ${errorMessage}`);
+            } else if (error.response?.status === 500) {
+                // Retry for server errors
+                if (retryCount < maxRetries) {
+                    console.log(`🔄 Retrying checkout (attempt ${retryCount + 1}/${maxRetries + 1})...`);
+                    setTimeout(() => {
+                        handleCheckout(retryCount + 1);
+                    }, 1000 * (retryCount + 1)); // Exponential backoff
+                    return;
+                } else {
+                    alert('Server Error: Multiple attempts failed. Please try again later or contact support.');
+                }
+            } else if (error.response?.status === 403) {
+                alert('Access Denied: You are not authorized to complete this sale.');
+            } else if (error.message?.includes('verification')) {
+                // Retry for verification errors
+                if (retryCount < maxRetries) {
+                    console.log(`🔄 Retrying verification (attempt ${retryCount + 1}/${maxRetries + 1})...`);
+                    setTimeout(() => {
+                        handleCheckout(retryCount + 1);
+                    }, 1000 * (retryCount + 1));
+                    return;
+                } else {
+                    alert(`Sale Verification Failed: ${error.message}`);
+                }
+            } else {
+                // Retry for network errors
+                if (retryCount < maxRetries && (!error.response || error.code === 'NETWORK_ERROR')) {
+                    console.log(`🔄 Retrying due to network error (attempt ${retryCount + 1}/${maxRetries + 1})...`);
+                    setTimeout(() => {
+                        handleCheckout(retryCount + 1);
+                    }, 1000 * (retryCount + 1));
+                    return;
+                } else {
+                    alert('Checkout Failed: Please try again. If the problem persists, contact support.');
+                }
+            }
+            
+            // Don't clear cart on error
+            console.log('❌ Cart preserved due to error');
         } finally {
             setIsCheckingOut(false);
         }
@@ -437,7 +485,7 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
 
                                     <Button
                                         size="lg"
-                                        onClick={handleCheckout}
+                                        onClick={() => handleCheckout()}
                                         disabled={isCheckingOut || checkoutSuccess || cartItems.length === 0}
                                         className="mt-6 w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >

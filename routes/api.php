@@ -32,4 +32,5 @@ Route::middleware(['auth:sanctum', 'can:isManager'])->group(function () {
     Route::put('/cart/items/{productId}', [CartController::class, 'updateItem']);
     Route::delete('/cart/items/{productId}', [CartController::class, 'removeItem']);
     Route::post('/cart/checkout', [CartController::class, 'checkout'])->middleware('throttle:10,1');
+    Route::get('/sales/{saleId}/verify', [CartController::class, 'verifySale'])->middleware('throttle:30,1');
 }); 

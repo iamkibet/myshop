@@ -182,7 +182,47 @@ class CartController extends Controller
 
         $cart = session('cart', []);
         if (empty($cart)) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Cart is empty.',
+                    'error_type' => 'empty_cart'
+                ], 422);
+            }
             return back()->with('error', 'Cart is empty.');
+        }
+
+        // Pre-validate stock availability before starting transaction
+        $stockValidationErrors = [];
+        foreach ($cart as $productId => $item) {
+            $product = Product::find($productId);
+            if (!$product) {
+                $stockValidationErrors[] = "Product with ID {$productId} not found.";
+                continue;
+            }
+            
+            if ($product->quantity < $item['quantity']) {
+                $stockValidationErrors[] = "Insufficient stock for {$product->name}. Available: {$product->quantity}, Requested: {$item['quantity']}";
+            }
+        }
+
+        if (!empty($stockValidationErrors)) {
+            \Log::warning('Stock validation failed before checkout', [
+                'user_id' => $user->id,
+                'errors' => $stockValidationErrors,
+                'cart' => $cart
+            ]);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Stock validation failed',
+                    'errors' => $stockValidationErrors,
+                    'error_type' => 'stock_validation_error'
+                ], 422);
+            }
+
+            return back()->with('error', 'Stock validation failed: ' . implode(', ', $stockValidationErrors));
         }
 
         \Log::info('Starting checkout process', [
@@ -292,34 +332,201 @@ class CartController extends Controller
 
             DB::commit();
 
-            \Log::info('Transaction committed, verifying sale exists', [
+            // Verify sale was actually created and has items
+            $sale = Sale::with('saleItems')->find($sale->id);
+            if (!$sale || $sale->saleItems->isEmpty()) {
+                throw new \Exception('Sale verification failed after commit - sale not found or has no items');
+            }
+
+            \Log::info('Transaction committed, sale verified successfully', [
                 'sale_id' => $sale->id,
-                'sale_exists_after_commit' => Sale::find($sale->id) ? 'YES' : 'NO',
-                'sale_data_after_commit' => Sale::find($sale->id)?->toArray()
+                'sale_exists_after_commit' => 'YES',
+                'items_count' => $sale->saleItems->count(),
+                'total_amount' => $sale->total_amount
             ]);
 
-            // Dispatch SaleCreated event after transaction is committed
+            // Dispatch SaleCreated event after transaction is committed and verified
             \Log::info('Dispatching SaleCreated event', [
                 'sale_id' => $sale->id
             ]);
-            event(new \App\Events\SaleCreated($sale));
+            
+            try {
+                event(new \App\Events\SaleCreated($sale));
+                \Log::info('SaleCreated event dispatched successfully', [
+                    'sale_id' => $sale->id
+                ]);
+            } catch (\Exception $eventError) {
+                \Log::error('Failed to dispatch SaleCreated event', [
+                    'sale_id' => $sale->id,
+                    'error' => $eventError->getMessage()
+                ]);
+                // Don't fail the entire transaction for event dispatch failure
+            }
 
-            \Log::info('Transaction committed, redirecting to receipt', [
-                'sale_id' => $sale->id
+            \Log::info('Checkout process completed successfully', [
+                'sale_id' => $sale->id,
+                'total_amount' => $sale->total_amount,
+                'items_count' => $sale->saleItems->count()
             ]);
+
+            // Return JSON response with sale ID for frontend verification
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Sale completed successfully!',
+                    'sale_id' => $sale->id,
+                    'redirect_url' => route('receipts.show', $sale->id)
+                ]);
+            }
 
             return redirect()->route('receipts.show', $sale->id)
                 ->with('success', 'Sale completed successfully!');
 
-        } catch (\Exception $e) {
-            \Log::error('Checkout failed', [
+        } catch (\Illuminate\Database\QueryException $e) {
+            \Log::error('Database error during checkout', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'sql_state' => $e->getSqlState(),
+                'error_code' => $e->getCode(),
                 'user_id' => $user->id
             ]);
 
             DB::rollBack();
-            return back()->with('error', 'Checkout failed: ' . $e->getMessage());
+            
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Database error occurred. Please try again.',
+                    'error_type' => 'database_error'
+                ], 500);
+            }
+            
+            return back()->with('error', 'Database error occurred. Please try again.');
+            
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Validation error during checkout', [
+                'errors' => $e->errors(),
+                'user_id' => $user->id
+            ]);
+
+            DB::rollBack();
+            
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Validation failed',
+                    'errors' => $e->errors(),
+                    'error_type' => 'validation_error'
+                ], 422);
+            }
+            
+            return back()->withErrors($e->errors())->with('error', 'Validation failed. Please check your input.');
+            
+        } catch (\Exception $e) {
+            \Log::error('General error during checkout', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'user_id' => $user->id,
+                'cart_items' => $cart
+            ]);
+
+            DB::rollBack();
+            
+            $errorMessage = 'Checkout failed. Please try again.';
+            if (str_contains($e->getMessage(), 'Insufficient stock')) {
+                $errorMessage = $e->getMessage();
+            } elseif (str_contains($e->getMessage(), 'verification failed')) {
+                $errorMessage = 'Sale verification failed. Please contact support.';
+            }
+            
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => $errorMessage,
+                    'error_type' => 'general_error'
+                ], 500);
+            }
+            
+            return back()->with('error', $errorMessage);
+        }
+    }
+
+    /**
+     * Verify that a sale was successfully created.
+     */
+    public function verifySale($saleId)
+    {
+        // Check if user is a manager
+        $user = auth()->user();
+        if (!$user || !$user->isManager()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        try {
+            $sale = Sale::with(['saleItems.product', 'manager'])
+                ->where('id', $saleId)
+                ->where('manager_id', $user->id) // Ensure user can only verify their own sales
+                ->first();
+
+            if (!$sale) {
+                \Log::warning('Sale verification failed - sale not found', [
+                    'sale_id' => $saleId,
+                    'user_id' => $user->id
+                ]);
+                return response()->json([
+                    'exists' => false,
+                    'error' => 'Sale not found or access denied'
+                ], 404);
+            }
+
+            // Verify sale has items
+            if ($sale->saleItems->isEmpty()) {
+                \Log::warning('Sale verification failed - no items found', [
+                    'sale_id' => $saleId,
+                    'user_id' => $user->id
+                ]);
+                return response()->json([
+                    'exists' => false,
+                    'error' => 'Sale has no items'
+                ], 422);
+            }
+
+            \Log::info('Sale verification successful', [
+                'sale_id' => $saleId,
+                'user_id' => $user->id,
+                'items_count' => $sale->saleItems->count(),
+                'total_amount' => $sale->total_amount
+            ]);
+
+            return response()->json([
+                'exists' => true,
+                'sale' => [
+                    'id' => $sale->id,
+                    'total_amount' => $sale->total_amount,
+                    'created_at' => $sale->created_at->toISOString(),
+                    'items_count' => $sale->saleItems->count(),
+                    'items' => $sale->saleItems->map(function ($item) {
+                        return [
+                            'product_name' => $item->product->name,
+                            'quantity' => $item->quantity,
+                            'unit_price' => $item->unit_price,
+                            'total_price' => $item->total_price,
+                        ];
+                    })
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Sale verification error', [
+                'sale_id' => $saleId,
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'exists' => false,
+                'error' => 'Verification failed: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

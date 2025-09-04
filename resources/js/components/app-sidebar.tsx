@@ -11,6 +11,9 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    SidebarMenuSub,
+    SidebarMenuSubButton,
+    SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
@@ -39,7 +42,15 @@ import {
     UserCheck,
     Box,
     TrendingUp,
-    Calculator
+    Calculator,
+    ChevronDown,
+    ChevronRight,
+    Settings,
+    History,
+    Wallet,
+    TrendingUp as TrendingUpIcon,
+    FileText as FileTextIcon,
+    UserPlus
 } from 'lucide-react';
 import AppLogo from './app-logo';
 
@@ -64,155 +75,9 @@ export function AppSidebar() {
     const isAdmin = user.role === 'admin';
     const isManager = user.role === 'manager';
 
-    const mainNavItems: NavItem[] = [
-        {
-            title: 'Dashboard',
-            href: '/dashboard',
-            icon: LayoutGrid,
-        },
-    ];
-
-    // Stores section - using existing routes
-    const storesNavItems: NavItem[] = [
-        {
-            title: 'Products',
-            href: '/products',
-            icon: Package,
-        },
-        {
-            title: 'Inventory',
-            href: '/products',
-            icon: Warehouse,
-        },
-    ];
-
-    // HRM section - using existing routes
-    const hrmNavItems: NavItem[] = [
-        {
-            title: 'Users',
-            href: '/users',
-            icon: UserIcon,
-        },
-        {
-            title: 'Managers',
-            href: '/users',
-            icon: Users2,
-        },
-        {
-            title: 'Wallets',
-            href: '/wallets',
-            icon: DollarSign,
-        },
-        {
-            title: 'Expenses',
-            href: '/expenses',
-            icon: ReceiptIcon,
-        },
-        {
-            title: 'Sales',
-            href: '/sales',
-            icon: Receipt,
-        },
-        {
-            title: 'Commission Rates',
-            href: '/commission-rates',
-            icon: Percent,
-        },
-    ];
-
-    // Reports section - using existing routes
-    const reportsNavItems: NavItem[] = [
-        {
-            title: 'Sales Report',
-            href: '/sales',
-            icon: BarChart3,
-        },
-        {
-            title: 'Product Report',
-            href: '/products',
-            icon: Box,
-        },
-        {
-            title: 'Expense Report',
-            href: '/expenses',
-            icon: ReceiptIcon,
-        },
-        {
-            title: 'Wallet Report',
-            href: '/wallets',
-            icon: DollarSign,
-        },
-        {
-            title: 'User Report',
-            href: '/users',
-            icon: Users,
-        },
-    ];
-
-    // Admin-only navigation items
-    const adminNavItems: NavItem[] = [
-        {
-            title: 'Products',
-            href: '/products',
-            icon: Package,
-        },
-        {
-            title: 'Create Product',
-            href: '/products/create',
-            icon: Plus,
-        },
-        {
-            title: 'Users',
-            href: '/users',
-            icon: Users,
-        },
-        {
-            title: 'Manager Wallets',
-            href: '/wallets',
-            icon: DollarSign,
-        },
-        {
-            title: 'Expenses',
-            href: '/expenses',
-            icon: ReceiptIcon,
-        },
-        {
-            title: 'View All Sales',
-            href: '/sales',
-            icon: Receipt,
-        },
-        {
-            title: 'Commission Rates',
-            href: '/commission-rates',
-            icon: Percent,
-        },
-    ];
-
-    // Manager-only navigation items
-    const managerNavItems: NavItem[] = [
-        {
-            title: 'Product Catalog',
-            href: '/dashboard',
-            icon: Package,
-        },
-        {
-            title: 'Shopping Cart',
-            href: '/cart',
-            icon: Package,
-        },
-        {
-            title: 'Sales History',
-            href: '/sales',
-            icon: Receipt,
-        },
-        {
-            title: 'My Expenses',
-            href: '/expenses',
-            icon: ReceiptIcon,
-        },
-    ];
-
-   
+    // Dashboard navigation based on role
+    const dashboardHref = isAdmin ? '/admin-dashboard' : '/dashboard';
+    const dashboardTitle = isAdmin ? 'Admin Dashboard' : 'Manager Dashboard';
 
     return (
         <Sidebar collapsible="icon" variant="inset" className="z-50">
@@ -220,7 +85,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href="/dashboard" prefetch>
+                            <Link href={dashboardHref} prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -229,99 +94,241 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
-
-                {/* Stores Section */}
+                {/* Dashboard */}
                 <SidebarGroup className="px-2 py-0">
                     <SidebarMenu>
-                        {storesNavItems.map((item) => (
-                            <SidebarMenuItem key={item.title}>
-                                <SidebarMenuButton asChild isActive={page.url.startsWith(item.href)} tooltip={{ children: item.title }}>
-                                    <Link href={item.href} prefetch>
-                                        {item.icon && <item.icon />}
-                                        <span>{item.title}</span>
-                                    </Link>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        ))}
-                    </SidebarMenu>
-                </SidebarGroup>
-
-                {/* HRM Section */}
-                <SidebarGroup className="px-2 py-0">
-                    <SidebarGroupLabel>HRM</SidebarGroupLabel>
-                    <SidebarMenu>
-                        {hrmNavItems.map((item) => (
-                            <SidebarMenuItem key={item.title}>
-                                <SidebarMenuButton asChild isActive={page.url.startsWith(item.href)} tooltip={{ children: item.title }}>
-                                    <Link href={item.href} prefetch>
-                                        {item.icon && <item.icon />}
-                                        <span>{item.title}</span>
-                                    </Link>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        ))}
-                    </SidebarMenu>
-                </SidebarGroup>
-
-                {/* Reports Section */}
-                <SidebarGroup className="px-2 py-0">
-                    <SidebarGroupLabel>Reports</SidebarGroupLabel>
-                    <SidebarMenu>
-                        {reportsNavItems.map((item) => (
-                            <SidebarMenuItem key={item.title}>
-                                <SidebarMenuButton asChild isActive={page.url.startsWith(item.href)} tooltip={{ children: item.title }}>
-                                    <Link href={item.href} prefetch>
-                                        {item.icon && <item.icon />}
-                                        <span>{item.title}</span>
-                                    </Link>
-                                </SidebarMenuButton>
-                            </SidebarMenuItem>
-                        ))}
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild isActive={page.url === dashboardHref} tooltip={{ children: dashboardTitle }}>
+                                <Link href={dashboardHref} prefetch>
+                                    <LayoutGrid />
+                                    <span>{dashboardTitle}</span>
+                                </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
                     </SidebarMenu>
                 </SidebarGroup>
 
                 {/* Admin Navigation */}
                 {isAdmin && (
-                    <SidebarGroup className="px-2 py-0">
-                        <SidebarGroupLabel>Admin</SidebarGroupLabel>
-                        <SidebarMenu>
-                            {adminNavItems.map((item) => (
-                                <SidebarMenuItem key={item.title}>
-                                    <SidebarMenuButton asChild isActive={page.url.startsWith(item.href)} tooltip={{ children: item.title }}>
-                                        <Link href={item.href} prefetch>
-                                            {item.icon && <item.icon />}
-                                            <span>{item.title}</span>
+                    <>
+                        {/* Inventory Management */}
+                        <SidebarGroup className="px-2 py-0">
+                            <SidebarGroupLabel>Inventory Management</SidebarGroupLabel>
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/products') && !page.url.includes('/create')} tooltip={{ children: 'Products' }}>
+                                        <Link href="/products" prefetch>
+                                            <Package />
+                                            <span>Products</span>
                                         </Link>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
-                            ))}
-                        </SidebarMenu>
-                    </SidebarGroup>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url === '/products/create'} tooltip={{ children: 'Add Product' }}>
+                                        <Link href="/products/create" prefetch>
+                                            <Plus />
+                                            <span>Add Product</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/products')} tooltip={{ children: 'Stock Management' }}>
+                                        <Link href="/products" prefetch>
+                                            <Warehouse />
+                                            <span>Stock Management</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroup>
+
+                        {/* User Management */}
+                        <SidebarGroup className="px-2 py-0">
+                            <SidebarGroupLabel>User Management</SidebarGroupLabel>
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/users')} tooltip={{ children: 'All Users' }}>
+                                        <Link href="/users" prefetch>
+                                            <Users />
+                                            <span>All Users</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/users')} tooltip={{ children: 'Managers' }}>
+                                        <Link href="/users" prefetch>
+                                            <UserCheck />
+                                            <span>Managers</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroup>
+
+                        {/* Financial Management */}
+                        <SidebarGroup className="px-2 py-0">
+                            <SidebarGroupLabel>Financial Management</SidebarGroupLabel>
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/sales')} tooltip={{ children: 'All Sales' }}>
+                                        <Link href="/sales" prefetch>
+                                            <Receipt />
+                                            <span>All Sales</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/expenses')} tooltip={{ children: 'Expenses' }}>
+                                        <Link href="/expenses" prefetch>
+                                            <ReceiptIcon />
+                                            <span>Expenses</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/wallets')} tooltip={{ children: 'Wallets' }}>
+                                        <Link href="/wallets" prefetch>
+                                            <DollarSign />
+                                            <span>Wallets</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/commission-rates')} tooltip={{ children: 'Commission Rates' }}>
+                                        <Link href="/commission-rates" prefetch>
+                                            <Percent />
+                                            <span>Commission Rates</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroup>
+
+                        {/* Reports & Analytics */}
+                        <SidebarGroup className="px-2 py-0">
+                            <SidebarGroupLabel>Reports & Analytics</SidebarGroupLabel>
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/sales')} tooltip={{ children: 'Sales Reports' }}>
+                                        <Link href="/sales" prefetch>
+                                            <BarChart3 />
+                                            <span>Sales Reports</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/products')} tooltip={{ children: 'Product Reports' }}>
+                                        <Link href="/products" prefetch>
+                                            <Box />
+                                            <span>Product Reports</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/expenses')} tooltip={{ children: 'Expense Reports' }}>
+                                        <Link href="/expenses" prefetch>
+                                            <FileTextIcon />
+                                            <span>Expense Reports</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/users')} tooltip={{ children: 'User Reports' }}>
+                                        <Link href="/users" prefetch>
+                                            <Users />
+                                            <span>User Reports</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroup>
+                    </>
                 )}
 
                 {/* Manager Navigation */}
                 {isManager && (
-                    <SidebarGroup className="px-2 py-0">
-                        <SidebarGroupLabel>Sales</SidebarGroupLabel>
-                        <SidebarMenu>
-                            {managerNavItems.map((item) => (
-                                <SidebarMenuItem key={item.title}>
-                                    <SidebarMenuButton asChild isActive={page.url.startsWith(item.href)} tooltip={{ children: item.title }}>
-                                        <Link href={item.href} prefetch>
-                                            {item.icon && <item.icon />}
-                                            <span>{item.title}</span>
+                    <>
+                        {/* Sales Operations */}
+                        <SidebarGroup className="px-2 py-0">
+                            <SidebarGroupLabel>Sales Operations</SidebarGroupLabel>
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/dashboard')} tooltip={{ children: 'Product Catalog' }}>
+                                        <Link href="/dashboard" prefetch>
+                                            <Package />
+                                            <span>Product Catalog</span>
                                         </Link>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
-                            ))}
-                        </SidebarMenu>
-                    </SidebarGroup>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/cart')} tooltip={{ children: 'Shopping Cart' }}>
+                                        <Link href="/cart" prefetch>
+                                            <ShoppingCart />
+                                            <span>Shopping Cart</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/sales')} tooltip={{ children: 'Sales History' }}>
+                                        <Link href="/sales" prefetch>
+                                            <History />
+                                            <span>Sales History</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroup>
+
+                        {/* My Expenses */}
+                        <SidebarGroup className="px-2 py-0">
+                            <SidebarGroupLabel>My Expenses</SidebarGroupLabel>
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url === '/expenses/create'} tooltip={{ children: 'Submit Expense' }}>
+                                        <Link href="/expenses/create" prefetch>
+                                            <Plus />
+                                            <span>Submit Expense</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/expenses') && page.url !== '/expenses/create'} tooltip={{ children: 'My Expense History' }}>
+                                        <Link href="/expenses" prefetch>
+                                            <ReceiptIcon />
+                                            <span>My Expense History</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroup>
+
+                        {/* My Wallet */}
+                        <SidebarGroup className="px-2 py-0">
+                            <SidebarGroupLabel>My Wallet</SidebarGroupLabel>
+                            <SidebarMenu>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/wallet')} tooltip={{ children: 'Wallet Balance' }}>
+                                        <Link href="/wallet" prefetch>
+                                            <Wallet />
+                                            <span>Wallet Balance</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={page.url.startsWith('/wallet')} tooltip={{ children: 'Transaction History' }}>
+                                        <Link href="/wallet" prefetch>
+                                            <History />
+                                            <span>Transaction History</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            </SidebarMenu>
+                        </SidebarGroup>
+                    </>
                 )}
             </SidebarContent>
 
             <SidebarFooter>
-                
                 <NavUser />
             </SidebarFooter>
         </Sidebar>

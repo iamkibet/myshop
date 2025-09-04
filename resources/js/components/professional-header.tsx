@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { 
     Search, 
     Plus, 
@@ -122,8 +123,9 @@ export function ProfessionalHeader({ alertCounts, analytics: propAnalytics }: { 
 
     return (
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-sidebar-border/50 px-4 sm:px-6 bg-white">
-            {/* Left Section - Search */}
+            {/* Left Section - Sidebar Trigger and Search */}
             <div className="flex items-center gap-4">
+                <SidebarTrigger className="-ml-1" />
                 <form onSubmit={handleSearch} className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input 
