@@ -160,7 +160,13 @@ class ExpenseController extends Controller
             $data['receipt_path'] = $path;
         }
 
-        Expense::create($data);
+        $expense = Expense::create($data);
+
+        // Create notification for expense approval if created by manager
+        if ($user->isManager()) {
+            $notificationService = new \App\Services\NotificationService();
+            $notificationService->createExpenseApprovalNotification($expense);
+        }
 
         return redirect()->route('expenses.index')->with('success', 'Expense added successfully.');
     }
@@ -356,6 +362,10 @@ class ExpenseController extends Controller
             'approval_notes' => $request->approval_notes,
         ]);
 
+        // Create notification for expense approval
+        $notificationService = new \App\Services\NotificationService();
+        $notificationService->createExpenseStatusNotification($expense, 'approved');
+
         return redirect()->back()->with('success', 'Expense approved successfully.');
     }
 
@@ -381,6 +391,10 @@ class ExpenseController extends Controller
             'approved_by' => $user->id,
             'approval_notes' => $request->approval_notes,
         ]);
+
+        // Create notification for expense rejection
+        $notificationService = new \App\Services\NotificationService();
+        $notificationService->createExpenseStatusNotification($expense, 'rejected');
 
         return redirect()->back()->with('success', 'Expense rejected successfully.');
     }

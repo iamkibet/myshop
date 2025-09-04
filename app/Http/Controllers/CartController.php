@@ -286,8 +286,7 @@ class CartController extends Controller
                 }
             }
 
-            // Create sale notification
-            $notificationService->createSaleNotification($sale);
+            // Sale notification will be created automatically via SaleCreated event
 
             \Log::info('Checkout completed successfully, committing transaction');
 
@@ -298,6 +297,12 @@ class CartController extends Controller
                 'sale_exists_after_commit' => Sale::find($sale->id) ? 'YES' : 'NO',
                 'sale_data_after_commit' => Sale::find($sale->id)?->toArray()
             ]);
+
+            // Dispatch SaleCreated event after transaction is committed
+            \Log::info('Dispatching SaleCreated event', [
+                'sale_id' => $sale->id
+            ]);
+            event(new \App\Events\SaleCreated($sale));
 
             \Log::info('Transaction committed, redirecting to receipt', [
                 'sale_id' => $sale->id

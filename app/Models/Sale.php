@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Events\Created;
+use App\Events\SaleCreated;
 
 class Sale extends Model
 {
@@ -69,6 +70,8 @@ class Sale extends Model
 
             // Add commission to wallet
             $wallet->addEarnings($commission);
+
+            // Note: SaleCreated event is now dispatched from CartController after transaction commit
         });
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
@@ -120,6 +121,29 @@ class DashboardController extends Controller
             $analyticsData = json_decode($analyticsResponse->getContent(), true);
         }
 
+        // Get recent notifications for the header
+        $recentNotifications = Notification::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get()
+            ->map(function ($notification) {
+                return [
+                    'id' => $notification->id,
+                    'type' => $notification->type,
+                    'title' => $notification->title,
+                    'message' => $notification->description,
+                    'icon' => $notification->icon,
+                    'action_data' => $notification->action_data,
+                    'category' => $notification->category,
+                    'is_read' => $notification->is_read,
+                    'created_at' => $notification->created_at->toISOString(),
+                ];
+            });
+
+        $unreadCount = Notification::where('user_id', $user->id)
+            ->where('is_read', false)
+            ->count();
+
         $data = [
             'auth' => [
                 'user' => [
@@ -129,9 +153,13 @@ class DashboardController extends Controller
                     'role' => $user->role,
                 ],
             ],
+            'notifications' => [
+                'recent' => $recentNotifications,
+                'unreadCount' => $unreadCount,
+            ],
             'analytics' => $analyticsData,
         ];
 
-        return Inertia::render('admin-dashboard', $data);
+        return Inertia::render('professional-admin-dashboard', $data);
     }
 }

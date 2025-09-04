@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { router } from '@inertiajs/react';
-import { AlertTriangle, ArrowRight, Bell, CheckCircle, Info, TrendingUp, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Bell, CheckCircle, Eye, Info, TrendingUp, XCircle } from 'lucide-react';
 import { useState } from 'react';
 
 interface Notification {
@@ -83,9 +83,9 @@ export default function NotificationsDropdown({ notifications, unreadCount, onNo
             });
 
             if (response.ok) {
-                // Update local state immediately
+                // Remove notification from local state (make it disappear)
                 setLocalNotifications((prev) =>
-                    prev.map((notification) => (notification.id === notificationId ? { ...notification, is_read: true } : notification)),
+                    prev.filter((notification) => notification.id !== notificationId)
                 );
 
                 // Update unread count
@@ -171,10 +171,9 @@ export default function NotificationsDropdown({ notifications, unreadCount, onNo
                                 recentNotifications.map((notification) => (
                                     <div
                                         key={notification.id}
-                                        className={`flex cursor-pointer items-start space-x-3 rounded-lg p-3 transition-all hover:shadow-sm ${
+                                        className={`flex items-start space-x-3 rounded-lg p-3 transition-all hover:shadow-sm ${
                                             notification.is_read ? 'opacity-75' : ''
                                         } ${getNotificationColor(notification.type)}`}
-                                        onClick={() => handleNotificationClick(notification)}
                                     >
                                         {getNotificationIcon(notification.icon)}
                                         <div className="min-w-0 flex-1">
@@ -191,7 +190,33 @@ export default function NotificationsDropdown({ notifications, unreadCount, onNo
                                                 <span className="text-xs text-muted-foreground">
                                                     {new Date(notification.created_at).toLocaleString()}
                                                 </span>
-                                                <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                                                <div className="flex items-center space-x-2">
+                                                    {!notification.is_read && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 w-6 p-0"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                markAsRead(notification.id);
+                                                            }}
+                                                            disabled={loading}
+                                                            title="Mark as Read"
+                                                        >
+                                                            <Eye className="h-3 w-3" />
+                                                        </Button>
+                                                    )}
+                                                    {notification.action_data && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 px-2 text-xs"
+                                                            onClick={() => handleNotificationClick(notification)}
+                                                        >
+                                                            <ArrowRight className="h-3 w-3" />
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

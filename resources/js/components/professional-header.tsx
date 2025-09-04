@@ -6,12 +6,13 @@ import {
     Search, 
     Plus, 
     Bell, 
-    MessageSquare, 
     Settings, 
-    Maximize2, 
-    Flag
+    Maximize2,
+    Minimize2
 } from 'lucide-react';
-import { usePage } from '@inertiajs/react';
+import { usePage, router } from '@inertiajs/react';
+import { useState, useEffect } from 'react';
+import NotificationsDropdown from '@/components/notifications-dropdown';
 
 interface User {
     id: number;
@@ -20,76 +21,155 @@ interface User {
     role: 'admin' | 'manager';
 }
 
+interface Notification {
+    id: number;
+    type: 'success' | 'warning' | 'error' | 'info';
+    title: string;
+    message: string;
+    icon: string;
+    action_data?: {
+        type: string;
+        url?: string;
+        id?: number;
+        product_id?: number;
+        product_name?: string;
+        variant_id?: number;
+    };
+    category: string;
+    is_read: boolean;
+    created_at: string;
+}
+
 interface PageProps {
     auth: {
         user: User;
+    };
+    notifications?: {
+        recent: Notification[];
+        unreadCount: number;
     };
     [key: string]: unknown;
 }
 
 export function ProfessionalHeader() {
-    const { auth } = usePage<PageProps>().props;
+    const { auth, notifications } = usePage<PageProps>().props;
     const user = auth.user;
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [showNotifications, setShowNotifications] = useState(false);
+
+    // Fullscreen functionality
+    const toggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+            setIsFullscreen(true);
+        } else {
+            document.exitFullscreen();
+            setIsFullscreen(false);
+        }
+    };
+
+    // Search functionality
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (searchQuery.trim()) {
+            router.get('/products', { search: searchQuery.trim() });
+        }
+    };
+
+
+    // Handle add new product
+    const handleAddNew = () => {
+        router.get('/products/create');
+    };
+
+    // Handle settings
+    const handleSettings = () => {
+        router.get('/settings/profile');
+    };
+
+    // Keyboard shortcut for search (Cmd+K)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                const searchInput = document.querySelector('input[placeholder="Search products..."]') as HTMLInputElement;
+                if (searchInput) {
+                    searchInput.focus();
+                }
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     return (
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-sidebar-border/50 px-4 sm:px-6 bg-white">
             {/* Left Section - Search */}
             <div className="flex items-center gap-4">
-                <div className="relative">
+                <form onSubmit={handleSearch} className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input 
-                        placeholder="Search" 
+                        placeholder="Search products..." 
                         className="pl-10 pr-16 w-64"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                     />
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400">
                         ⌘K
                     </div>
-                </div>
+                </form>
             </div>
 
             {/* Right Section - Controls and User */}
             <div className="flex items-center gap-3">
                 {/* Add New Button */}
-                <Button className="bg-orange-500 hover:bg-orange-600 text-white">
+                <Button 
+                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                    onClick={handleAddNew}
+                >
                     <Plus className="h-4 w-4 mr-2" />
                     Add New
                 </Button>
 
-                {/* Flag */}
-                <Button variant="ghost" size="sm">
-                    <Flag className="h-4 w-4" />
-                </Button>
-
                 {/* Fullscreen */}
-                <Button variant="ghost" size="sm">
-                    <Maximize2 className="h-4 w-4" />
-                </Button>
-
-                {/* Messages */}
-                <Button variant="ghost" size="sm" className="relative">
-                    <MessageSquare className="h-4 w-4" />
-                    <Badge className="absolute -top-1 -right-1 h-5 w-5 text-xs bg-red-500">
-                        1
-                    </Badge>
+                <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={toggleFullscreen}
+                    title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                >
+                    {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                 </Button>
 
                 {/* Notifications */}
-                <Button variant="ghost" size="sm">
-                    <Bell className="h-4 w-4" />
-                </Button>
+                <NotificationsDropdown 
+                    notifications={notifications?.recent || []}
+                    unreadCount={notifications?.unreadCount || 0}
+                />
 
-                {/* Settings */}
-                <Button variant="ghost" size="sm">
-                    <Settings className="h-4 w-4" />
-                </Button>
+                {/* Settings - Desktop Only */}
+                <div className="hidden lg:block">
+                    <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={handleSettings}
+                        title="Settings"
+                    >
+                        <Settings className="h-4 w-4" />
+                    </Button>
+                </div>
 
-                {/* User Avatar */}
-                <Avatar className="h-8 w-8">
-                    <AvatarImage src="/placeholder-avatar.jpg" alt={user.name} />
-                    <AvatarFallback>
-                        {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-                    </AvatarFallback>
-                </Avatar>
+                {/* User Avatar - Desktop Only */}
+                <div className="hidden lg:block">
+                    <Avatar className="h-8 w-8 cursor-pointer" onClick={handleSettings}>
+                        <AvatarImage src="/placeholder-avatar.jpg" alt={user.name} />
+                        <AvatarFallback>
+                            {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                        </AvatarFallback>
+                    </Avatar>
+                </div>
             </div>
         </header>
     );

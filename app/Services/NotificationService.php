@@ -26,6 +26,23 @@ class NotificationService
     }
 
     /**
+     * Create a new notification for a specific user
+     */
+    public function createForUser(int $userId, array $data): Notification
+    {
+        return Notification::create([
+            'user_id' => $userId,
+            'type' => $data['type'],
+            'title' => $data['title'],
+            'description' => $data['message'],
+            'icon' => $data['icon'] ?? null,
+            'action_data' => $data['action'] ?? null,
+            'category' => $data['category'],
+            'metadata' => $data['metadata'] ?? null,
+        ]);
+    }
+
+    /**
      * Create inventory alert notifications
      */
     public function createInventoryAlerts(): void
@@ -39,23 +56,61 @@ class NotificationService
      */
     public function createSaleNotification(\App\Models\Sale $sale): void
     {
-        $this->create([
-            'type' => 'success',
-            'title' => 'New Sale Completed',
-            'message' => "Sale #{$sale->id} completed for $" . number_format($sale->total_amount, 2),
-            'icon' => 'trending-up',
-            'category' => 'sales',
-            'action' => [
-                'type' => 'sale',
-                'id' => $sale->id,
-                'url' => "/receipts/{$sale->id}",
-            ],
-            'metadata' => [
-                'sale_id' => $sale->id,
-                'total_amount' => $sale->total_amount,
-                'items_count' => $sale->saleItems->count(),
-            ],
+        \Log::info('NotificationService: Creating sale notifications', [
+            'sale_id' => $sale->id,
+            'manager_id' => $sale->manager_id,
+            'total_amount' => $sale->total_amount
         ]);
+
+        // Get all admin users to notify them about the new sale
+        $adminUsers = \App\Models\User::where('role', 'admin')->get();
+
+        \Log::info('NotificationService: Found admin users', [
+            'admin_count' => $adminUsers->count(),
+            'admin_ids' => $adminUsers->pluck('id')->toArray()
+        ]);
+
+        foreach ($adminUsers as $admin) {
+            // Check if notification already exists for this sale and admin
+            $existingNotification = Notification::where('user_id', $admin->id)
+                ->where('category', 'sales')
+                ->whereJsonContains('metadata->sale_id', $sale->id)
+                ->first();
+
+            if ($existingNotification) {
+                \Log::info('NotificationService: Notification already exists, skipping', [
+                    'admin_id' => $admin->id,
+                    'sale_id' => $sale->id,
+                    'existing_notification_id' => $existingNotification->id
+                ]);
+                continue;
+            }
+
+            $notification = $this->createForUser($admin->id, [
+                'type' => 'success',
+                'title' => 'New Sale Completed',
+                'message' => "Sale #{$sale->id} completed by {$sale->manager->name} for Ksh " . number_format($sale->total_amount, 2),
+                'icon' => 'trending-up',
+                'category' => 'sales',
+                'action' => [
+                    'type' => 'sale',
+                    'id' => $sale->id,
+                    'url' => "/receipts/{$sale->id}",
+                ],
+                'metadata' => [
+                    'sale_id' => $sale->id,
+                    'total_amount' => $sale->total_amount,
+                    'items_count' => $sale->saleItems->count(),
+                    'manager_name' => $sale->manager->name,
+                ],
+            ]);
+
+            \Log::info('NotificationService: Created notification for admin', [
+                'admin_id' => $admin->id,
+                'notification_id' => $notification->id,
+                'sale_id' => $sale->id
+            ]);
+        }
     }
 
     /**
@@ -86,21 +141,26 @@ class NotificationService
      */
     public function createLowStockNotification(Product $product): void
     {
-        $this->create([
-            'type' => 'warning',
-            'title' => 'Low Stock Alert',
-            'message' => "{$product->name} is running low on stock ({$product->quantity} remaining)",
-            'icon' => 'alert-triangle',
-            'category' => 'inventory',
-            'action' => [
-                'type' => 'low_stock',
-                'product_id' => $product->id,
-            ],
-            'metadata' => [
-                'product_id' => $product->id,
-                'current_quantity' => $product->quantity,
-            ],
-        ]);
+        // Get all admin users to notify them about low stock
+        $adminUsers = \App\Models\User::where('role', 'admin')->get();
+
+        foreach ($adminUsers as $admin) {
+            $this->createForUser($admin->id, [
+                'type' => 'warning',
+                'title' => 'Low Stock Alert',
+                'message' => "{$product->name} is running low on stock ({$product->quantity} remaining)",
+                'icon' => 'alert-triangle',
+                'category' => 'inventory',
+                'action' => [
+                    'type' => 'low_stock',
+                    'product_id' => $product->id,
+                ],
+                'metadata' => [
+                    'product_id' => $product->id,
+                    'current_quantity' => $product->quantity,
+                ],
+            ]);
+        }
     }
 
     /**
@@ -108,20 +168,81 @@ class NotificationService
      */
     public function createOutOfStockNotification(Product $product): void
     {
-        $this->create([
-            'type' => 'error',
-            'title' => 'Out of Stock Alert',
-            'message' => "{$product->name} is out of stock",
-            'icon' => 'x-circle',
-            'category' => 'inventory',
+        // Get all admin users to notify them about out of stock
+        $adminUsers = \App\Models\User::where('role', 'admin')->get();
+
+        foreach ($adminUsers as $admin) {
+            $this->createForUser($admin->id, [
+                'type' => 'error',
+                'title' => 'Out of Stock Alert',
+                'message' => "{$product->name} is out of stock",
+                'icon' => 'x-circle',
+                'category' => 'inventory',
+                'action' => [
+                    'type' => 'out_of_stock',
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                ],
+                'metadata' => [
+                    'product_id' => $product->id,
+                    'current_quantity' => 0,
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * Create notification for expense that needs approval
+     */
+    public function createExpenseApprovalNotification(\App\Models\Expense $expense): void
+    {
+        // Get all admin users to notify them about expense approval needed
+        $adminUsers = \App\Models\User::where('role', 'admin')->get();
+
+        foreach ($adminUsers as $admin) {
+            $this->createForUser($admin->id, [
+                'type' => 'warning',
+                'title' => 'Expense Approval Required',
+                'message' => "Expense '{$expense->title}' for Ksh " . number_format($expense->amount, 2) . " needs approval",
+                'icon' => 'alert-triangle',
+                'category' => 'expenses',
+                'action' => [
+                    'type' => 'expense_approval',
+                    'expense_id' => $expense->id,
+                    'url' => "/expenses/{$expense->id}",
+                ],
+                'metadata' => [
+                    'expense_id' => $expense->id,
+                    'amount' => $expense->amount,
+                    'category' => $expense->category,
+                    'added_by' => $expense->addedBy->name,
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * Create notification for expense approval/rejection
+     */
+    public function createExpenseStatusNotification(\App\Models\Expense $expense, string $status): void
+    {
+        // Notify the user who submitted the expense
+        $this->createForUser($expense->added_by, [
+            'type' => $status === 'approved' ? 'success' : 'error',
+            'title' => $status === 'approved' ? 'Expense Approved' : 'Expense Rejected',
+            'message' => "Your expense '{$expense->title}' for Ksh " . number_format($expense->amount, 2) . " has been {$status}",
+            'icon' => $status === 'approved' ? 'check-circle' : 'x-circle',
+            'category' => 'expenses',
             'action' => [
-                'type' => 'out_of_stock',
-                'product_id' => $product->id,
-                'product_name' => $product->name,
+                'type' => 'expense_status',
+                'expense_id' => $expense->id,
+                'url' => "/expenses/{$expense->id}",
             ],
             'metadata' => [
-                'product_id' => $product->id,
-                'current_quantity' => 0,
+                'expense_id' => $expense->id,
+                'amount' => $expense->amount,
+                'status' => $status,
+                'approved_by' => $expense->approvedBy->name ?? 'System',
             ],
         ]);
     }
