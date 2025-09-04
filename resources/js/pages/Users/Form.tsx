@@ -97,7 +97,7 @@ export default function UsersForm({ user }: UsersFormProps) {
                                         value={formData.name}
                                         onChange={(e) => handleInputChange('name', e.target.value)}
                                         placeholder="Enter full name"
-                                        error={errors.name}
+                                        // error={errors.name} // Removed - not supported by Input component
                                     />
                                 </div>
 
@@ -109,7 +109,7 @@ export default function UsersForm({ user }: UsersFormProps) {
                                         value={formData.email}
                                         onChange={(e) => handleInputChange('email', e.target.value)}
                                         placeholder="Enter email address"
-                                        error={errors.email}
+                                        // error={errors.email} // Removed - not supported by Input component
                                     />
                                 </div>
 
@@ -121,7 +121,7 @@ export default function UsersForm({ user }: UsersFormProps) {
                                         value={formData.password}
                                         onChange={(e) => handleInputChange('password', e.target.value)}
                                         placeholder={isEditing ? 'Enter new password' : 'Enter password'}
-                                        error={errors.password}
+                                        // error={errors.password} // Removed - not supported by Input component
                                     />
                                 </div>
 

@@ -4,7 +4,7 @@ import { usePage } from '@inertiajs/react';
 export default function AppLogo() {
     const { app } = usePage().props;
     // Get app name from shared data or fallback to environment variable
-    const appName = app?.name || import.meta.env.VITE_APP_NAME || 'MyShop';
+    const appName = (app as any)?.name || import.meta.env.VITE_APP_NAME || 'MyShop';
 
     return (
         <>

@@ -72,12 +72,13 @@ export default function ProductShow({ product }: ProductShowProps) {
         setAddingToCart(true);
         try {
             addToCart({
-                variant_id: variant.id,
+                // variant_id: variant.id, // Removed - not in CartItem interface
                 product_name: product.name,
-                color: variant.color,
-                size: variant.size,
+                // color: variant.color, // Removed - not in CartItem interface
+                // size: variant.size, // Removed - not in CartItem interface
                 quantity: quantity,
                 unit_price: variant.discount_price || variant.selling_price,
+                product_id: product.id,
             });
 
             // Show success feedback
@@ -379,7 +380,7 @@ export default function ProductShow({ product }: ProductShowProps) {
                                             <div key={color} className="flex items-center gap-2">
                                                 <div
                                                     className="h-6 w-6 rounded-full border shadow-sm"
-                                                    style={{ backgroundColor: getColorHex(color) }}
+                                                    style={{ backgroundColor: getColorHex(color || '') }}
                                                 />
                                                 <span className="text-sm capitalize">{color}</span>
                                             </div>

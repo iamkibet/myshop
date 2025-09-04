@@ -9,7 +9,7 @@ createInertiaApp({
         return title ? `${title} - ${appName}` : appName;
     },
     resolve: (name) => resolvePageComponent(`./pages/${name}.tsx`, import.meta.glob('./pages/**/*.tsx')),
-    setup({ App, props }) {
+    setup({ App, props }: any): any {
         return renderToString(<App {...props} />);
     },
 });
