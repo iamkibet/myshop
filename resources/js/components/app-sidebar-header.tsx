@@ -8,12 +8,31 @@ interface PageProps {
     [key: string]: unknown;
 }
 
-export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: BreadcrumbItemType[] }) {
+export function AppSidebarHeader({ 
+    breadcrumbs = [],
+    alertCounts,
+    analytics
+}: { 
+    breadcrumbs?: BreadcrumbItemType[];
+    alertCounts?: {
+        lowStock: number;
+        outOfStock: number;
+        pendingExpenses: number;
+        total: number;
+    };
+    analytics?: {
+        professional: {
+            lowStockAlerts: any[];
+            outOfStockAlerts: any[];
+            recentExpenses: any[];
+        };
+    };
+}) {
     const page = usePage<PageProps>();
     const isAdminDashboard = page.url.includes('/admin-dashboard');
 
     if (isAdminDashboard) {
-        return <ProfessionalHeader />;
+        return <ProfessionalHeader alertCounts={alertCounts} analytics={analytics} />;
     }
 
     return (

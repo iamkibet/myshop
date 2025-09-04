@@ -8,11 +8,13 @@ import {
     Bell, 
     Settings, 
     Maximize2,
-    Minimize2
+    Minimize2,
+    AlertTriangle
 } from 'lucide-react';
 import { usePage, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import NotificationsDropdown from '@/components/notifications-dropdown';
+import AlertsDropdown from '@/components/alerts-dropdown';
 
 interface User {
     id: number;
@@ -48,11 +50,25 @@ interface PageProps {
         recent: Notification[];
         unreadCount: number;
     };
+    analytics?: {
+        professional: {
+            lowStockAlerts: any[];
+            outOfStockAlerts: any[];
+            recentExpenses: any[];
+        };
+    };
     [key: string]: unknown;
 }
 
-export function ProfessionalHeader() {
-    const { auth, notifications } = usePage<PageProps>().props;
+interface AlertCounts {
+    lowStock: number;
+    outOfStock: number;
+    pendingExpenses: number;
+    total: number;
+}
+
+export function ProfessionalHeader({ alertCounts, analytics: propAnalytics }: { alertCounts?: AlertCounts; analytics?: any }) {
+    const { auth, notifications, analytics } = usePage<PageProps>().props;
     const user = auth.user;
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -142,6 +158,22 @@ export function ProfessionalHeader() {
                 >
                     {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                 </Button>
+
+                {/* Alerts Dropdown */}
+                {alertCounts && alertCounts.total > 0 && (propAnalytics?.professional || analytics?.professional) && (
+                    <AlertsDropdown 
+                        alerts={{
+                            lowStock: (propAnalytics?.professional || analytics?.professional)?.lowStockAlerts || [],
+                            outOfStock: (propAnalytics?.professional || analytics?.professional)?.outOfStockAlerts || [],
+                            pendingExpenses: (propAnalytics?.professional || analytics?.professional)?.recentExpenses?.filter((expense: any) => expense.status === 'pending') || []
+                        }}
+                        alertCounts={alertCounts}
+                        onAlertResolved={(alertId, alertType) => {
+                            // Handle alert resolution if needed
+                            console.log('Alert resolved:', alertId, alertType);
+                        }}
+                    />
+                )}
 
                 {/* Notifications */}
                 <NotificationsDropdown 

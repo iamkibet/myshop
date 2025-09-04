@@ -758,6 +758,26 @@ export default function ProfessionalAdminDashboard() {
     const [selectedPeriod, setSelectedPeriod] = useState('1M'); // Default to 1 month
     const [selectedTimePeriod, setSelectedTimePeriod] = useState((usePage().props as any).timePeriod || 'Last 7 Days');
     const [selectedChartPeriod, setSelectedChartPeriod] = useState((usePage().props as any).chartPeriod || '1M'); // For Sales Statistics chart
+    
+    // State for managing permanently dismissed alerts (persistent)
+    const [dismissedLowStock, setDismissedLowStock] = useState<number[]>(() => {
+        if (typeof window !== 'undefined') {
+            return JSON.parse(localStorage.getItem('dismissedLowStock') || '[]');
+        }
+        return [];
+    });
+    const [dismissedOutOfStock, setDismissedOutOfStock] = useState<number[]>(() => {
+        if (typeof window !== 'undefined') {
+            return JSON.parse(localStorage.getItem('dismissedOutOfStock') || '[]');
+        }
+        return [];
+    });
+    const [dismissedExpenses, setDismissedExpenses] = useState<number[]>(() => {
+        if (typeof window !== 'undefined') {
+            return JSON.parse(localStorage.getItem('dismissedExpenses') || '[]');
+        }
+        return [];
+    });
 
     // Provide default data if analytics is not available
     const defaultData = {
@@ -784,6 +804,15 @@ export default function ProfessionalAdminDashboard() {
 
     const professionalData = analytics?.professional || defaultData;
     const { kpi, financial, recentSales, topProducts, categories, orderStatistics, lowStockAlerts, salesPurchaseChartData, chartTotals } = professionalData;
+    
+    // Calculate alert counts for nav badge (actual system state, not filtered by dismissed)
+    const alertCounts = {
+        lowStock: lowStockAlerts.length,
+        outOfStock: analytics?.professional?.outOfStockAlerts?.length || 0,
+        pendingExpenses: analytics?.professional?.recentExpenses?.filter((expense: any) => expense.status === 'pending').length || 0,
+    };
+    
+    const totalAlerts = alertCounts.lowStock + alertCounts.outOfStock + alertCounts.pendingExpenses;
 
     // Use real chart data from analytics
     const chartData = salesPurchaseChartData && salesPurchaseChartData.length > 0 ? salesPurchaseChartData : [];
@@ -804,7 +833,16 @@ export default function ProfessionalAdminDashboard() {
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AppLayout 
+            breadcrumbs={breadcrumbs}
+            alertCounts={{
+                lowStock: alertCounts.lowStock,
+                outOfStock: alertCounts.outOfStock,
+                pendingExpenses: alertCounts.pendingExpenses,
+                total: totalAlerts
+            }}
+            analytics={analytics}
+        >
             <Head title="Admin Dashboard" />
             <div className="flex h-full flex-1 flex-col gap-4 sm:gap-6 overflow-x-auto rounded-xl p-3 sm:p-4 bg-gray-50 pb-24 sm:pb-4">
                 {/* Welcome Section */}
@@ -814,25 +852,104 @@ export default function ProfessionalAdminDashboard() {
                         
                     </div>
                     
-                    {/* Low Stock Alert */}
-                    {lowStockAlerts.length > 0 && (
-                        <div className="bg-orange-100 border border-orange-200 rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                            <div className="flex items-start sm:items-center">
-                                <AlertTriangle className="h-5 w-5 text-orange-600 mr-3 flex-shrink-0 mt-0.5 sm:mt-0" />
-                                <div>
-                                    <p className="text-orange-800 text-sm sm:text-base">
-                                        Your Product {lowStockAlerts[0].name} is running Low, already below {lowStockAlerts[0].threshold} Pcs.
-                                    </p>
-                                    <Link href="/products" className="text-orange-600 hover:underline text-sm sm:text-base">
-                                        Add Stock
-                                    </Link>
+                    {/* Alerts Section */}
+                    <div className="space-y-3">
+                        {/* Low Stock Alerts */}
+                        {lowStockAlerts
+                            .filter((product: any) => !dismissedLowStock.includes(product.id))
+                            .slice(0, 2)
+                            .map((product: any, index: number) => (
+                            <div key={`low-stock-${product.id}`} className="bg-orange-50 border-l-4 border-orange-400 rounded-r-lg p-3 flex items-center justify-between">
+                                <div className="flex items-center">
+                                    <AlertTriangle className="h-4 w-4 text-orange-500 mr-2 flex-shrink-0" />
+                                    <div>
+                                        <p className="text-orange-800 text-sm font-medium">
+                                            {product.name} - {product.quantity} units left
+                                        </p>
+                                        <Link href="/products" className="text-orange-600 hover:underline text-xs">
+                                            Add Stock
+                                        </Link>
+                                    </div>
                                 </div>
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-6 w-6 p-0"
+                                    onClick={() => {
+                                        const newDismissed = [...dismissedLowStock, product.id];
+                                        setDismissedLowStock(newDismissed);
+                                        localStorage.setItem('dismissedLowStock', JSON.stringify(newDismissed));
+                                    }}
+                                >
+                                    <X className="h-3 w-3" />
+                                </Button>
                             </div>
-                            <Button variant="ghost" size="sm" className="self-end sm:self-auto">
-                                <X className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    )}
+                        ))}
+
+                        {/* Out of Stock Alerts */}
+                        {analytics?.professional?.outOfStockAlerts
+                            ?.filter((product: any) => !dismissedOutOfStock.includes(product.id))
+                            ?.slice(0, 2)
+                            ?.map((product: any, index: number) => (
+                            <div key={`out-of-stock-${product.id}`} className="bg-red-50 border-l-4 border-red-400 rounded-r-lg p-3 flex items-center justify-between">
+                                <div className="flex items-center">
+                                    <X className="h-4 w-4 text-red-500 mr-2 flex-shrink-0" />
+                                    <div>
+                                        <p className="text-red-800 text-sm font-medium">
+                                            {product.name} - Out of stock
+                                        </p>
+                                        <Link href="/products" className="text-red-600 hover:underline text-xs">
+                                            Restock Now
+                                        </Link>
+                                    </div>
+                                </div>
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-6 w-6 p-0"
+                                    onClick={() => {
+                                        const newDismissed = [...dismissedOutOfStock, product.id];
+                                        setDismissedOutOfStock(newDismissed);
+                                        localStorage.setItem('dismissedOutOfStock', JSON.stringify(newDismissed));
+                                    }}
+                                >
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            </div>
+                        ))}
+
+                        {/* Expense Approval Alerts */}
+                        {analytics?.professional?.recentExpenses
+                            ?.filter((expense: any) => expense.status === 'pending' && !dismissedExpenses.includes(expense.id))
+                            ?.slice(0, 2)
+                            ?.map((expense: any, index: number) => (
+                            <div key={`expense-${expense.id}`} className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg p-3 flex items-center justify-between">
+                                <div className="flex items-center">
+                                    <AlertTriangle className="h-4 w-4 text-yellow-500 mr-2 flex-shrink-0" />
+                                    <div>
+                                        <p className="text-yellow-800 text-sm font-medium">
+                                            {expense.title} - Ksh {expense.amount.toLocaleString()}
+                                        </p>
+                                        <Link href="/expenses" className="text-yellow-600 hover:underline text-xs">
+                                            Review Expense
+                                        </Link>
+                                    </div>
+                                </div>
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-6 w-6 p-0"
+                                    onClick={() => {
+                                        const newDismissed = [...dismissedExpenses, expense.id];
+                                        setDismissedExpenses(newDismissed);
+                                        localStorage.setItem('dismissedExpenses', JSON.stringify(newDismissed));
+                                    }}
+                                >
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 {/* KPI Cards */}

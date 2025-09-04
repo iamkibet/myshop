@@ -5,6 +5,19 @@ import { type ReactNode } from 'react';
 interface AppLayoutProps {
     children: ReactNode;
     breadcrumbs?: BreadcrumbItem[];
+    alertCounts?: {
+        lowStock: number;
+        outOfStock: number;
+        pendingExpenses: number;
+        total: number;
+    };
+    analytics?: {
+        professional: {
+            lowStockAlerts: any[];
+            outOfStockAlerts: any[];
+            recentExpenses: any[];
+        };
+    };
 }
 
 export default ({ children, breadcrumbs, ...props }: AppLayoutProps) => (
