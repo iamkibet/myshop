@@ -1133,7 +1133,7 @@ class AnalyticsController extends Controller
             // Initialize data structure - match the image design
             $data = [];
             $days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-            $hours = ['8 Am', '10 Am', '12 Am', '14 Pm', '16 Pm', '18 Pm', '20 Pm', '22 Pm'];
+            $hours = ['8 AM', '10 AM', '12 PM', '2 PM', '4 PM', '6 PM', '8 PM', '10 PM'];
             
             // Create a matrix to count orders by day and hour
             $orderMatrix = [];
@@ -1230,20 +1230,20 @@ class AnalyticsController extends Controller
     {
         $hour = (int) $hour24;
         
-        // Combine early morning sales (0-8) into 8 Am
-        if ($hour >= 0 && $hour < 8) return '8 Am';
-        if ($hour >= 8 && $hour < 10) return '8 Am';
-        if ($hour >= 10 && $hour < 12) return '10 Am';
-        if ($hour >= 12 && $hour < 14) return '12 Am';
-        if ($hour >= 14 && $hour < 16) return '14 Pm';
-        if ($hour >= 16 && $hour < 18) return '16 Pm';
-        if ($hour >= 18 && $hour < 20) return '18 Pm';
-        if ($hour >= 20 && $hour < 22) return '20 Pm';
-        // Combine late night sales (22-24) into 22 Pm
-        if ($hour >= 22 && $hour < 24) return '22 Pm';
+        // Combine early morning sales (0-8) into 8 AM
+        if ($hour >= 0 && $hour < 8) return '8 AM';
+        if ($hour >= 8 && $hour < 10) return '8 AM';
+        if ($hour >= 10 && $hour < 12) return '10 AM';
+        if ($hour >= 12 && $hour < 14) return '12 PM';
+        if ($hour >= 14 && $hour < 16) return '2 PM';
+        if ($hour >= 16 && $hour < 18) return '4 PM';
+        if ($hour >= 18 && $hour < 20) return '6 PM';
+        if ($hour >= 20 && $hour < 22) return '8 PM';
+        // Combine late night sales (22-24) into 10 PM
+        if ($hour >= 22 && $hour < 24) return '10 PM';
         
-        // Default to 10 Am for other hours
-        return '10 Am';
+        // Default to 10 AM for other hours
+        return '10 AM';
     }
 
     /**

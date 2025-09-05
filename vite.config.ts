@@ -22,4 +22,38 @@ export default defineConfig({
             'ziggy-js': resolve(__dirname, 'vendor/tightenco/ziggy'),
         },
     },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    // Vendor chunks
+                    'vendor-react': ['react', 'react-dom'],
+                    'vendor-inertia': ['@inertiajs/react'],
+                    'vendor-ui': ['lucide-react'],
+                    'vendor-charts': ['chart.js', 'react-chartjs-2'],
+                    'vendor-amcharts': ['@amcharts/amcharts5', '@amcharts/amcharts5/xy', '@amcharts/amcharts5/percent'],
+                    
+                    // Feature chunks
+                    'dashboard': [
+                        './resources/js/pages/professional-admin-dashboard.tsx',
+                        './resources/js/pages/dashboard.tsx'
+                    ],
+                    'products': [
+                        './resources/js/pages/Products/Index.tsx',
+                        './resources/js/pages/Products/Show.tsx',
+                        './resources/js/pages/Products/Catalog.tsx'
+                    ],
+                    'sales': [
+                        './resources/js/pages/Sales/Index.tsx',
+                        './resources/js/pages/Sales/ManagerStats.tsx'
+                    ],
+                    'expenses': [
+                        './resources/js/pages/Expenses/Index.tsx',
+                        './resources/js/pages/Expenses/Show.tsx'
+                    ]
+                }
+            }
+        },
+        chunkSizeWarningLimit: 1000
+    }
 });

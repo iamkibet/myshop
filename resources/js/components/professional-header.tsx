@@ -74,6 +74,7 @@ export function ProfessionalHeader({ alertCounts, analytics: propAnalytics }: { 
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [showNotifications, setShowNotifications] = useState(false);
+    const [isSearchExpanded, setIsSearchExpanded] = useState(false);
 
     // Fullscreen functionality
     const toggleFullscreen = () => {
@@ -93,6 +94,42 @@ export function ProfessionalHeader({ alertCounts, analytics: propAnalytics }: { 
             router.get('/products', { search: searchQuery.trim() });
         }
     };
+
+    // Handle search input focus - expand on mobile
+    const handleSearchFocus = () => {
+        if (window.innerWidth < 640) { // sm breakpoint
+            setIsSearchExpanded(true);
+        }
+    };
+
+    // Handle search input blur - collapse on mobile if empty
+    const handleSearchBlur = () => {
+        if (window.innerWidth < 640 && !searchQuery.trim()) {
+            setIsSearchExpanded(false);
+        }
+    };
+
+    // Handle search icon click - toggle expansion on mobile
+    const handleSearchIconClick = () => {
+        if (window.innerWidth < 640) {
+            setIsSearchExpanded(!isSearchExpanded);
+        }
+    };
+
+    // Handle click outside to close search on mobile
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (isSearchExpanded && window.innerWidth < 640) {
+                const searchContainer = document.querySelector('[data-search-container]');
+                if (searchContainer && !searchContainer.contains(event.target as Node)) {
+                    setIsSearchExpanded(false);
+                }
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isSearchExpanded]);
 
 
     // Handle add new product
@@ -124,9 +161,43 @@ export function ProfessionalHeader({ alertCounts, analytics: propAnalytics }: { 
     return (
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-sidebar-border/50 px-4 sm:px-6 bg-white">
             {/* Left Section - Sidebar Trigger and Search */}
-            <div className="flex items-center gap-4">
-                <SidebarTrigger className="-ml-1" />
-                <form onSubmit={handleSearch} className="relative">
+            <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                <SidebarTrigger className="-ml-1 flex-shrink-0" />
+                
+                {/* Mobile Search - Expandable */}
+                <div className="relative sm:hidden" data-search-container>
+                    {!isSearchExpanded ? (
+                        // Collapsed state - Just search icon
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleSearchIconClick}
+                            className="h-8 w-8 p-0 hover:bg-gray-100"
+                        >
+                            <Search className="h-4 w-4 text-gray-400" />
+                        </Button>
+                    ) : (
+                        // Expanded state - Full search input
+                        <form onSubmit={handleSearch} className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <Input 
+                                placeholder="Search..." 
+                                className="pl-10 pr-12 w-48 transition-all duration-200"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onFocus={handleSearchFocus}
+                                onBlur={handleSearchBlur}
+                                autoFocus
+                            />
+                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400">
+                                ⌘K
+                            </div>
+                        </form>
+                    )}
+                </div>
+
+                {/* Desktop Search - Fixed Width */}
+                <form onSubmit={handleSearch} className="relative hidden sm:block">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input 
                         placeholder="Search products..." 
@@ -141,47 +212,77 @@ export function ProfessionalHeader({ alertCounts, analytics: propAnalytics }: { 
             </div>
 
             {/* Right Section - Controls and User */}
-            <div className="flex items-center gap-3">
-                {/* Add New Button */}
+            <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
+                {/* Add New Button - Responsive */}
                 <Button 
                     className="bg-orange-500 hover:bg-orange-600 text-white"
                     onClick={handleAddNew}
+                    size="sm"
                 >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add New
+                    <Plus className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Add New</span>
                 </Button>
 
-                {/* Fullscreen */}
+                {/* Mobile Menu - Show Alerts and Notifications */}
+                <div className="sm:hidden flex items-center gap-1">
+                    {/* Mobile Alerts */}
+                    {alertCounts && alertCounts.total > 0 && (propAnalytics?.professional || analytics?.professional) && (
+                        <AlertsDropdown 
+                            alerts={{
+                                lowStock: (propAnalytics?.professional || analytics?.professional)?.lowStockAlerts || [],
+                                outOfStock: (propAnalytics?.professional || analytics?.professional)?.outOfStockAlerts || [],
+                                pendingExpenses: (propAnalytics?.professional || analytics?.professional)?.recentExpenses?.filter((expense: any) => expense.status === 'pending') || []
+                            }}
+                            alertCounts={alertCounts}
+                            onAlertResolved={(alertId, alertType) => {
+                                console.log('Alert resolved:', alertId, alertType);
+                            }}
+                        />
+                    )}
+
+                    {/* Mobile Notifications */}
+                    <NotificationsDropdown 
+                        notifications={notifications?.recent || []}
+                        unreadCount={notifications?.unreadCount || 0}
+                    />
+                </div>
+
+                {/* Fullscreen - Mobile Hidden */}
                 <Button 
                     variant="ghost" 
                     size="sm"
                     onClick={toggleFullscreen}
                     title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                    className="hidden sm:flex"
                 >
                     {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                 </Button>
 
-                {/* Alerts Dropdown */}
+                {/* Alerts Dropdown - Mobile Responsive */}
                 {alertCounts && alertCounts.total > 0 && (propAnalytics?.professional || analytics?.professional) && (
-                    <AlertsDropdown 
-                        alerts={{
-                            lowStock: (propAnalytics?.professional || analytics?.professional)?.lowStockAlerts || [],
-                            outOfStock: (propAnalytics?.professional || analytics?.professional)?.outOfStockAlerts || [],
-                            pendingExpenses: (propAnalytics?.professional || analytics?.professional)?.recentExpenses?.filter((expense: any) => expense.status === 'pending') || []
-                        }}
-                        alertCounts={alertCounts}
-                        onAlertResolved={(alertId, alertType) => {
-                            // Handle alert resolution if needed
-                            console.log('Alert resolved:', alertId, alertType);
-                        }}
-                    />
+                    <div className="hidden sm:block">
+                        <AlertsDropdown 
+                            alerts={{
+                                lowStock: (propAnalytics?.professional || analytics?.professional)?.lowStockAlerts || [],
+                                outOfStock: (propAnalytics?.professional || analytics?.professional)?.outOfStockAlerts || [],
+                                pendingExpenses: (propAnalytics?.professional || analytics?.professional)?.recentExpenses?.filter((expense: any) => expense.status === 'pending') || []
+                            }}
+                            alertCounts={alertCounts}
+                            onAlertResolved={(alertId, alertType) => {
+                                // Handle alert resolution if needed
+                                console.log('Alert resolved:', alertId, alertType);
+                            }}
+                        />
+                    </div>
                 )}
 
-                {/* Notifications */}
-                <NotificationsDropdown 
-                    notifications={notifications?.recent || []}
-                    unreadCount={notifications?.unreadCount || 0}
-                />
+                {/* Notifications - Mobile Responsive */}
+                <div className="hidden sm:block">
+                    <NotificationsDropdown 
+                        notifications={notifications?.recent || []}
+                        unreadCount={notifications?.unreadCount || 0}
+                    />
+                </div>
 
                 {/* Settings - Desktop Only */}
                 <div className="hidden lg:block">
