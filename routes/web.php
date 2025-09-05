@@ -74,8 +74,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/', [WalletController::class, 'adminIndex'])->name('index');
             Route::get('/{manager}', [WalletController::class, 'show'])->name('show');
             Route::post('/{manager}/payout', [WalletController::class, 'processPayout'])->name('payout');
-            Route::post('/{manager}/sync', [WalletController::class, 'syncWallet'])->name('sync');
-            Route::post('/sync-all', [WalletController::class, 'syncAllWallets'])->name('sync-all');
         });
 
         // Commission rates management

@@ -333,10 +333,31 @@ class CartController extends Controller
             DB::commit();
 
             // Verify sale was actually created and has items
+            \Log::info('Verifying sale after commit', [
+                'sale_id' => $sale->id
+            ]);
+            
             $sale = Sale::with('saleItems')->find($sale->id);
-            if (!$sale || $sale->saleItems->isEmpty()) {
-                throw new \Exception('Sale verification failed after commit - sale not found or has no items');
+            if (!$sale) {
+                \Log::error('Sale verification failed - sale not found after commit', [
+                    'sale_id' => $sale->id ?? 'unknown'
+                ]);
+                throw new \Exception('Sale verification failed after commit - sale not found');
             }
+            
+            if ($sale->saleItems->isEmpty()) {
+                \Log::error('Sale verification failed - no sale items found after commit', [
+                    'sale_id' => $sale->id,
+                    'sale_items_count' => $sale->saleItems->count()
+                ]);
+                throw new \Exception('Sale verification failed after commit - sale has no items');
+            }
+            
+            \Log::info('Sale verification successful', [
+                'sale_id' => $sale->id,
+                'items_count' => $sale->saleItems->count(),
+                'total_amount' => $sale->total_amount
+            ]);
 
             \Log::info('Transaction committed, sale verified successfully', [
                 'sale_id' => $sale->id,
@@ -344,6 +365,51 @@ class CartController extends Controller
                 'items_count' => $sale->saleItems->count(),
                 'total_amount' => $sale->total_amount
             ]);
+
+            // Calculate and sync commission to manager's wallet using qualified sales logic
+            \Log::info('Calculating commission for sale using qualified sales logic', [
+                'sale_id' => $sale->id,
+                'total_amount' => $sale->total_amount,
+                'manager_id' => $sale->manager_id
+            ]);
+            
+            try {
+                // Get or create wallet for the manager
+                $wallet = \App\Models\Wallet::firstOrCreate(
+                    ['user_id' => $sale->manager_id],
+                    ['balance' => 0, 'total_earned' => 0, 'total_paid_out' => 0, 'paid_sales' => 0]
+                );
+
+                // Calculate total sales for this manager
+                $totalSales = \App\Models\Sale::where('manager_id', $sale->manager_id)->sum('total_amount');
+                
+                // Calculate qualified commission using the same logic as wallet display
+                $qualifiedCommission = $wallet->getQualifiedCommission($totalSales);
+                
+                // Calculate the difference and add it to balance
+                $commissionDifference = $qualifiedCommission - $wallet->balance;
+                
+                if ($commissionDifference > 0) {
+                    $wallet->increment('balance', $commissionDifference);
+                    $wallet->increment('total_earned', $commissionDifference);
+                }
+                
+                \Log::info('Commission synced to wallet successfully', [
+                    'sale_id' => $sale->id,
+                    'total_sales' => $totalSales,
+                    'qualified_commission' => $qualifiedCommission,
+                    'commission_difference' => $commissionDifference,
+                    'wallet_id' => $wallet->id,
+                    'new_balance' => $wallet->fresh()->balance
+                ]);
+            } catch (\Exception $walletError) {
+                \Log::error('Failed to sync commission to wallet', [
+                    'sale_id' => $sale->id,
+                    'error' => $walletError->getMessage(),
+                    'trace' => $walletError->getTraceAsString()
+                ]);
+                // Don't fail the entire transaction for wallet calculation failure
+            }
 
             // Dispatch SaleCreated event after transaction is committed and verified
             \Log::info('Dispatching SaleCreated event', [

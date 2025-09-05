@@ -58,20 +58,7 @@ class Sale extends Model
     {
         parent::boot();
 
-        static::created(function ($sale) {
-            // Calculate commission and add to manager's wallet
-            $commission = Wallet::calculateCommission($sale->total_amount);
-
-            // Get or create wallet for the manager
-            $wallet = Wallet::firstOrCreate(
-                ['user_id' => $sale->manager_id],
-                ['balance' => 0, 'total_earned' => 0, 'total_paid_out' => 0, 'paid_sales' => 0]
-            );
-
-            // Add commission to wallet
-            $wallet->addEarnings($commission);
-
-            // Note: SaleCreated event is now dispatched from CartController after transaction commit
-        });
+        // Note: Wallet calculation is now handled in CartController after sale completion
+        // to ensure total_amount and sale items are properly set before commission calculation
     }
 }

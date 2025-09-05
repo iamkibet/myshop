@@ -3,8 +3,79 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import { Head } from '@inertiajs/react';
-import { CreditCard, DollarSign, TrendingUp, ArrowRight } from 'lucide-react';
+import { 
+    CreditCard, 
+    DollarSign, 
+    TrendingUp, 
+    ArrowRight, 
+    Wallet, 
+    Receipt, 
+    BarChart3, 
+    Target,
+    Info,
+    Calendar,
+    Clock,
+    CheckCircle
+} from 'lucide-react';
 import { type BreadcrumbItem } from '@/types';
+import { useState } from 'react';
+
+// KPI Card Component (matching dashboard style)
+function KPICard({ title, value, change, changeType, icon: Icon, color, bgColor, format = 'currency', tooltip }: {
+    title: string;
+    value: number;
+    change: number;
+    changeType: string;
+    icon: any;
+    color: string;
+    bgColor: string;
+    format?: 'currency' | 'number';
+    tooltip?: string;
+}) {
+    const isPositive = changeType === 'increase';
+    
+    const formatValue = (val: number) => {
+        if (format === 'number') {
+            return val.toLocaleString();
+        }
+        return formatCurrency(val);
+    };
+
+    return (
+        <Card className={`${bgColor} text-white border-0 shadow-lg relative`}>
+            <CardContent className="px-3 py-2 sm:px-4 sm:py-3 lg:px-6 lg:py-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1 sm:mb-2">
+                            <div className="flex items-center gap-1">
+                                <p className="text-xs sm:text-sm font-medium opacity-90 truncate">{title}</p>
+                                {tooltip && (
+                                    <div className="relative group/info">
+                                        <div className="flex-shrink-0 ml-1 p-1 rounded-full hover:bg-white/20 transition-colors cursor-help">
+                                            <Info className="h-3 w-3 sm:h-4 sm:w-4 opacity-70" />
+                                        </div>
+                                        
+                                        {/* Info Icon Tooltip */}
+                                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-4 py-3 bg-gray-900 text-white text-xs sm:text-sm rounded-xl shadow-2xl opacity-0 group-hover/info:opacity-100 transition-all duration-300 pointer-events-none z-40 w-72 text-left">
+                                            <div className="font-semibold mb-2 text-white">{title}</div>
+                                            <div className="text-gray-200 leading-relaxed text-xs sm:text-sm">
+                                                {tooltip}
+                                            </div>
+                                            {/* Arrow */}
+                                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <Icon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 opacity-80 flex-shrink-0 ml-2" />
+                        </div>
+                        <p className="text-lg sm:text-xl lg:text-2xl font-bold mb-1 sm:mb-2 truncate">{formatValue(value)}</p>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
 
 interface Wallet {
     id: number;
@@ -61,6 +132,8 @@ export default function WalletIndex({
     totalEarnedFromQualifiedSales,
     recentPayouts
 }: Props) {
+    const [selectedPeriod, setSelectedPeriod] = useState('1M');
+    
     const breadcrumbs: BreadcrumbItem[] = [
         {
             title: 'My Wallet',
@@ -68,133 +141,132 @@ export default function WalletIndex({
         },
     ];
 
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="My Wallet" />
 
-            <div className="flex h-full flex-1 flex-col gap-4 sm:gap-6 overflow-x-auto rounded-xl p-4 pb-20 sm:pb-6">
-                {/* Header */}
-                <div className="text-center sm:text-left">
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">My Wallet</h1>
-                    <p className="text-sm sm:text-base text-muted-foreground">Track your earnings and payout history</p>
-                </div>
-
-                {/* Wallet Overview - Mobile Optimized */}
+            <div className="flex h-full flex-1 flex-col gap-4 sm:gap-6 overflow-x-auto rounded-xl p-3 sm:p-4 bg-gray-50 pb-24 sm:pb-4">
+                {/* Welcome Section */}
                 <div className="space-y-4">
-                    {/* Main Balance Card */}
-                    <Card className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950 dark:to-indigo-900 border-blue-200 dark:border-blue-800">
-                        <CardHeader className="pb-3">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-base sm:text-lg font-semibold text-blue-900 dark:text-blue-100">Available Balance</CardTitle>
-                                <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-800">
-                                    <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-3xl sm:text-4xl font-bold text-blue-900 dark:text-blue-100 mb-2">
-                                {formatCurrency(wallet.balance)}
-                            </div>
-                            <p className="text-sm text-blue-700 dark:text-blue-300">Ready for withdrawal</p>
-                            {commissionDifference > 0 && (
-                                <div className="mt-3 flex items-center text-sm text-green-600 dark:text-green-400">
-                                    <TrendingUp className="h-4 w-4 mr-1" />
-                                    +{formatCurrency(commissionDifference)} pending
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    {/* Sales Performance Card */}
-                    <Card className="bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950 dark:to-emerald-900 border-green-200 dark:border-green-800">
-                        <CardHeader className="pb-3">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-base sm:text-lg font-semibold text-green-900 dark:text-green-100">Sales Performance</CardTitle>
-                                <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-800">
-                                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400" />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-4">
-                                <div className="text-center sm:text-left">
-                                    <div className="text-xl sm:text-2xl font-bold text-green-900 dark:text-green-100">
-                                        {formatCurrency(totalSales)}
-                                    </div>
-                                    <p className="text-xs sm:text-sm text-green-700 dark:text-green-300">Total Sales</p>
-                                </div>
-                                <div className="text-center sm:text-left">
-                                    <div className="text-xl sm:text-2xl font-bold text-emerald-900 dark:text-emerald-100">
-                                        {formatCurrency(qualifiedSales)}
-                                    </div>
-                                    <p className="text-xs sm:text-sm text-emerald-700 dark:text-emerald-300">Commissionable Sales</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Earnings Summary Card */}
-                    <Card className="bg-gradient-to-br from-purple-50 to-violet-100 dark:from-purple-950 dark:to-violet-900 border-purple-200 dark:border-purple-800">
-                        <CardHeader className="pb-3">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-base sm:text-lg font-semibold text-purple-900 dark:text-purple-100">Earnings Summary</CardTitle>
-                                <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-800">
-                                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 dark:text-purple-400" />
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-4">
-                                <div className="text-center sm:text-left">
-                                    <div className="text-xl sm:text-2xl font-bold text-purple-900 dark:text-purple-100">
-                                        {formatCurrency(totalEarnedFromQualifiedSales)}
-                                    </div>
-                                    <p className="text-xs sm:text-sm text-purple-700 dark:text-purple-300">Earnings Available</p>
-                                </div>
-                                <div className="text-center sm:text-left">
-                                    <div className="text-xl sm:text-2xl font-bold text-violet-900 dark:text-violet-100">
-                                        {formatCurrency(wallet.total_paid_out)}
-                                    </div>
-                                    <p className="text-xs sm:text-sm text-violet-700 dark:text-violet-300">Total Paid Out</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <div>
+                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Wallet</h1>
+                        <p className="text-sm sm:text-base text-gray-600 mt-1">
+                            Track your earnings, commission, and payout history
+                        </p>
+                    </div>
                 </div>
+
+                {/* KPI Cards - Matching Dashboard Style */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+                    <KPICard
+                        title="Available Balance"
+                        value={wallet.balance}
+                        change={commissionDifference > 0 ? 100 : 0}
+                        changeType={commissionDifference > 0 ? 'increase' : 'increase'}
+                        icon={Wallet}
+                        color="blue"
+                        bgColor="bg-blue-800"
+                        tooltip="Current commission balance available for withdrawal. This is calculated based on your total sales using the tiered commission system."
+                    />
+                    <KPICard
+                        title="Total Sales"
+                        value={totalSales}
+                        change={15}
+                        changeType="increase"
+                        icon={Receipt}
+                        color="green"
+                        bgColor="bg-green-800"
+                        tooltip="Total amount of sales you have made. This is the basis for calculating your commission earnings."
+                    />
+                    <KPICard
+                        title="Total Earned"
+                        value={wallet.total_earned}
+                        change={25}
+                        changeType="increase"
+                        icon={TrendingUp}
+                        color="purple"
+                        bgColor="bg-purple-800"
+                        tooltip="Total commission earned from all your sales. This includes both available balance and previously paid out amounts."
+                    />
+                    <KPICard
+                        title="Total Paid Out"
+                        value={wallet.total_paid_out}
+                        change={8}
+                        changeType="increase"
+                        icon={CheckCircle}
+                        color="orange"
+                        bgColor="bg-orange-800"
+                        tooltip="Total amount of commission that has been paid out to you through withdrawals or payouts."
+                    />
+                </div>
+
 
                 {/* Payment History */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg sm:text-xl">Payment History</CardTitle>
-                        <CardDescription className="text-sm">Your recent withdrawal transactions</CardDescription>
+                <Card className="bg-white border-0 shadow-sm">
+                    <CardHeader className="pb-3 sm:pb-4">
+                        <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
+                            <CreditCard className="h-5 w-5" />
+                            Payment History
+                        </CardTitle>
+                        <CardDescription className="text-gray-600">
+                            Your recent withdrawal transactions and payout history
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-3">
+                        <div className="space-y-2 sm:space-y-3">
                             {recentPayouts.length === 0 ? (
-                                <div className="py-6 text-center">
-                                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                                        <CreditCard className="h-6 w-6 text-muted-foreground" />
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">No payments received yet</p>
+                                <div className="flex flex-col items-center justify-center py-8 text-center">
+                                    <div className="text-4xl mb-2">💳</div>
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Payments Yet</h3>
+                                    <p className="text-gray-500 text-sm max-w-sm">
+                                        Your payout history will appear here once you start making withdrawals
+                                    </p>
                                 </div>
                             ) : (
                                 recentPayouts.map((payout) => (
-                                    <div key={payout.id} className="flex flex-col space-y-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors">
-                                        <div className="flex items-center space-x-3">
-                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
-                                                <CreditCard className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                    <div key={payout.id} className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+                                            <div className="flex-shrink-0">
+                                                <div className="h-8 w-8 sm:h-10 sm:w-10 bg-green-100 rounded-full flex items-center justify-center">
+                                                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+                                                </div>
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium">Payment #{payout.id}</p>
-                                                <p className="text-xs text-muted-foreground">{new Date(payout.created_at).toLocaleDateString()}</p>
-                                                {payout.notes && <p className="text-xs text-muted-foreground truncate">{payout.notes}</p>}
+                                                <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
+                                                    Payment #{payout.id}
+                                                </p>
+                                                <div className="flex items-center space-x-2 sm:space-x-4 text-xs text-gray-500 mt-1">
+                                                    <div className="flex items-center space-x-1">
+                                                        <Calendar className="h-3 w-3" />
+                                                        <span>{new Date(payout.created_at).toLocaleDateString()}</span>
+                                                    </div>
+                                                    <div className="flex items-center space-x-1">
+                                                        <span className="truncate">{payout.processed_by?.name || 'System'}</span>
+                                                    </div>
+                                                    {payout.notes && (
+                                                        <div className="flex items-center space-x-1">
+                                                            <span className="truncate">{payout.notes}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-base font-bold text-green-600 dark:text-green-400">{formatCurrency(payout.amount)}</p>
-                                            <Badge variant={payout.status === 'completed' ? 'default' : 'secondary'} className="text-xs">
-                                                {payout.status === 'completed' ? 'Paid' : payout.status}
-                                            </Badge>
+                                        <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
+                                            <div className="text-right">
+                                                <p className="text-xs sm:text-sm font-medium text-gray-900">{formatCurrency(payout.amount)}</p>
+                                                <div className="flex items-center space-x-1 mt-1">
+                                                    <Badge className={`text-xs px-2 py-0.5 ${
+                                                        payout.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                        payout.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                                        'bg-red-100 text-red-800'
+                                                    }`}>
+                                                        {payout.status === 'completed' ? '✓ Completed' :
+                                                         payout.status === 'pending' ? '⏳ Pending' :
+                                                         '✗ Failed'}
+                                                    </Badge>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 ))
@@ -203,67 +275,78 @@ export default function WalletIndex({
                     </CardContent>
                 </Card>
 
-                {/* Earnings Breakdown */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg sm:text-xl">Earnings Breakdown</CardTitle>
-                        <CardDescription className="text-sm">How your commission is calculated based on sales performance</CardDescription>
+                {/* Commission Details */}
+                <Card className="bg-white border-0 shadow-sm">
+                    <CardHeader className="pb-3 sm:pb-4">
+                        <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5" />
+                            Commission Details
+                        </CardTitle>
+                        <CardDescription className="text-gray-600">
+                            Detailed breakdown of how your commission is calculated
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-3">
-                            {!commissionBreakdown?.breakdown || commissionBreakdown.breakdown.length === 0 ? (
-                                <div className="py-6 text-center">
-                                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                                        <TrendingUp className="h-6 w-6 text-muted-foreground" />
-                                    </div>
-                                    <p className="text-sm text-muted-foreground">Start making sales to earn bonuses</p>
+                        <div className="space-y-4">
+                            {/* Commission Breakdown */}
+                            {commissionBreakdown?.breakdown && commissionBreakdown.breakdown.length > 0 ? (
+                                <div className="space-y-3">
+                                    {commissionBreakdown.breakdown.map((item, index) => (
+                                        <div key={index} className="flex items-center justify-between p-4 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-green-900">
+                                                    {formatCurrency(item.commission_per_threshold)} for every {formatCurrency(item.threshold)} in sales
+                                                </p>
+                                                <p className="text-xs text-green-700 mt-1">
+                                                    {item.multiplier} × {formatCurrency(item.threshold)} = {formatCurrency(item.commission_earned)}
+                                                </p>
+                                                {item.description && (
+                                                    <p className="text-xs text-green-600 mt-1 truncate">{item.description}</p>
+                                                )}
+                                            </div>
+                                            <div className="text-right ml-4 flex-shrink-0">
+                                                <p className="text-lg font-bold text-green-900">{formatCurrency(item.commission_earned)}</p>
+                                                <Badge className="mt-1 text-xs bg-green-100 text-green-800">
+                                                    {item.multiplier}×
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             ) : (
-                                commissionBreakdown.breakdown.map((item, index) => (
-                                    <div key={index} className="flex flex-col space-y-3 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 p-3 border border-green-200 dark:border-green-800">
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-green-900 dark:text-green-100">
-                                                {formatCurrency(item.commission_per_threshold)} bonus for {formatCurrency(item.threshold)} sales
-                                            </p>
-                                            <p className="text-xs text-green-700 dark:text-green-300">
-                                                {item.multiplier} × {formatCurrency(item.threshold)} = {formatCurrency(item.commission_earned)}
-                                            </p>
-                                            {item.description && (
-                                                <p className="text-xs text-green-600 dark:text-green-400 truncate">{item.description}</p>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <div className="text-base font-bold text-green-900 dark:text-green-100">{formatCurrency(item.commission_earned)}</div>
-                                            <Badge variant="outline" className="border-green-300 text-green-700 dark:border-green-600 dark:text-green-300 text-xs">{item.multiplier}×</Badge>
-                                        </div>
-                                    </div>
-                                ))
+                                <div className="text-center py-8">
+                                    <div className="text-4xl mb-2">📈</div>
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Commission Data</h3>
+                                    <p className="text-gray-500 text-sm max-w-sm">
+                                        Start making sales to see your commission breakdown
+                                    </p>
+                                </div>
                             )}
 
+                            {/* Next Milestone */}
                             {nextMilestoneAmount > 0 && (
-                                <div className="flex flex-col space-y-3 rounded-lg border-2 border-dashed border-blue-300 dark:border-blue-600 p-3 bg-blue-50 dark:bg-blue-950">
+                                <div className="p-4 rounded-lg border-2 border-dashed border-blue-300 bg-blue-50">
                                     <div className="text-center">
-                                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Next Bonus Target</p>
-                                        <p className="text-xs text-blue-700 dark:text-blue-300">
+                                        <p className="text-sm font-medium text-blue-900 mb-1">Next Commission Target</p>
+                                        <p className="text-xs text-blue-700 mb-3">
                                             {formatCurrency(nextMilestoneAmount)} more sales needed
                                         </p>
-                                    </div>
-                                    <div className="text-center">
-                                        <div className="text-base font-bold text-blue-900 dark:text-blue-100">{formatCurrency(qualifiedSales + nextMilestoneAmount)}</div>
-                                        <p className="text-xs text-blue-600 dark:text-blue-400">Target amount</p>
+                                        <div className="text-lg font-bold text-blue-900">
+                                            {formatCurrency(qualifiedSales + nextMilestoneAmount)}
+                                        </div>
+                                        <p className="text-xs text-blue-600 mt-1">Target amount</p>
                                     </div>
                                 </div>
                             )}
 
-                            <div className="flex flex-col space-y-3 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 p-4 border border-blue-200 dark:border-blue-800">
+                            {/* Summary */}
+                            <div className="p-4 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
                                 <div className="text-center">
-                                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Total Earnings Available</p>
-                                    <p className="text-xs text-blue-700 dark:text-blue-300">Based on your sales performance</p>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">{formatCurrency(expectedCommission)}</div>
+                                    <p className="text-sm font-medium text-blue-900 mb-1">Total Commission Available</p>
+                                    <p className="text-xs text-blue-700 mb-3">Based on your current sales performance</p>
+                                    <div className="text-2xl font-bold text-blue-900">{formatCurrency(expectedCommission)}</div>
                                     {commissionDifference > 0 && (
-                                        <p className="text-xs text-green-600 dark:text-green-400">
+                                        <p className="text-xs text-green-600 mt-1">
                                             +{formatCurrency(commissionDifference)} pending
                                         </p>
                                     )}

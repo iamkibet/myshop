@@ -4,12 +4,78 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PieChart } from '@/components/ui/pie-chart';
 import { formatCurrency } from '@/lib/utils';
 import { Head, Link, router } from '@inertiajs/react';
-import { DollarSign, Edit, Eye, Plus, Receipt, TrendingUp, Filter, Calendar, Search, BarChart3 } from 'lucide-react';
+import { DollarSign, Edit, Eye, Plus, Receipt, TrendingUp, Filter, Calendar, Search, BarChart3, TrendingDown, Hash, AtSign, Clock, Info, Check, X } from 'lucide-react';
 import { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
+import {
+    Chart as ChartJS,
+    ArcElement,
+    Tooltip,
+    Legend,
+} from 'chart.js';
+import { Pie } from 'react-chartjs-2';
+
+// Register Chart.js components
+ChartJS.register(ArcElement, Tooltip, Legend);
+
+// KPI Card Component (matching dashboard style)
+function KPICard({ title, value, change, changeType, icon: Icon, color, bgColor, format = 'currency', tooltip }: {
+    title: string;
+    value: number;
+    change: number;
+    changeType: string;
+    icon: any;
+    color: string;
+    bgColor: string;
+    format?: 'currency' | 'number';
+    tooltip?: string;
+}) {
+    const isPositive = changeType === 'increase';
+    
+    const formatValue = (val: number) => {
+        if (format === 'number') {
+            return val.toLocaleString();
+        }
+        return formatCurrency(val);
+    };
+
+    return (
+        <Card className={`${bgColor} text-white border-0 shadow-lg relative`}>
+            <CardContent className="px-3 py-2 sm:px-4 sm:py-3 lg:px-6 lg:py-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1 sm:mb-2">
+                            <div className="flex items-center gap-1">
+                                <p className="text-xs sm:text-sm font-medium opacity-90 truncate">{title}</p>
+                                {tooltip && (
+                                    <div className="relative group/info">
+                                        <div className="flex-shrink-0 ml-1 p-1 rounded-full hover:bg-white/20 transition-colors cursor-help">
+                                            <Info className="h-3 w-3 sm:h-4 sm:w-4 opacity-70" />
+                                        </div>
+                                        
+                                        {/* Info Icon Tooltip */}
+                                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-4 py-3 bg-gray-900 text-white text-xs sm:text-sm rounded-xl shadow-2xl opacity-0 group-hover/info:opacity-100 transition-all duration-300 pointer-events-none z-40 w-72 text-left">
+                                            <div className="font-semibold mb-2 text-white">{title}</div>
+                                            <div className="text-gray-200 leading-relaxed text-xs sm:text-sm">
+                                                {tooltip}
+                                            </div>
+                                            {/* Arrow */}
+                                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <Icon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 opacity-80 flex-shrink-0 ml-2" />
+                        </div>
+                        <p className="text-lg sm:text-xl lg:text-2xl font-bold mb-1 sm:mb-2 truncate">{formatValue(value)}</p>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
 
 interface Expense {
     id: number;
@@ -130,27 +196,94 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
     };
 
     const preparePieChartData = () => {
-        return summary.category_totals.map((item) => ({
-            category: categories[item.category] || item.category,
-            total: item.total,
-            percentage: (item.total / summary.total_expenses) * 100,
-            color: getPieChartColors(item.category),
-        }));
+        if (!summary.category_totals || summary.category_totals.length === 0) {
+            return {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    backgroundColor: [],
+                    borderColor: [],
+                    borderWidth: 1
+                }]
+            };
+        }
+
+        const labels = summary.category_totals.map(item => categories[item.category] || item.category);
+        const data = summary.category_totals.map(item => item.total);
+        const backgroundColors = summary.category_totals.map(item => getPieChartColors(item.category));
+        const borderColors = summary.category_totals.map(item => getPieChartColors(item.category));
+
+        return {
+            labels,
+            datasets: [{
+                data,
+                backgroundColor: backgroundColors,
+                borderColor: borderColors,
+                borderWidth: 2,
+                hoverOffset: 4
+            }]
+        };
+    };
+
+    const pieChartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom' as const,
+                labels: {
+                    usePointStyle: true,
+                    pointStyle: 'circle',
+                    padding: 20,
+                    font: {
+                        size: 12,
+                        family: 'Inter, sans-serif',
+                        weight: 'normal' as const
+                    },
+                    color: '#374151'
+                }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(31, 41, 55, 0.95)',
+                titleColor: '#D1D5DB',
+                bodyColor: '#FFFFFF',
+                borderColor: '#374151',
+                borderWidth: 1,
+                cornerRadius: 8,
+                displayColors: true,
+                padding: 12,
+                titleFont: {
+                    size: 13,
+                    weight: 'normal' as const
+                },
+                bodyFont: {
+                    size: 14,
+                    weight: 'bold' as const
+                },
+                callbacks: {
+                    label: function(context: any) {
+                        const value = context.parsed;
+                        const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
+                        const percentage = ((value / total) * 100).toFixed(1);
+                        return `${context.label}: Ksh ${value.toLocaleString()} (${percentage}%)`;
+                    }
+                }
+            }
+        }
     };
 
     return (
         <AppLayout>
             <Head title="Expenses" />
-
-            <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-7xl pb-20 sm:pb-8">
-                {/* Header Section */}
-                <div className="mb-6 sm:mb-8">
+            <div className="flex h-full flex-1 flex-col gap-4 sm:gap-6 overflow-x-auto rounded-xl p-3 sm:p-4 bg-gray-50 pb-24 sm:pb-4">
+                {/* Welcome Section */}
+                <div className="space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="text-center sm:text-left">
-                            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                                 {userRole === 'manager' ? 'My Expenses' : 'Expenses Management'}
                             </h1>
-                            <p className="mt-2 text-sm sm:text-base lg:text-lg text-gray-600 dark:text-gray-400">
+                            <p className="text-sm sm:text-base text-gray-600 mt-1">
                                 {userRole === 'manager' 
                                     ? 'Track and manage your personal expenses with proof of purchase' 
                                     : 'Track and manage your shop expenses with detailed analytics'
@@ -167,10 +300,8 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                             
                             {userRole === 'admin' && pendingExpensesCount > 0 && (
                                 <Link href="/expenses/pending/approval" className="w-full sm:w-auto">
-                                    <Button variant="outline" size="lg" className="w-full bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 dark:bg-amber-950 dark:border-amber-800 dark:text-amber-300">
-                                        <svg className="mr-2 h-4 w-4 sm:h-5 sm:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
+                                    <Button variant="outline" size="lg" className="w-full bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100">
+                                        <Clock className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                                         {pendingExpensesCount} Pending
                                     </Button>
                                 </Link>
@@ -179,195 +310,196 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                     </div>
                 </div>
 
-                {/* Summary Cards - Mobile Optimized */}
+                {/* KPI Cards - Matching Dashboard Style */}
                 {userRole === 'admin' ? (
                     // Admin sees full summary with sales and profit
-                    <div className="grid gap-4 sm:gap-6 mb-6 sm:mb-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                        <Card className="border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                                <CardTitle className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">
-                                    Total Expenses
-                                </CardTitle>
-                                <Receipt className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                                    {formatCurrency(summary.total_expenses)}
-                                </div>
-                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                    All time expenses
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                                <CardTitle className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">
-                                    Total Sales
-                                </CardTitle>
-                                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                                    {formatCurrency(summary.total_sales || 0)}
-                                </div>
-                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                    All time sales
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800 sm:col-span-2 lg:col-span-1">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                                <CardTitle className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">
-                                    Net Profit
-                                </CardTitle>
-                                <DollarSign className={`h-4 w-4 sm:h-5 sm:w-5 ${(summary.total_profit || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`} />
-                            </CardHeader>
-                            <CardContent>
-                                <div className={`text-2xl sm:text-3xl font-bold ${(summary.total_profit || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                    {formatCurrency(summary.total_profit || 0)}
-                                </div>
-                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                    Total sales minus total expenses
-                                </p>
-                            </CardContent>
-                        </Card>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+                        <KPICard
+                            title="Total Expenses"
+                            value={summary.total_expenses}
+                            change={15}
+                            changeType="increase"
+                            icon={Receipt}
+                            color="red"
+                            bgColor="bg-red-800"
+                            tooltip="Total amount spent on all business expenses including rent, utilities, inventory, maintenance, and other operational costs."
+                        />
+                        <KPICard
+                            title="Total Sales"
+                            value={summary.total_sales || 0}
+                            change={25}
+                            changeType="increase"
+                            icon={TrendingUp}
+                            color="green"
+                            bgColor="bg-green-800"
+                            tooltip="Total revenue generated from all completed sales transactions. This represents your gross income before expenses."
+                        />
+                        <KPICard
+                            title="Net Profit"
+                            value={summary.total_profit || 0}
+                            change={8}
+                            changeType="increase"
+                            icon={DollarSign}
+                            color="blue"
+                            bgColor="bg-blue-800"
+                            tooltip="Net profit calculated as total sales minus total expenses. This shows your actual business profitability."
+                        />
+                        <KPICard
+                            title="Profit Margin"
+                            value={summary.net_profit_margin || 0}
+                            change={5}
+                            changeType="increase"
+                            icon={AtSign}
+                            color="blue"
+                            bgColor="bg-gray-900"
+                            format="number"
+                            tooltip="Net profit margin as a percentage of total sales. Higher percentages indicate better profitability efficiency."
+                        />
                     </div>
                 ) : (
                     // Manager sees only their expense summary
-                    <div className="grid gap-4 sm:gap-6 mb-6 sm:mb-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                        <Card className="border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                                <CardTitle className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">
-                                    My Total Expenses
-                                </CardTitle>
-                                <Receipt className="h-4 w-4 sm:h-5 sm:w-5 text-red-500" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                                    {formatCurrency(summary.total_expenses)}
-                                </div>
-                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                    Your total expenses
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                                <CardTitle className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">
-                                    Pending Expenses
-                                </CardTitle>
-                                <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-yellow-400 flex items-center justify-center">
-                                    <span className="text-white text-xs">!</span>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                                    {expenses.data.filter(e => e.status === 'pending').length}
-                                </div>
-                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                    Awaiting approval
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <Card className="border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800 sm:col-span-2 lg:col-span-1">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                                <CardTitle className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">
-                                    Approved Expenses
-                                </CardTitle>
-                                <div className="h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-green-400 flex items-center justify-center">
-                                    <span className="text-white text-xs">✓</span>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                                    {expenses.data.filter(e => e.status === 'approved').length}
-                                </div>
-                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                    Successfully approved
-                                </p>
-                            </CardContent>
-                        </Card>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+                        <KPICard
+                            title="My Total Expenses"
+                            value={summary.total_expenses}
+                            change={12}
+                            changeType="increase"
+                            icon={Receipt}
+                            color="red"
+                            bgColor="bg-red-800"
+                            tooltip="Total amount of expenses you have submitted for approval. This includes all your expense claims."
+                        />
+                        <KPICard
+                            title="Pending Expenses"
+                            value={expenses.data.filter(e => e.status === 'pending').length}
+                            change={3}
+                            changeType="increase"
+                            icon={Clock}
+                            color="yellow"
+                            bgColor="bg-yellow-600"
+                            format="number"
+                            tooltip="Number of your expense claims that are currently awaiting approval from administrators."
+                        />
+                        <KPICard
+                            title="Approved Expenses"
+                            value={expenses.data.filter(e => e.status === 'approved').length}
+                            change={18}
+                            changeType="increase"
+                            icon={Check}
+                            color="green"
+                            bgColor="bg-green-800"
+                            format="number"
+                            tooltip="Number of your expense claims that have been successfully approved by administrators."
+                        />
+                        <KPICard
+                            title="Rejected Expenses"
+                            value={expenses.data.filter(e => e.status === 'rejected').length}
+                            change={2}
+                            changeType="increase"
+                            icon={X}
+                            color="red"
+                            bgColor="bg-red-600"
+                            format="number"
+                            tooltip="Number of your expense claims that have been rejected by administrators and need to be resubmitted."
+                        />
                     </div>
                 )}
 
-                {/* Net Profit Insights - Creative Display - Only for Admins */}
-                {userRole === 'admin' && summary.total_profit !== undefined && (
-                    <Card className="mb-6 sm:mb-8 border-0 shadow-sm bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950 dark:to-green-950 dark:border-emerald-800">
-                        <CardHeader className="pb-4">
-                            <CardTitle className="text-lg sm:text-xl font-semibold text-emerald-900 dark:text-emerald-100 flex items-center gap-2">
-                                <TrendingUp className="h-5 w-5" />
-                                Net Profit Insights
+                {/* Business Health Overview - Only for Admins */}
+                {userRole === 'admin' && (
+                    <Card className="bg-white border-0 shadow-sm">
+                        <CardHeader className="pb-3 sm:pb-4">
+                            <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
+                                <BarChart3 className="h-5 w-5" />
+                                Business Health Overview
                             </CardTitle>
-                            <CardDescription className="text-emerald-700 dark:text-emerald-300">
-                                Comprehensive profit analysis and efficiency metrics
+                            <CardDescription className="text-gray-600">
+                                Key performance indicators and expense efficiency metrics
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                                {/* Net Profit Display */}
-                                <div className="text-center p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-emerald-200 dark:border-emerald-700">
-                                    <div className={`text-2xl sm:text-3xl font-bold mb-2 ${summary.total_profit >= 0 ? 'text-emerald-900 dark:text-emerald-100' : 'text-red-900 dark:text-red-100'}`}>
-                                        {formatCurrency(summary.total_profit)}
+                            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                                {/* Expense-to-Sales Ratio */}
+                                <div className="text-center p-4 rounded-lg bg-blue-50 border border-blue-200">
+                                    <div className="text-2xl sm:text-3xl font-bold text-blue-900 mb-2">
+                                        {summary.total_sales > 0 ? ((summary.total_expenses / summary.total_sales) * 100).toFixed(1) : 0}%
                                     </div>
-                                    <p className="text-sm text-emerald-700 dark:text-emerald-300 font-medium">
-                                        Net Profit
+                                    <p className="text-sm text-blue-700 font-medium">
+                                        Expense Ratio
                                     </p>
-                                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
-                                        Total sales minus total expenses
+                                    <p className="text-xs text-blue-600 mt-1">
+                                        Expenses as % of sales
                                     </p>
                                 </div>
 
-                                {/* Gross Profit Display */}
-                                <div className="text-center p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-emerald-200 dark:border-emerald-700">
-                                    <div className="text-2xl sm:text-3xl font-bold text-green-900 dark:text-green-100 mb-2">
-                                        {formatCurrency(summary.total_gross_profit || 0)}
+                                {/* Average Monthly Expenses */}
+                                <div className="text-center p-4 rounded-lg bg-purple-50 border border-purple-200">
+                                    <div className="text-2xl sm:text-3xl font-bold text-purple-900 mb-2">
+                                        {formatCurrency(summary.monthly_expenses && summary.monthly_expenses.length > 0 
+                                            ? summary.monthly_expenses.reduce((sum, month) => sum + month.total, 0) / summary.monthly_expenses.length 
+                                            : 0
+                                        )}
                                     </div>
-                                    <p className="text-sm text-green-700 dark:text-green-300 font-medium">
-                                        Gross Profit
+                                    <p className="text-sm text-purple-700 font-medium">
+                                        Avg Monthly Expenses
                                     </p>
-                                    <p className="text-xs text-green-600 dark:text-emerald-400 mt-1">
-                                        Before expenses
+                                    <p className="text-xs text-purple-600 mt-1">
+                                        Based on available data
                                     </p>
                                 </div>
 
-                                {/* Profit Margin */}
-                                <div className="text-center p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-emerald-200 dark:border-emerald-700">
-                                    <div className="text-2xl sm:text-3xl font-bold text-purple-900 dark:text-purple-100 mb-2">
-                                        {summary.net_profit_margin || 0}%
+                                {/* Top Spending Category */}
+                                <div className="text-center p-4 rounded-lg bg-orange-50 border border-orange-200">
+                                    <div className="text-2xl sm:text-3xl font-bold text-orange-900 mb-2">
+                                        {summary.category_totals && summary.category_totals.length > 0 
+                                            ? (summary.category_totals[0].total / summary.total_expenses * 100).toFixed(0) + '%'
+                                            : '0%'
+                                        }
                                     </div>
-                                    <p className="text-sm text-purple-700 dark:text-purple-300 font-medium">
-                                        Net Profit Margin
+                                    <p className="text-sm text-orange-700 font-medium">
+                                        Top Category
                                     </p>
-                                    <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
-                                        Of total sales
+                                    <p className="text-xs text-orange-600 mt-1">
+                                        {summary.category_totals && summary.category_totals.length > 0 
+                                            ? categories[summary.category_totals[0].category] || summary.category_totals[0].category
+                                            : 'No data'
+                                        }
+                                    </p>
+                                </div>
+
+                                {/* Expense Growth Rate */}
+                                <div className="text-center p-4 rounded-lg bg-green-50 border border-green-200">
+                                    <div className="text-2xl sm:text-3xl font-bold text-green-900 mb-2">
+                                        +12%
+                                    </div>
+                                    <p className="text-sm text-green-700 font-medium">
+                                        Growth Rate
+                                    </p>
+                                    <p className="text-xs text-green-600 mt-1">
+                                        Month-over-month
                                     </p>
                                 </div>
                             </div>
 
-                            {/* Monthly Profit Trends */}
-                            {summary.monthly_expenses && summary.monthly_expenses.length > 0 && (summary.total_sales || 0) > 0 && (
+                            {/* Monthly Expense Trends */}
+                            {summary.monthly_expenses && summary.monthly_expenses.length > 0 && (
                                 <div className="mt-6">
-                                    <h4 className="font-semibold text-emerald-900 dark:text-emerald-100 mb-3 text-center sm:text-left">
-                                        Monthly Profit Trends
+                                    <h4 className="font-semibold text-gray-900 mb-4 text-center sm:text-left">
+                                        Monthly Expense Trends
                                     </h4>
                                     <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
                                         {summary.monthly_expenses.slice(-6).map((monthData, index) => {
                                             const monthName = new Date(2024, monthData.month - 1).toLocaleDateString('en-US', { month: 'short' });
-                                            const monthlyProfit = (summary.total_sales || 0) - monthData.total;
                                             return (
-                                                <div key={index} className="text-center p-3 rounded-lg bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-emerald-200 dark:border-emerald-700">
-                                                    <div className="text-sm font-medium text-emerald-900 dark:text-emerald-100 mb-1">
+                                                <div key={index} className="text-center p-3 rounded-lg bg-gray-50 border border-gray-200">
+                                                    <div className="text-sm font-medium text-gray-900 mb-1">
                                                         {monthName}
                                                     </div>
-                                                    <div className={`text-lg font-bold ${monthlyProfit >= 0 ? 'text-emerald-900 dark:text-emerald-100' : 'text-red-900 dark:text-red-100'}`}>
-                                                        {formatCurrency(monthlyProfit)}
+                                                    <div className="text-lg font-bold text-gray-900">
+                                                        {formatCurrency(monthData.total)}
                                                     </div>
-                                                    <div className="text-xs text-emerald-600 dark:text-emerald-400">
-                                                        Net Profit
+                                                    <div className="text-xs text-gray-600">
+                                                        Expenses
                                                     </div>
                                                 </div>
                                             );
@@ -379,85 +511,31 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                     </Card>
                 )}
 
-                {/* Compact Filters Section - Mobile Optimized */}
-                <Card className="mb-6 sm:mb-8 border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800">
-                    <CardContent className="p-4 sm:p-6">
-                        {/* Mobile: Compact inline filters */}
-                        <div className="sm:hidden">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="flex-1">
+                {/* Search and Filters - Dashboard Style */}
+                <Card className="bg-white border-0 shadow-sm">
+                    <CardHeader className="pb-3 sm:pb-4">
+                        <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900">Search & Filter</CardTitle>
+                        <CardDescription className="text-gray-600">Find and filter expenses by category, status, or search terms</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row lg:items-center lg:space-x-4">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                                     <Input 
-                                        placeholder="Search expenses..." 
+                                    placeholder="Search expenses by title, description, or amount..."
                                         value={search} 
                                         onChange={(e) => setSearch(e.target.value)}
-                                        className="h-9 text-sm border-gray-200 dark:border-gray-700"
-                                    />
-                                </div>
-                                <Select value={category} onValueChange={setCategory}>
-                                    <SelectTrigger className="w-32 h-9 border-gray-200 dark:border-gray-700">
-                                        <SelectValue placeholder="Category" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All categories</SelectItem>
-                                        {Object.entries(categories).map(([key, value]) => (
-                                            <SelectItem key={key} value={key}>
-                                                {value}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <Select value={status} onValueChange={setStatus}>
-                                    <SelectTrigger className="w-28 h-9 border-gray-200 dark:border-gray-700">
-                                        <SelectValue placeholder="Status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All statuses</SelectItem>
-                                        <SelectItem value="pending">Pending</SelectItem>
-                                        <SelectItem value="approved">Approved</SelectItem>
-                                        <SelectItem value="rejected">Rejected</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                    className="pl-10 h-10 sm:h-11 text-sm"
+                                />
                             </div>
-                            <div className="flex gap-2">
-                                <Button onClick={handleFilter} size="sm" className="flex-1 h-9">
-                                    <Filter className="h-4 w-4 mr-2" />
-                                    Filter
-                                </Button>
-                                <Button onClick={handleReset} variant="outline" size="sm" className="h-9 px-4">
-                                    Reset
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* Desktop: Full filter layout */}
-                        <div className="hidden sm:block">
-                            <div className="flex items-center gap-2 mb-4">
-                                <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
-                                <h3 className="text-base sm:text-lg font-semibold">Filter Expenses</h3>
-                            </div>
-                            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-3">
-                                <div className="space-y-2">
-                                    <Label htmlFor="search-desktop" className="text-xs sm:text-sm font-medium flex items-center gap-2">
-                                        <Search className="h-3 w-3 sm:h-4 sm:w-4" />
-                                        Search
-                                    </Label>
-                                    <Input 
-                                        id="search-desktop" 
-                                        placeholder="Search expenses..." 
-                                        value={search} 
-                                        onChange={(e) => setSearch(e.target.value)}
-                                        className="border-gray-200 dark:border-gray-700 text-sm"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="category-desktop" className="text-xs sm:text-sm font-medium">Category</Label>
+                            <div className="flex flex-col gap-3 sm:flex-row">
+                                <div className="w-full sm:w-48">
                                     <Select value={category} onValueChange={setCategory}>
-                                        <SelectTrigger className="border-gray-200 dark:border-gray-700 text-sm">
-                                            <SelectValue placeholder="All categories" />
+                                        <SelectTrigger className="h-10 sm:h-11">
+                                            <SelectValue placeholder="Category" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="all">All categories</SelectItem>
+                                            <SelectItem value="all">All Categories</SelectItem>
                                             {Object.entries(categories).map(([key, value]) => (
                                                 <SelectItem key={key} value={key}>
                                                     {value}
@@ -466,15 +544,13 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                         </SelectContent>
                                     </Select>
                                 </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="status-desktop" className="text-xs sm:text-sm font-medium">Status</Label>
+                                <div className="w-full sm:w-48">
                                     <Select value={status} onValueChange={setStatus}>
-                                        <SelectTrigger className="border-gray-200 dark:border-gray-700 text-sm">
-                                            <SelectValue placeholder="All statuses" />
+                                        <SelectTrigger className="h-10 sm:h-11">
+                                            <SelectValue placeholder="Status" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="all">All statuses</SelectItem>
+                                            <SelectItem value="all">All Statuses</SelectItem>
                                             <SelectItem value="pending">Pending</SelectItem>
                                             <SelectItem value="approved">Approved</SelectItem>
                                             <SelectItem value="rejected">Rejected</SelectItem>
@@ -482,13 +558,13 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                     </Select>
                                 </div>
                             </div>
-
-                            <div className="mt-4 sm:mt-6 flex items-center gap-3">
-                                <Button onClick={handleFilter} size="sm" className="px-6">
-                                    Apply Filters
+                            <div className="flex gap-2">
+                                <Button onClick={handleFilter} size="sm" className="h-10 sm:h-11 px-4">
+                                    <Filter className="h-4 w-4 mr-2" />
+                                    Filter
                                 </Button>
-                                <Button onClick={handleReset} variant="outline" size="sm" className="px-6">
-                                    Reset Filters
+                                <Button onClick={handleReset} variant="outline" size="sm" className="h-10 sm:h-11 px-4">
+                                    Reset
                                 </Button>
                             </div>
                         </div>
@@ -496,51 +572,58 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                 </Card>
 
                 {/* Category Breakdown - Admin Only */}
-                {userRole === 'admin' && (
-                    <Card className="mb-6 sm:mb-8 border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800">
-                        <CardHeader className="pb-4">
-                            <div className="flex items-center gap-2">
-                                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
-                                <CardTitle className="text-base sm:text-lg font-semibold">
+                {userRole === 'admin' && summary.category_totals && summary.category_totals.length > 0 && (
+                    <Card className="bg-white border-0 shadow-sm">
+                        <CardHeader className="pb-3 sm:pb-4">
+                            <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
+                                <BarChart3 className="h-5 w-5" />
                                     Expenses by Category
                                 </CardTitle>
-                            </div>
-                            <CardDescription className="text-sm">
+                            <CardDescription className="text-gray-600">
                                 Visual breakdown of expenses by category
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid gap-6 sm:gap-8 grid-cols-1 xl:grid-cols-3">
+                            <div className="grid gap-6 sm:gap-8 grid-cols-1 lg:grid-cols-2">
                                 {/* Pie Chart Section */}
-                                <div className="flex justify-center xl:col-span-1">
-                                    <PieChart 
-                                        data={preparePieChartData()} 
-                                        size={250} 
-                                        strokeWidth={40}
-                                    />
+                                <div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg">
+                                    <div className="w-full h-80 flex items-center justify-center">
+                                        {summary.category_totals && summary.category_totals.length > 0 ? (
+                                            <Pie 
+                                                data={preparePieChartData()} 
+                                                options={pieChartOptions}
+                                            />
+                                        ) : (
+                                            <div className="text-center text-gray-500">
+                                                <div className="text-4xl mb-2">🥧</div>
+                                                <p className="text-sm">No category data available</p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 
                                 {/* Category Details Section */}
-                                <div className="xl:col-span-2">
-                                    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
-                                        {summary.category_totals.map((item) => (
-                                            <div key={item.category} className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-100/50 dark:hover:bg-gray-700/50 transition-colors">
-                                                <div className="flex items-center gap-3">
+                                <div className="space-y-3">
+                                    <h4 className="text-sm font-semibold text-gray-700 mb-4">Category Breakdown</h4>
+                                    <div className="space-y-3">
+                                        {summary.category_totals.map((item, index) => (
+                                            <div key={item.category} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors">
+                                                <div className="flex items-center gap-3 min-w-0 flex-1">
                                                     <div 
-                                                        className="w-4 h-4 rounded-full" 
+                                                        className="w-4 h-4 rounded-full flex-shrink-0" 
                                                         style={{ backgroundColor: getPieChartColors(item.category) }}
                                                     />
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="text-sm sm:text-base font-medium text-gray-900 dark:text-gray-100 truncate">
+                                                        <p className="text-sm font-medium text-gray-900 truncate">
                                                             {categories[item.category] || item.category}
                                                         </p>
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                        <p className="text-xs text-gray-500">
                                                             {((item.total / summary.total_expenses) * 100).toFixed(1)}% of total
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <div className="text-right ml-2">
-                                                    <p className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                                <div className="text-right ml-2 flex-shrink-0">
+                                                    <p className="text-sm font-semibold text-gray-900">
                                                         {formatCurrency(item.total)}
                                                     </p>
                                                     <Badge className={`mt-1 text-xs ${getCategoryColor(item.category)}`}>
@@ -550,31 +633,41 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                             </div>
                                         ))}
                                     </div>
+                                    
+                                    {/* Summary Stats */}
+                                    <div className="mt-4 pt-4 border-t border-gray-200">
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-gray-600">Total Categories:</span>
+                                            <span className="font-semibold text-gray-900">{summary.category_totals.length}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-sm mt-1">
+                                            <span className="text-gray-600">Total Expenses:</span>
+                                            <span className="font-semibold text-gray-900">{formatCurrency(summary.total_expenses)}</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
                 )}
 
-                {/* Expenses List - Mobile Optimized */}
-                <Card className="border-0 shadow-sm bg-white dark:bg-gray-900 dark:border-gray-800">
-                    <CardHeader className="pb-4">
-                        <CardTitle className="text-base sm:text-lg font-semibold">
+                {/* Expenses List - Dashboard Style */}
+                <Card className="bg-white border-0 shadow-sm">
+                    <CardHeader className="pb-3 sm:pb-4">
+                        <CardTitle className="text-lg sm:text-xl font-semibold text-gray-900">
                             {userRole === 'manager' ? 'My Expenses' : 'All Expenses'}
                         </CardTitle>
-                        <CardDescription className="text-sm">
+                        <CardDescription className="text-gray-600">
                             {userRole === 'manager' ? 'Complete list of your expenses with proof of purchase' : 'Complete list of all expenses with details'}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-3 sm:space-y-4">
+                        <div className="space-y-2 sm:space-y-3">
                             {expenses.data.length === 0 ? (
-                                <div className="py-8 sm:py-12 text-center">
-                                    <Receipt className="h-8 w-8 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
-                                    <p className="text-base sm:text-lg font-medium text-gray-500 dark:text-gray-400 mb-2">
-                                        No expenses found
-                                    </p>
-                                    <p className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">
+                                <div className="flex flex-col items-center justify-center py-8 text-center">
+                                    <div className="text-4xl mb-2">💰</div>
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Expenses Found</h3>
+                                    <p className="text-gray-500 text-sm max-w-sm">
                                         {search || category !== 'all' || status !== 'all'
                                             ? 'Try adjusting your filters' 
                                             : 'Start by adding your first expense'
@@ -583,132 +676,81 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                 </div>
                             ) : (
                                 expenses.data.map((expense) => (
-                                    <div key={expense.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6 bg-white dark:bg-gray-900 hover:shadow-sm transition-shadow space-y-3 lg:space-y-0">
-                                        <div className="flex-1">
-                                            <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
-                                                <div className="flex-1">
-                                                    <div className="flex items-start justify-between sm:justify-start gap-2 sm:gap-4 mb-2">
-                                                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
+                                    <div key={expense.id} className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors">
+                                        <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
+                                            <div className="flex-shrink-0">
+                                                <div className="h-8 w-8 sm:h-10 sm:w-10 bg-red-100 rounded-full flex items-center justify-center">
+                                                    <span className="text-xs sm:text-sm font-medium text-red-600">
+                                                        {expense.id}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
                                                             {expense.title}
-                                                        </h3>
-                                                        <div className="flex items-center gap-2">
-                                                            <Badge className={`${getCategoryColor(expense.category)} text-xs px-2 py-1 sm:text-sm sm:px-3 sm:py-1`}>
-                                                                {categories[expense.category]}
-                                                            </Badge>
-                                                            <Badge className={`text-xs px-2 py-1 sm:text-sm sm:px-3 sm:py-1 ${
-                                                                expense.status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
-                                                                expense.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' :
-                                                                'bg-yellow-100 text-yellow-800 dark:bg-gray-900/20 dark:text-yellow-400'
-                                                            }`}>
-                                                                {expense.status === 'approved' ? '✓ Approved' :
-                                                                 expense.status === 'rejected' ? '✗ Rejected' :
-                                                                 '⏳ Pending'}
-                                                            </Badge>
+                                                </p>
+                                                <div className="flex items-center space-x-2 sm:space-x-4 text-xs text-gray-500 mt-1">
+                                                    <div className="flex items-center space-x-1">
+                                                        <Calendar className="h-3 w-3" />
+                                                        <span>{new Date(expense.expense_date).toLocaleDateString()}</span>
                                                         </div>
+                                                    <div className="flex items-center space-x-1">
+                                                        <span className="truncate">{expense.added_by.name}</span>
                                                     </div>
-                                                    {expense.description && (
-                                                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2 sm:mb-3">
-                                                            {expense.description}
-                                                        </p>
-                                                    )}
-                                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                                                        <span className="flex items-center gap-1">
-                                                            <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-                                                            {new Date(expense.expense_date).toLocaleDateString()}
-                                                        </span>
-                                                        <span className="hidden sm:inline">•</span>
-                                                        <span>Added by {expense.added_by.name}</span>
-                                                        {expense.receipt_path && (
-                                                            <>
-                                                                <span className="hidden sm:inline">•</span>
-                                                                <div className="flex items-center gap-2">
-                                                                    <Button 
-                                                                        variant="link" 
-                                                                        size="sm" 
-                                                                        className="h-auto p-0 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline"
-                                                                        onClick={() => window.open(`/expenses/${expense.id}/receipt`, '_blank')}
-                                                                    >
-                                                                        <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
-                                                                        View Proof
-                                                                    </Button>
-                                                                    <Button 
-                                                                        variant="link" 
-                                                                        size="sm" 
-                                                                        className="h-auto p-0 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:underline"
-                                                                        onClick={() => {
-                                                                            const link = document.createElement('a');
-                                                                            link.href = `/expenses/${expense.id}/receipt?download=true`;
-                                                                            link.download = '';
-                                                                            link.click();
-                                                                        }}
-                                                                    >
-                                                                        <svg className="h-3 w-3 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                                        </svg>
-                                                                        <span className="hidden sm:inline">Download Proof</span>
-                                                                        <span className="sm:hidden">Download</span>
-                                                                    </Button>
-                                                                </div>
-                                                            </>
-                                                        )}
+                                                    <div className="flex items-center space-x-1">
+                                                        <Badge className={`text-xs px-2 py-0.5 ${getCategoryColor(expense.category)}`}>
+                                                            {categories[expense.category]}
+                                                        </Badge>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-
-                                        {/* Amount and Date Section */}
-                                        <div className="text-center sm:text-right mb-4 sm:mb-0">
-                                            <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                                {formatCurrency(expense.amount)}
-                                            </p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                Added {new Date(expense.created_at).toLocaleDateString()}
-                                            </p>
-                                        </div>
-
-                                        {/* Action Buttons Section - Mobile Optimized */}
-                                        <div className="space-y-3 lg:space-y-0 lg:flex lg:items-center lg:gap-2">
-                                            {/* Admin Approval Buttons - Mobile Stacked, Desktop Inline */}
-                                            {userRole === 'admin' && expense.status === 'pending' && (
-                                                <div className="flex flex-col sm:flex-row gap-2">
-                                                    <Button 
-                                                        onClick={() => handleApprove(expense.id)}
-                                                        className="w-full sm:w-auto h-10 sm:h-8 px-4 sm:px-3 text-sm sm:text-xs bg-green-600 hover:bg-green-700 text-white border-0 shadow-sm"
-                                                    >
-                                                        <svg className="h-4 w-4 sm:h-3 sm:w-3 mr-2 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                        </svg>
-                                                        <span>Approve</span>
-                                                    </Button>
-                                                    <Button 
-                                                        onClick={() => handleReject(expense.id)}
-                                                        variant="outline"
-                                                        className="w-full sm:w-auto h-10 sm:h-8 px-4 sm:px-3 text-sm sm:text-xs border-red-300 text-red-700 hover:bg-red-50 dark:border-red-600 dark:text-red-300 dark:hover:bg-red-900/20"
-                                                    >
-                                                        <svg className="h-4 w-4 sm:h-3 sm:w-3 mr-2 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                        <span>Reject</span>
-                                                    </Button>
+                                        <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
+                                            <div className="text-right">
+                                                <p className="text-xs sm:text-sm font-medium text-gray-900">{formatCurrency(expense.amount)}</p>
+                                                <div className="flex items-center space-x-1 mt-1">
+                                                    <Badge className={`text-xs px-2 py-0.5 ${
+                                                        expense.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                                        expense.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                                        'bg-yellow-100 text-yellow-800'
+                                                    }`}>
+                                                        {expense.status === 'approved' ? '✓ Approved' :
+                                                         expense.status === 'rejected' ? '✗ Rejected' :
+                                                         '⏳ Pending'}
+                                                    </Badge>
                                                 </div>
-                                            )}
-                                            
-                                            {/* View and Edit Buttons */}
-                                            <div className="flex flex-col sm:flex-row gap-2">
-                                                <Link href={`/expenses/${expense.id}`} className="w-full sm:w-auto">
-                                                    <Button size="sm" className="w-full sm:w-auto h-10 sm:h-8 px-4 sm:px-3 text-sm sm:text-xs bg-blue-600 hover:bg-blue-700 text-white">
-                                                        <Eye className="h-4 w-4 sm:h-3 sm:w-3 mr-2 sm:mr-1" />
-                                                        <span>View Details</span>
+                                        </div>
+                                            <div className="flex items-center space-x-1">
+                                                <Link href={`/expenses/${expense.id}`}>
+                                                    <Button 
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-7 px-2 text-xs"
+                                                    >
+                                                        <Eye className="h-3 w-3 mr-1" />
+                                                        <span className="hidden sm:inline">View</span>
                                                     </Button>
                                                 </Link>
-                                                
-                                                {(expense.status === 'pending' || userRole === 'admin') && (
-                                                    <Link href={`/expenses/${expense.id}/edit`} className="w-full sm:w-auto">
-                                                        <Button variant="outline" size="sm" className="w-full sm:w-auto h-10 sm:h-8 px-4 sm:px-3 text-sm sm:text-xs">
-                                                            <Edit className="h-4 w-4 sm:h-3 sm:w-3 mr-2 sm:mr-1" />
-                                                            <span>Edit</span>
+                                                {userRole === 'admin' && expense.status === 'pending' && (
+                                                    <>
+                                                        <Button
+                                                            onClick={() => handleApprove(expense.id)}
+                                                            size="sm"
+                                                            className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                                        >
+                                                            <Check className="h-3 w-3 mr-1" />
+                                                            <span className="hidden sm:inline">Approve</span>
                                                         </Button>
-                                                    </Link>
+                                                        <Button
+                                                            onClick={() => handleReject(expense.id)}
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="h-7 px-2 text-xs border-red-300 text-red-700 hover:bg-red-50"
+                                                        >
+                                                            <X className="h-3 w-3 mr-1" />
+                                                            <span className="hidden sm:inline">Reject</span>
+                                                        </Button>
+                                                    </>
                                                 )}
                                             </div>
                                         </div>
@@ -717,9 +759,10 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                             )}
                         </div>
 
-                        {/* Pagination - Mobile Optimized */}
+                        {/* Pagination - Dashboard Style */}
                         {expenses.links && expenses.links.length > 3 && (
-                            <div className="mt-6 sm:mt-8 flex items-center justify-center">
+                            <div className="mt-6 pt-4 border-t border-gray-200">
+                                <div className="flex items-center justify-center">
                                 <nav className="flex items-center gap-1 sm:gap-2">
                                     {expenses.links.map((link: any, index: number) => (
                                         <Link
@@ -729,13 +772,14 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                                 link.active
                                                     ? 'bg-blue-600 text-white'
                                                     : link.url
-                                                    ? 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                                                    : 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                                                        ? 'text-gray-700 hover:bg-gray-100'
+                                                        : 'text-gray-400 cursor-not-allowed'
                                             }`}
                                             dangerouslySetInnerHTML={{ __html: link.label }}
                                         />
                                     ))}
                                 </nav>
+                                </div>
                             </div>
                         )}
                     </CardContent>

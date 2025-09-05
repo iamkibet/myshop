@@ -48,6 +48,15 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
     const [updatingItem, setUpdatingItem] = useState<number | null>(null);
     const [removingItem, setRemovingItem] = useState<number | null>(null);
 
+    // Cleanup timeout on component unmount
+    useEffect(() => {
+        return () => {
+            if ((window as any).checkoutRedirectTimeout) {
+                clearTimeout((window as any).checkoutRedirectTimeout);
+            }
+        };
+    }, []);
+
     // Use frontend cart data from localStorage
     const cartItems = Object.values(frontendCart).map(item => ({
         product_id: item.product_id,
@@ -126,19 +135,46 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
             await router.post('/cart/sync', { cart: cartDataForSync });
             console.log('✅ Cart synced successfully');
             
-            // Step 2: Proceed with checkout
+            // Step 2: Proceed with checkout using proper Inertia handling
             console.log('Step 2: Processing checkout...');
-            await router.post('/cart/checkout');
-            console.log('✅ Checkout completed');
             
-            // Step 3: Since Inertia redirects, we'll skip sale ID extraction for now
-            // The backend will handle the redirect to the receipt page
-            console.log('✅ Checkout process completed, backend will redirect to receipt');
+            // Use Inertia's promise-based approach with proper callbacks
+            await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('Checkout timeout - the process is taking too long'));
+                }, 15000); // 15 second timeout
+                
+                router.post('/cart/checkout', {}, {
+                    onSuccess: (page) => {
+                        clearTimeout(timeout);
+                        console.log('✅ Checkout completed successfully');
+                        resolve(page);
+                    },
+                    onError: (errors) => {
+                        clearTimeout(timeout);
+                        console.error('❌ Checkout failed:', errors);
+                        reject(new Error(errors.message || 'Checkout failed'));
+                    },
+                    onFinish: () => {
+                        clearTimeout(timeout);
+                    }
+                });
+            });
             
-            // Since Inertia handles the redirect, show success and clear cart
+            // Step 3: Show success screen with timeout fallback
+            console.log('✅ Checkout process completed, showing success screen');
             setCheckoutSuccess(true);
             clearCart();
-            console.log('✅ Frontend cart cleared after successful checkout');
+            
+            // Set up a timeout to handle stuck success screens
+            const redirectTimeout = setTimeout(() => {
+                console.warn('⚠️ Redirect timeout - manually redirecting to sales page');
+                setCheckoutSuccess(false);
+                router.get('/sales');
+            }, 8000); // 8 second timeout for redirect
+            
+            // Store timeout ID for potential cleanup
+            (window as any).checkoutRedirectTimeout = redirectTimeout;
             
         } catch (error: any) {
             console.error('❌ Checkout failed:', error);
@@ -215,14 +251,40 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
                             <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
                                 Sale Completed!
                             </h3>
-                            <p className="text-gray-600 dark:text-gray-400">
+                            <p className="text-gray-600 dark:text-gray-400 mb-4">
                                 Redirecting to your receipt...
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                If you're not redirected automatically, click below
                             </p>
                         </div>
                         
                         {/* Loading Bar */}
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden mb-6">
                             <div className="h-full bg-green-500 rounded-full animate-pulse transition-all duration-1000 ease-out"></div>
+                        </div>
+                        
+                        {/* Manual Action Buttons */}
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                            <Button
+                                onClick={() => {
+                                    setCheckoutSuccess(false);
+                                    router.get('/sales');
+                                }}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                            >
+                                View Sales
+                            </Button>
+                            <Button
+                                onClick={() => {
+                                    setCheckoutSuccess(false);
+                                    router.get('/cart');
+                                }}
+                                variant="outline"
+                                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                            >
+                                Continue Shopping
+                            </Button>
                         </div>
                     </div>
                 </div>
