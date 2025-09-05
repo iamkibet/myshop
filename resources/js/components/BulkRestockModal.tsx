@@ -17,6 +17,7 @@ interface Product {
   low_stock_threshold: number;
   cost_price: number;
   selling_price: number;
+  sku?: string;
 }
 
 interface BulkRestockModalProps {
@@ -63,7 +64,7 @@ const BulkRestockModal: React.FC<BulkRestockModalProps> = ({
     return products.filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                            product.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                           product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+                                                       product.sku?.toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
       
@@ -288,7 +289,7 @@ const BulkRestockModal: React.FC<BulkRestockModalProps> = ({
                           <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-gray-500">
                             <span>{product.category}</span>
                             <span className="hidden sm:inline">•</span>
-                            <span>SKU: {product.sku}</span>
+                                                         <span>SKU: {product.sku || 'N/A'}</span>
                             <span className="hidden sm:inline">•</span>
                             <span>Current: {product.quantity}</span>
                           </div>
@@ -342,7 +343,7 @@ const BulkRestockModal: React.FC<BulkRestockModalProps> = ({
                           <p className="text-xs text-gray-500 mt-1">
                             <span className="block sm:inline">{product.category}</span>
                             <span className="hidden sm:inline"> • </span>
-                            <span className="block sm:inline">SKU: {product.sku}</span>
+                                                         <span className="block sm:inline">SKU: {product.sku || 'N/A'}</span>
                             <span className="hidden sm:inline"> • </span>
                             <span className="block sm:inline">Current: {product.quantity}</span>
                           </p>

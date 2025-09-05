@@ -107,208 +107,382 @@ class ReceiptController extends Controller
     {
         $html = '
         <!DOCTYPE html>
-        <html>
+        <html lang="en">
         <head>
             <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Receipt #' . $sale->id . ' - ' . config('app.name') . '</title>
             <style>
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+                
                 @page {
                     margin: 15mm;
                     size: A4;
                 }
+                
                 @media print {
-                    body { margin: 0; }
-                    .no-print { display: none; }
-                    .page-break { page-break-before: always; }
+                    body { 
+                        margin: 0; 
+                        padding: 0;
+                        background: white;
+                        font-size: 12px;
+                    }
+                    .no-print { 
+                        display: none !important; 
+                    }
+                    .page-break { 
+                        page-break-before: always; 
+                    }
+                    .receipt-container {
+                        box-shadow: none !important;
+                        border: none !important;
+                        padding: 0;
+                        margin: 0;
+                        max-width: none;
+                    }
+                    .header h1 {
+                        font-size: 24px !important;
+                        color: #000 !important;
+                    }
+                    .header .subtitle {
+                        font-size: 14px !important;
+                        color: #000 !important;
+                    }
+                    .header .receipt-number {
+                        font-size: 16px !important;
+                        color: #000 !important;
+                    }
+                    .items-table {
+                        font-size: 11px !important;
+                    }
+                    .items-table th, .items-table td {
+                        padding: 8px 6px !important;
+                    }
+                    .total-section {
+                        background: #f5f5f5 !important;
+                        border: 1px solid #ccc !important;
+                    }
+                    .manager-info {
+                        background: #f0f0f0 !important;
+                        border: 1px solid #ccc !important;
+                    }
+                    .footer {
+                        font-size: 10px !important;
+                        color: #000 !important;
+                    }
                 }
+                
                 body { 
-                    font-family: "Helvetica Neue", Arial, sans-serif; 
+                    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; 
                     margin: 0; 
-                    padding: 0;
-                    font-size: 12px;
-                    line-height: 1.4;
+                    padding: 20px;
+                    font-size: 14px;
+                    line-height: 1.6;
                     color: #333;
-                    background: white;
+                    background: #f8f9fa;
                 }
+                
+                .receipt-container {
+                    max-width: 800px;
+                    margin: 0 auto;
+                    background: white;
+                    padding: 40px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+                }
+                
                 .header { 
                     text-align: center; 
-                    border-bottom: 2px solid #000; 
-                    padding-bottom: 15px; 
-                    margin-bottom: 20px; 
+                    border-bottom: 3px solid #2563eb; 
+                    padding-bottom: 25px; 
+                    margin-bottom: 30px; 
                 }
+                
                 .header h1 {
                     margin: 0;
-                    font-size: 24px;
-                    font-weight: bold;
+                    font-size: 32px;
+                    font-weight: 700;
+                    color: #1e40af;
+                    margin-bottom: 8px;
                 }
-                .header p {
-                    margin: 5px 0;
-                    font-size: 14px;
+                
+                .header .subtitle {
+                    font-size: 16px;
+                    color: #6b7280;
+                    margin-bottom: 5px;
                 }
+                
+                .header .receipt-number {
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: #374151;
+                }
+                
                 .receipt-info { 
-                    margin-bottom: 20px; 
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    gap: 20px;
+                    margin-bottom: 30px;
+                    padding: 20px;
+                    background: #f8fafc;
+                    border-radius: 8px;
+                    border: 1px solid #e2e8f0;
+                }
+                
+                .receipt-info .info-item {
                     display: flex;
-                    justify-content: space-between;
-                    flex-wrap: wrap;
+                    flex-direction: column;
+                    gap: 5px;
                 }
-                .receipt-info div {
-                    margin-bottom: 10px;
+                
+                .receipt-info .label {
+                    font-weight: 600;
+                    color: #4b5563;
+                    font-size: 12px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
                 }
+                
+                .receipt-info .value {
+                    font-size: 16px;
+                    color: #111827;
+                    font-weight: 500;
+                }
+                
                 .items-table { 
                     width: 100%; 
                     border-collapse: collapse; 
-                    margin-bottom: 20px; 
-                    font-size: 11px;
+                    margin-bottom: 30px; 
+                    font-size: 14px;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
                 }
+                
                 .items-table th, .items-table td { 
-                    border: 1px solid #ddd; 
-                    padding: 8px; 
+                    padding: 16px 12px; 
                     text-align: left; 
                     vertical-align: top;
+                    border-bottom: 1px solid #e5e7eb;
                 }
+                
                 .items-table th { 
-                    background-color: #f8f9fa; 
-                    font-weight: bold;
-                    font-size: 10px;
+                    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+                    color: white;
+                    font-weight: 600;
+                    font-size: 13px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
                 }
-                .items-table td {
-                    font-size: 10px;
+                
+                .items-table tbody tr:hover {
+                    background-color: #f9fafb;
                 }
-                .total { 
-                    text-align: right; 
-                    font-weight: bold; 
-                    font-size: 16px; 
-                    margin-top: 20px;
-                    border-top: 2px solid #000;
-                    padding-top: 15px;
+                
+                .items-table tbody tr:last-child td {
+                    border-bottom: none;
                 }
-                .footer { 
-                    margin-top: 30px; 
-                    text-align: center; 
-                    font-size: 10px; 
-                    color: #666; 
-                    border-top: 1px solid #ddd;
-                    padding-top: 15px;
+                
+                .product-name {
+                    font-weight: 600;
+                    color: #111827;
+                    margin-bottom: 4px;
                 }
-                .manager-info {
-                    background-color: #f8f9fa;
-                    padding: 12px;
-                    border-radius: 5px;
-                    margin-bottom: 15px;
-                    border: 1px solid #e9ecef;
+                
+                .product-details {
+                    font-size: 12px;
+                    color: #6b7280;
                 }
-                .company-info {
-                    margin-bottom: 15px;
+                
+                .quantity, .unit-price, .total-price {
+                    text-align: right;
+                    font-weight: 500;
                 }
-                .receipt-meta {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 10px;
-                    margin-bottom: 20px;
+                
+                .total-section { 
+                    background: #f8fafc;
+                    padding: 25px;
+                    border-radius: 8px;
+                    border: 2px solid #e5e7eb;
+                    margin-bottom: 30px;
                 }
-                .receipt-meta div {
+                
+                .total-row {
                     display: flex;
                     justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 12px;
+                    font-size: 16px;
                 }
-                .receipt-meta span:first-child {
-                    font-weight: bold;
+                
+                .total-row:last-child {
+                    margin-bottom: 0;
+                    padding-top: 12px;
+                    border-top: 2px solid #d1d5db;
+                    font-size: 20px;
+                    font-weight: 700;
+                    color: #1e40af;
                 }
-                .print-instructions {
-                    background: #f0f8ff;
-                    border: 1px solid #b3d9ff;
-                    padding: 10px;
-                    margin: 20px 0;
-                    border-radius: 5px;
-                    font-size: 11px;
+                
+                .total-label {
+                    font-weight: 600;
+                    color: #374151;
                 }
-                .print-instructions h3 {
-                    margin: 0 0 5px 0;
-                    font-size: 12px;
+                
+                .total-value {
+                    font-weight: 600;
+                    color: #111827;
                 }
-                .print-instructions ul {
+                
+                .manager-info {
+                    background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+                    padding: 20px;
+                    border-radius: 8px;
+                    margin-bottom: 25px;
+                    border-left: 4px solid #0ea5e9;
+                }
+                
+                .manager-info h3 {
+                    margin: 0 0 10px 0;
+                    font-size: 16px;
+                    color: #0c4a6e;
+                    font-weight: 600;
+                }
+                
+                .manager-info p {
                     margin: 5px 0;
-                    padding-left: 20px;
+                    font-size: 14px;
+                    color: #0c4a6e;
                 }
+                
+                .footer { 
+                    text-align: center; 
+                    margin-top: 40px; 
+                    padding-top: 25px;
+                    border-top: 2px solid #e5e7eb;
+                    color: #6b7280; 
+                    font-size: 13px;
+                }
+                
+                .footer p {
+                    margin: 8px 0;
+                }
+                
+                .footer .thank-you {
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: #374151;
+                    margin-bottom: 15px;
+                }
+                
             </style>
         </head>
         <body>
-            <div class="print-instructions no-print">
-                <h3>📄 Print Instructions:</h3>
-                <ul>
-                    <li>Press Ctrl+P (Windows) or Cmd+P (Mac) to print</li>
-                    <li>Select "Save as PDF" in the destination options</li>
-                    <li>Choose "A4" paper size and "Portrait" orientation</li>
-                    <li>Disable headers and footers for clean output</li>
-                </ul>
-            </div>
-            
-            <div class="header">
-                <h1 style="margin: 0; font-size: 24px;">' . config('app.name') . '</h1>
-                <p style="margin: 5px 0; font-size: 14px;">Official Receipt</p>
-                <p style="margin: 5px 0; font-size: 12px;">Receipt #' . $sale->id . '</p>
-            </div>
-            
-            <div class="company-info">
-                <p style="margin: 5px 0;"><strong>' . config('app.name') . ' Store</strong></p>
-                <p style="margin: 5px 0;">Inventory & Sales Management System</p>
-            </div>
-            
-            <div class="receipt-meta">
-                <div>
-                    <span>Date:</span>
-                    <span>' . $sale->created_at->format('F j, Y') . '</span>
+            <div class="receipt-container">
+                <div class="header">
+                    <h1>' . (config('app.name') ?: 'MyShop') . '</h1>
+                    <div class="subtitle">Official Sales Receipt</div>
+                    <div class="receipt-number">Receipt #' . $sale->id . '</div>
                 </div>
-                <div>
-                    <span>Time:</span>
-                    <span>' . $sale->created_at->format('g:i A') . '</span>
+                
+                <div class="receipt-info">
+                    <div class="info-item">
+                        <div class="label">Date</div>
+                        <div class="value">' . $sale->created_at->format('F j, Y') . '</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Time</div>
+                        <div class="value">' . $sale->created_at->format('g:i A') . '</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Receipt ID</div>
+                        <div class="value">#' . $sale->id . '</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Items</div>
+                        <div class="value">' . $sale->saleItems->count() . ' item(s)</div>
+                    </div>
                 </div>
-                <div>
-                    <span>Receipt ID:</span>
-                    <span>' . $sale->id . '</span>
-                </div>
-            </div>
-            
-            <table class="items-table">
-                <thead>
-                    <tr>
-                        <th>Product</th>
-                        <th>SKU</th>
-                        <th>Qty</th>
-                        <th>Unit Price</th>
-                        <th>Total</th>
-                    </tr>
-                </thead>
-                <tbody>';
+                
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%;">Product Details</th>
+                            <th style="width: 15%;">SKU</th>
+                            <th style="width: 10%;">Qty</th>
+                            <th style="width: 17.5%;">Unit Price</th>
+                            <th style="width: 17.5%;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
 
         foreach ($sale->saleItems as $item) {
+            $product = $item->product ?? null;
+            
+            $productName = $product->name ?? 'Unknown Product';
+            $sku = $product->sku ?? 'N/A';
+            $variantInfo = '';
+            
+            // Add product details if available
+            $productDetails = [];
+            if ($product && $product->brand) $productDetails[] = 'Brand: ' . $product->brand;
+            if ($product && $product->category) $productDetails[] = 'Category: ' . $product->category;
+            if (!empty($productDetails)) {
+                $variantInfo = '<div class="product-details">' . implode(', ', $productDetails) . '</div>';
+            }
+            
             $html .= '
                 <tr>
-                    <td>' . ($item->product->name ?? 'Unknown Product') . '</td>
-                    <td>' . ($item->product->sku ?? 'N/A') . '</td>
-                    <td>' . $item->quantity . '</td>
-                    <td>KSH ' . number_format($item->unit_price, 2) . '</td>
-                    <td>KSH ' . number_format($item->total_price, 2) . '</td>
+                    <td>
+                        <div class="product-name">' . htmlspecialchars($productName) . '</div>
+                        ' . $variantInfo . '
+                    </td>
+                    <td>' . htmlspecialchars($sku) . '</td>
+                    <td class="quantity">' . $item->quantity . '</td>
+                    <td class="unit-price">KSH ' . number_format($item->unit_price, 2) . '</td>
+                    <td class="total-price">KSH ' . number_format($item->total_price, 2) . '</td>
                 </tr>';
         }
 
         $html .= '
-                </tbody>
-            </table>
-            
-            <div class="total">
-                <p style="margin: 5px 0; font-size: 16px;"><strong>Total Amount: KSH ' . number_format($sale->total_amount, 2) . '</strong></p>
-            </div>
-            
-            <div class="manager-info">
-                <p style="margin: 5px 0;"><strong>Processed by:</strong> ' . ($sale->manager->name ?? 'Unknown') . '</p>
-                <p style="margin: 5px 0;"><strong>Manager ID:</strong> ' . ($sale->manager->id ?? 'N/A') . '</p>
-            </div>
-            
-            <div class="footer">
-                <p style="margin: 5px 0;">Thank you for your purchase!</p>
-                <p style="margin: 5px 0;">This is an official receipt from ' . config('app.name') . '</p>
-                <p style="margin: 5px 0;">Generated on ' . now()->format('F j, Y g:i A') . '</p>
-                <p style="margin: 5px 0;">For any queries, please contact our support team</p>
+                    </tbody>
+                </table>
+                
+                <div class="total-section">
+                    <div class="total-row">
+                        <span class="total-label">Subtotal:</span>
+                        <span class="total-value">KSH ' . number_format($sale->total_amount, 2) . '</span>
+                    </div>
+                    <div class="total-row">
+                        <span class="total-label">Tax (0%):</span>
+                        <span class="total-value">KSH 0.00</span>
+                    </div>
+                    <div class="total-row">
+                        <span class="total-label">Total Amount:</span>
+                        <span class="total-value">KSH ' . number_format($sale->total_amount, 2) . '</span>
+                    </div>
+                </div>
+                
+                <div class="manager-info">
+                    <h3>Transaction Details</h3>
+                    <p><strong>Processed by:</strong> ' . htmlspecialchars($sale->manager->name ?? 'Unknown Manager') . '</p>
+                    <p><strong>Manager ID:</strong> #' . ($sale->manager->id ?? 'N/A') . '</p>
+                    <p><strong>Transaction Date:</strong> ' . $sale->created_at->format('F j, Y \a\t g:i A') . '</p>
+                </div>
+                
+                <div class="footer">
+                    <div class="thank-you">Thank you for your purchase!</div>
+                    <p>This is an official receipt from <strong>' . (config('app.name') ?: 'MyShop') . '</strong></p>
+                    <p>Generated on ' . now()->format('F j, Y \a\t g:i A') . '</p>
+                    <p>For any queries or support, please contact our team</p>
+                    <p style="margin-top: 15px; font-size: 11px; color: #9ca3af;">
+                        Receipt ID: ' . $sale->id . ' | Generated: ' . now()->format('Y-m-d H:i:s') . '
+                    </p>
+                </div>
             </div>
         </body>
         </html>';

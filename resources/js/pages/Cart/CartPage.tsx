@@ -117,7 +117,7 @@ export default function CartPage({ cartItems: backendCartItems, total: backendTo
         }
 
         setIsCheckingOut(true);
-        let saleId: number | null = null;
+        const saleId: number | null = null;
         const maxRetries = 2;
         
         try {

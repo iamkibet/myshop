@@ -16,17 +16,12 @@ interface SaleItem {
     quantity: number;
     unit_price: number;
     total_price: number;
-    product_variant: {
+    product: {
         id: number;
+        name: string;
         sku: string;
-        color?: string;
-        size?: string;
-        product: {
-            id: number;
-            name: string;
-            brand: string;
-            category: string;
-        };
+        brand: string;
+        category: string;
     };
 }
 

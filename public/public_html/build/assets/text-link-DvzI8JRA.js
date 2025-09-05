@@ -1,0 +1,1 @@
+import{j as t,q as n}from"./vendor-react-NdMTiU_3.js";import{c as a}from"./dashboard-BRRSZ3Kr.js";function u({className:r="",children:e,...o}){return t.jsx(n,{className:a("text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500",r),...o,children:e})}export{u as T};

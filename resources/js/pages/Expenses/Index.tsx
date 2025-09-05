@@ -367,7 +367,7 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                 {/* Expense-to-Sales Ratio */}
                                 <div className="text-center p-4 rounded-lg bg-blue-50 border border-blue-200">
                                     <div className="text-2xl sm:text-3xl font-bold text-blue-900 mb-2">
-                                        {summary.total_sales > 0 ? ((summary.total_expenses / summary.total_sales) * 100).toFixed(1) : 0}%
+                                        {summary.total_sales && summary.total_sales > 0 ? ((summary.total_expenses / summary.total_sales) * 100).toFixed(1) : 0}%
                                     </div>
                                     <p className="text-sm text-blue-700 font-medium">
                                         Expense Ratio

@@ -1,0 +1,1 @@
+import{P as r}from"./professional-admin-dashboard-CsvsvtDK.js";import"./vendor-react-NdMTiU_3.js";import"./vendor-inertia-Uge9r9zn.js";import"./vendor-other-DeegM5Eu.js";import"./vendor-charts-wdNP6emn.js";import"./dashboard-BRRSZ3Kr.js";import"./expenses-D7tWSJP3.js";import"./vendor-amcharts-TYTFOCdD.js";export{r as default};

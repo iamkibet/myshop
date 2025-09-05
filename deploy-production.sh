@@ -135,14 +135,20 @@ echo "🧹 Clearing problematic caches..."
 php artisan config:clear
 php artisan cache:clear
 
-# Copy assets to public_html
-echo "📁 Copying assets to public_html..."
-if [ -d public/build ]; then
-    cp -r public/build/* public_html/build/ 2>/dev/null || true
-    echo "✅ Assets copied successfully"
+# Copy entire public folder to public_html (Hostinger web root)
+echo "📁 Copying public folder to public_html..."
+cp -r public/* public_html/ 2>/dev/null || true
+
+# Copy build files from public/public_html/build to public_html/build
+echo "📁 Copying build files to public_html..."
+if [ -d public/public_html/build ]; then
+    cp -r public/public_html/build public_html/ 2>/dev/null || true
+    echo "✅ Build files copied successfully"
 else
-    echo "⚠️  No build directory found - make sure to run npm run build"
+    echo "⚠️  No build directory found in public/public_html/build"
 fi
+
+echo "✅ Public files copied successfully"
 
 # Remove hot file if it exists
 rm -f public_html/hot

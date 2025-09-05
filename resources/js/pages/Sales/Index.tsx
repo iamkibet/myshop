@@ -36,17 +36,12 @@ interface SaleItem {
     quantity: number;
     unit_price: number;
     total_price: number;
-    product_variant: {
+    product: {
         id: number;
+        name: string;
         sku: string;
-        color?: string;
-        size?: string;
-        product: {
-            id: number;
-            name: string;
-            brand: string;
-            category: string;
-        };
+        brand: string;
+        category: string;
     };
 }
 
@@ -158,18 +153,27 @@ export default function SalesIndex() {
 
     const handleDownloadReceipt = async (saleId: number) => {
         try {
+            console.log('Starting receipt download for sale:', saleId);
+            
             const response = await fetch(`/receipts/${saleId}/download`, {
                 method: 'GET',
                 headers: {
-                    Accept: 'text/html',
+                    'Accept': 'text/html',
+                    'X-Requested-With': 'XMLHttpRequest',
                 },
             });
 
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+
             if (!response.ok) {
-                throw new Error('Failed to download receipt');
+                const errorText = await response.text();
+                console.error('Response error:', errorText);
+                throw new Error(`Failed to download receipt: ${response.status} ${response.statusText}`);
             }
 
             const blob = await response.blob();
+            console.log('Blob created:', blob.size, 'bytes');
 
             // Create a URL for the blob
             const url = window.URL.createObjectURL(blob);
@@ -178,7 +182,7 @@ export default function SalesIndex() {
             const a = document.createElement('a');
             a.href = url;
             a.download = `receipt-${saleId}.html`;
-            a.target = '_blank';
+            a.style.display = 'none';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -188,13 +192,13 @@ export default function SalesIndex() {
                 window.URL.revokeObjectURL(url);
             }, 1000);
 
-            // Show instructions for converting to PDF
+            // Show success message
             alert(
-                'Receipt downloaded! To convert to PDF:\n1. Open the HTML file in your browser\n2. Press Ctrl+P (or Cmd+P on Mac)\n3. Choose "Save as PDF" in the print dialog',
+                'Receipt downloaded successfully!\n\nTo convert to PDF:\n1. Open the HTML file in your browser\n2. Press Ctrl+P (or Cmd+P on Mac)\n3. Choose "Save as PDF" in the print dialog\n4. Set margins to "Minimum" for best fit'
             );
         } catch (error) {
             console.error('Failed to download receipt:', error);
-            alert('Failed to download receipt. Please try again.');
+            alert(`Failed to download receipt: ${error.message}\n\nPlease try again or contact support if the issue persists.`);
         }
     };
 
@@ -408,22 +412,86 @@ export default function SalesIndex() {
                     <CardContent>
                         {sales && sales.data.length > 0 ? (
                             <>
-                                <div className="space-y-2 sm:space-y-3">
+                                <div className="space-y-3 sm:space-y-4">
                                     {sales.data.map((sale) => (
-                                        <div key={sale.id} className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors">
-                                            <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                                                <div className="flex-shrink-0">
-                                                    <div className="h-8 w-8 sm:h-10 sm:w-10 bg-green-100 rounded-full flex items-center justify-center">
-                                                        <span className="text-xs sm:text-sm font-medium text-green-600">
+                                        <div key={sale.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                                            {/* Mobile Layout */}
+                                            <div className="block sm:hidden">
+                                                <div className="flex items-start justify-between mb-3">
+                                                    <div className="flex items-center space-x-3">
+                                                        <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
+                                                            <span className="text-sm font-medium text-green-600">
+                                                                {sale.id}
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-semibold text-gray-900">
+                                                                Sale #{sale.id}
+                                                            </p>
+                                                            <p className="text-xs text-gray-500">
+                                                                {new Date(sale.created_at).toLocaleDateString()} at {new Date(sale.created_at).toLocaleTimeString()}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-lg font-bold text-gray-900">{formatCurrency(sale.total_amount)}</p>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="space-y-2 mb-4">
+                                                    <div className="flex items-center justify-between text-sm">
+                                                        <div className="flex items-center space-x-2">
+                                                            <User className="h-4 w-4 text-gray-400" />
+                                                            <span className="text-gray-600">Manager:</span>
+                                                        </div>
+                                                        <span className="font-medium text-gray-900">{sale.manager.name}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-sm">
+                                                        <div className="flex items-center space-x-2">
+                                                            <Package className="h-4 w-4 text-gray-400" />
+                                                            <span className="text-gray-600">Items:</span>
+                                                        </div>
+                                                        <span className="font-medium text-gray-900">{sale.sale_items.length} items</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="flex space-x-2">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="flex-1 h-9 text-sm"
+                                                        onClick={() => handleViewReceipt(sale.id)}
+                                                    >
+                                                        <Eye className="h-4 w-4 mr-2" />
+                                                        View Receipt
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="flex-1 h-9 text-sm"
+                                                        onClick={() => handleDownloadReceipt(sale.id)}
+                                                    >
+                                                        <Download className="h-4 w-4 mr-2" />
+                                                        Download
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            {/* Desktop Layout */}
+                                            <div className="hidden sm:flex items-center justify-between">
+                                                <div className="flex items-center space-x-4 min-w-0 flex-1">
+                                                    <div className="flex-shrink-0">
+                                                        <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
+                                                            <span className="text-sm font-medium text-green-600">
                                                             {sale.id}
                                                         </span>
                                                     </div>
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
+                                                        <p className="text-sm font-medium text-gray-900 truncate">
                                                         Sale #{sale.id}
                                                     </p>
-                                                    <div className="flex items-center space-x-2 sm:space-x-4 text-xs text-gray-500 mt-1">
+                                                        <div className="flex items-center space-x-4 text-xs text-gray-500 mt-1">
                                                         <div className="flex items-center space-x-1">
                                                             <Calendar className="h-3 w-3" />
                                                             <span>{new Date(sale.created_at).toLocaleDateString()}</span>
@@ -439,30 +507,31 @@ export default function SalesIndex() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
+                                                <div className="flex items-center space-x-4 flex-shrink-0">
                                                 <div className="text-right">
-                                                    <p className="text-xs sm:text-sm font-medium text-gray-900">{formatCurrency(sale.total_amount)}</p>
-                                                    <p className="text-xs text-gray-500 hidden sm:block">{new Date(sale.created_at).toLocaleTimeString()}</p>
+                                                        <p className="text-sm font-medium text-gray-900">{formatCurrency(sale.total_amount)}</p>
+                                                        <p className="text-xs text-gray-500">{new Date(sale.created_at).toLocaleTimeString()}</p>
                                                 </div>
-                                                <div className="flex items-center space-x-1">
+                                                    <div className="flex items-center space-x-2">
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        className="h-7 px-2 text-xs"
+                                                            className="h-8 px-3 text-xs"
                                                         onClick={() => handleViewReceipt(sale.id)}
                                                     >
                                                         <Eye className="h-3 w-3 mr-1" />
-                                                        <span className="hidden sm:inline">View</span>
+                                                            View
                                                     </Button>
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        className="h-7 px-2 text-xs"
+                                                            className="h-8 px-3 text-xs"
                                                         onClick={() => handleDownloadReceipt(sale.id)}
                                                     >
                                                         <Download className="h-3 w-3 mr-1" />
-                                                        <span className="hidden sm:inline">Download</span>
+                                                            Download
                                                     </Button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

@@ -37,17 +37,12 @@ interface SaleItem {
     quantity: number;
     unit_price: number;
     total_price: number;
-    product_variant: {
+    product: {
         id: number;
+        name: string;
         sku: string;
-        color?: string;
-        size?: string;
-        product: {
-            id: number;
-            name: string;
-            brand: string;
-            category: string;
-        };
+        brand: string;
+        category: string;
     };
 }
 
@@ -145,10 +140,10 @@ export default function ManagerStats() {
         }
     };
 
-    const getVariantInfo = (variant: any) => {
+    const getProductInfo = (product: any) => {
         const parts = [];
-        if (variant.color) parts.push(variant.color);
-        if (variant.size) parts.push(variant.size);
+        if (product.brand) parts.push(product.brand);
+        if (product.category) parts.push(product.category);
         return parts.length > 0 ? parts.join(' - ') : 'Standard';
     };
 
@@ -444,9 +439,9 @@ export default function ManagerStats() {
                                                             <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                                                         </div>
                                                         <div>
-                                                            <p className="font-medium">{item.product_variant.product.name}</p>
+                                                            <p className="font-medium">{item.product.name}</p>
                                                             <p className="text-sm text-muted-foreground">
-                                                                {getVariantInfo(item.product_variant)} • Qty: {item.quantity}
+                                                                {getProductInfo(item.product)} • Qty: {item.quantity}
                                                             </p>
                                                         </div>
                                                     </div>
