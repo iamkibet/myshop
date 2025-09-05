@@ -7,8 +7,11 @@ import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
-import { AlertTriangle, Edit, Filter, Package, Plus, Search, Trash2 } from 'lucide-react';
+import { AlertTriangle, Edit, Filter, Package, Plus, Search, Trash2, Package2, CheckSquare } from 'lucide-react';
 import { useState } from 'react';
+import BulkRestockModal from '@/components/BulkRestockModal';
+import InlineQuantityEditor from '@/components/InlineQuantityEditor';
+import QuickRestockButton from '@/components/QuickRestockButton';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -99,6 +102,10 @@ export default function ProductsIndex({ products, categories, brands, filters, f
     const [sortBy, setSortBy] = useState(filters.sort_by || 'created_at');
     const [sortDirection, setSortDirection] = useState(filters.sort_direction || 'desc');
     const [perPage, setPerPage] = useState(filters.per_page || '20');
+    
+    // Restock functionality state
+    const [isBulkRestockOpen, setIsBulkRestockOpen] = useState(false);
+    const [editingProductId, setEditingProductId] = useState<number | null>(null);
 
     const handleSearch = (value: string) => {
         setSearch(value);
@@ -169,6 +176,44 @@ export default function ProductsIndex({ products, categories, brands, filters, f
             });
         }
     };
+
+    // Restock handlers
+    const handleBulkRestock = async (items: Array<{ product_id: number; new_quantity: number; reason?: string }>) => {
+        try {
+            await router.post('/restock', { items }, {
+                onSuccess: () => {
+                    setIsBulkRestockOpen(false);
+                }
+            });
+        } catch (error) {
+            console.error('Bulk restock failed:', error);
+        }
+    };
+
+    const handleInlineRestock = async (productId: number, newQuantity: number) => {
+        try {
+            await router.post('/restock', { 
+                items: [{ product_id: productId, new_quantity: newQuantity }] 
+            }, {
+                onSuccess: () => {
+                    setEditingProductId(null);
+                }
+            });
+        } catch (error) {
+            console.error('Inline restock failed:', error);
+        }
+    };
+
+    const handleQuickRestock = async (productId: number, newQuantity: number, reason?: string) => {
+        try {
+            await router.post('/restock', { 
+                items: [{ product_id: productId, new_quantity: newQuantity, reason }] 
+            });
+        } catch (error) {
+            console.error('Quick restock failed:', error);
+        }
+    };
+
 
     const handlePageChange = (page: number) => {
         const currentFilters = {
@@ -247,11 +292,21 @@ export default function ProductsIndex({ products, categories, brands, filters, f
                                 <p className="text-sm text-blue-100">{products.total} items</p>
                             </div>
                         </div>
-                        <Link href="/products/create">
-                            <Button variant="ghost" size="sm" className="bg-white/20 hover:bg-white/30 text-white border-0">
-                                <Plus className="h-5 w-5" />
+                        <div className="flex items-center space-x-2">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setIsBulkRestockOpen(true)}
+                                className="bg-white/20 hover:bg-white/30 text-white border-0"
+                            >
+                                <Package2 className="h-4 w-4" />
                             </Button>
-                        </Link>
+                            <Link href="/products/create">
+                                <Button variant="ghost" size="sm" className="bg-white/20 hover:bg-white/30 text-white border-0">
+                                    <Plus className="h-5 w-5" />
+                                </Button>
+                            </Link>
+                        </div>
                     </div>
                 </div>
 
@@ -261,12 +316,22 @@ export default function ProductsIndex({ products, categories, brands, filters, f
                         <h1 className="text-2xl font-bold">Products</h1>
                         <p className="text-muted-foreground">Manage your product inventory</p>
                     </div>
-                    <Link href="/products/create">
-                        <Button>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Product
+                    <div className="flex items-center space-x-3">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsBulkRestockOpen(true)}
+                            className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                        >
+                            <Package2 className="mr-2 h-4 w-4" />
+                            Bulk Restock
                         </Button>
-                    </Link>
+                        <Link href="/products/create">
+                            <Button>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Product
+                            </Button>
+                        </Link>
+                    </div>
                 </div>
 
                 <Card>
@@ -506,21 +571,32 @@ export default function ProductsIndex({ products, categories, brands, filters, f
                                                         </div>
                                                     </div>
 
-                                                    <div className="mt-3 flex items-center space-x-2">
-                                                        <Link href={`/products/${product.id}/edit`} className="flex-1">
-                                                            <Button variant="outline" size="sm" className="w-full">
-                                                                <Edit className="h-4 w-4 mr-2" />
-                                                                Edit
+                                                    <div className="mt-3 space-y-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <QuickRestockButton
+                                                                product={product}
+                                                                onRestock={handleQuickRestock}
+                                                            />
+                                                            <Badge variant={stockStatus.color} className="text-xs">
+                                                                {stockStatus.status}
+                                                            </Badge>
+                                                        </div>
+                                                        <div className="flex items-center space-x-2">
+                                                            <Link href={`/products/${product.id}/edit`} className="flex-1">
+                                                                <Button variant="outline" size="sm" className="w-full">
+                                                                    <Edit className="h-4 w-4 mr-2" />
+                                                                    Edit
+                                                                </Button>
+                                                            </Link>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleDelete(product.id)}
+                                                                className="text-destructive hover:text-destructive"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
                                                             </Button>
-                                                        </Link>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => handleDelete(product.id)}
-                                                            className="text-destructive hover:text-destructive"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -600,12 +676,14 @@ export default function ProductsIndex({ products, categories, brands, filters, f
                                                     </div>
                                                 </td>
                                                 <td className="p-2">
-                                                    <div className="flex items-center space-x-1">
-                                                        <span className="text-sm">{product.quantity}</span>
-                                                        {product.quantity > 0 && product.quantity <= product.low_stock_threshold && (
-                                                            <AlertTriangle className="h-3 w-3 text-amber-500" />
-                                                        )}
-                                                    </div>
+                                                    <InlineQuantityEditor
+                                                        productId={product.id}
+                                                        currentQuantity={product.quantity}
+                                                        onSave={handleInlineRestock}
+                                                        onCancel={() => setEditingProductId(null)}
+                                                        isEditing={editingProductId === product.id}
+                                                        onEdit={() => setEditingProductId(product.id)}
+                                                    />
                                                 </td>
                                                 <td className="p-2">
                                                     <Badge variant={stockStatus.color}>{stockStatus.status}</Badge>
@@ -739,6 +817,14 @@ export default function ProductsIndex({ products, categories, brands, filters, f
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Bulk Restock Modal */}
+            <BulkRestockModal
+                isOpen={isBulkRestockOpen}
+                onClose={() => setIsBulkRestockOpen(false)}
+                products={products.data}
+                onRestock={handleBulkRestock}
+            />
         </AppLayout>
     );
 }

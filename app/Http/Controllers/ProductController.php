@@ -375,20 +375,40 @@ class ProductController extends Controller
                 'items' => 'required|array',
                 'items.*.product_id' => 'required|integer|exists:products,id',
                 'items.*.new_quantity' => 'required|integer|min:0',
+                'items.*.reason' => 'nullable|string|max:255',
             ]);
 
             $items = $request->input('items');
             $updatedCount = 0;
+            $restockedItems = [];
 
             foreach ($items as $item) {
                 $product = Product::find($item['product_id']);
                 if ($product) {
                     $oldQuantity = $product->quantity;
-                    $product->update(['quantity' => $item['new_quantity']]);
-                    $updatedCount++;
-
-
+                    $newQuantity = $item['new_quantity'];
+                    
+                    // Only update if quantity actually changed
+                    if ($oldQuantity !== $newQuantity) {
+                        $product->update(['quantity' => $newQuantity]);
+                        $updatedCount++;
+                        
+                        $restockedItems[] = [
+                            'product_id' => $product->id,
+                            'product_name' => $product->name,
+                            'old_quantity' => $oldQuantity,
+                            'new_quantity' => $newQuantity,
+                            'quantity_change' => $newQuantity - $oldQuantity,
+                            'reason' => $item['reason'] ?? null,
+                        ];
+                    }
                 }
+            }
+
+            // Send notification if any products were restocked
+            if ($updatedCount > 0) {
+                $notificationService = app(\App\Services\NotificationService::class);
+                $notificationService->createRestockNotification($restockedItems);
             }
 
             $message = "Successfully restocked {$updatedCount} products";

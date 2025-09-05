@@ -119,19 +119,37 @@ class NotificationService
     public function createRestockNotification(array $restockedItems): void
     {
         $itemCount = count($restockedItems);
+        
+        // Create detailed message based on number of items
+        if ($itemCount === 1) {
+            $item = $restockedItems[0];
+            $quantityChange = $item['quantity_change'];
+            $productName = $item['product_name'];
+            
+            if ($quantityChange > 0) {
+                $message = "{$quantityChange} items added to {$productName}";
+            } else {
+                $message = "{$productName} restocked to {$item['new_quantity']} items";
+            }
+        } else {
+            $totalAdded = array_sum(array_column($restockedItems, 'quantity_change'));
+            $message = "{$itemCount} products restocked ({$totalAdded} items added)";
+        }
+        
         $this->create([
             'type' => 'success',
             'title' => 'Inventory Restocked',
-            'message' => "Successfully restocked {$itemCount} product" . ($itemCount > 1 ? 's' : ''),
+            'message' => $message,
             'icon' => 'package',
             'category' => 'inventory',
             'action' => [
                 'type' => 'inventory',
-                'url' => '/admin-dashboard?tab=inventory',
+                'url' => '/products',
             ],
             'metadata' => [
                 'restocked_items' => $restockedItems,
                 'item_count' => $itemCount,
+                'total_quantity_added' => array_sum(array_column($restockedItems, 'quantity_change')),
             ],
         ]);
     }
