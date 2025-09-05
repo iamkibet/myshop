@@ -44,6 +44,7 @@ const BulkRestockModal: React.FC<BulkRestockModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [stockFilter, setStockFilter] = useState('all');
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -53,10 +54,11 @@ const BulkRestockModal: React.FC<BulkRestockModalProps> = ({
       setGlobalReason('');
       setSearchQuery('');
       setCategoryFilter('all');
+      setStockFilter('all');
     }
   }, [isOpen]);
 
-  // Filter products based on search and category
+  // Filter products based on search, category, and stock status
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -65,9 +67,17 @@ const BulkRestockModal: React.FC<BulkRestockModalProps> = ({
       
       const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
       
-      return matchesSearch && matchesCategory;
+      const matchesStock = (() => {
+        if (stockFilter === 'all') return true;
+        if (stockFilter === 'out_of_stock') return product.quantity === 0;
+        if (stockFilter === 'low_stock') return product.quantity > 0 && product.quantity <= product.low_stock_threshold;
+        if (stockFilter === 'in_stock') return product.quantity > product.low_stock_threshold;
+        return true;
+      })();
+      
+      return matchesSearch && matchesCategory && matchesStock;
     });
-  }, [products, searchQuery, categoryFilter]);
+  }, [products, searchQuery, categoryFilter, stockFilter]);
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -159,34 +169,37 @@ const BulkRestockModal: React.FC<BulkRestockModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto w-[95vw] sm:w-full mx-2 sm:mx-0 p-2 sm:p-6">
+        <DialogHeader className="pb-4">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <Package2 className="h-5 w-5" />
-            Bulk Restock Products
+            <span className="truncate">Bulk Restock Products</span>
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Search and Filter */}
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <Label htmlFor="search" className="text-sm font-medium">
-                  Search Products
-                </Label>
-                <div className="relative mt-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="search"
-                    placeholder="Search by name, category, or SKU..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+            {/* Search Bar */}
+            <div>
+              <Label htmlFor="search" className="text-sm font-medium">
+                Search Products
+              </Label>
+              <div className="relative mt-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="search"
+                  placeholder="Search by name, category, or SKU..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-              <div className="sm:w-48">
+            </div>
+            
+            {/* Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
                 <Label htmlFor="category" className="text-sm font-medium">
                   Category
                 </Label>
@@ -200,6 +213,23 @@ const BulkRestockModal: React.FC<BulkRestockModalProps> = ({
                   {categories.map(category => (
                     <option key={category} value={category}>{category}</option>
                   ))}
+                </select>
+              </div>
+              
+              <div>
+                <Label htmlFor="stock" className="text-sm font-medium">
+                  Stock Status
+                </Label>
+                <select
+                  id="stock"
+                  value={stockFilter}
+                  onChange={(e) => setStockFilter(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="all">All Stock Levels</option>
+                  <option value="out_of_stock">Out of Stock</option>
+                  <option value="low_stock">Low Stock</option>
+                  <option value="in_stock">In Stock</option>
                 </select>
               </div>
             </div>
@@ -225,11 +255,11 @@ const BulkRestockModal: React.FC<BulkRestockModalProps> = ({
           </div>
 
           {/* Product Selection */}
-          <div className="border rounded-lg max-h-80 overflow-y-auto">
+          <div className="border rounded-lg max-h-60 sm:max-h-80 overflow-y-auto">
             {filteredProducts.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <Package2 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>No products found matching your search criteria</p>
+              <div className="p-4 sm:p-8 text-center text-gray-500">
+                <Package2 className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-2 sm:mb-4 text-gray-300" />
+                <p className="text-sm sm:text-base">No products found matching your search criteria</p>
               </div>
             ) : (
               <div className="divide-y">
@@ -240,34 +270,36 @@ const BulkRestockModal: React.FC<BulkRestockModalProps> = ({
                   return (
                     <div
                       key={product.id}
-                      className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
-                        isSelected ? 'bg-blue-50' : ''
+                      className={`p-3 sm:p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
+                        isSelected ? 'bg-blue-50 border-l-4 border-blue-500' : ''
                       }`}
                       onClick={() => handleProductSelect(product.id, !isSelected)}
                     >
-                      <div className="flex items-center space-x-4">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={(checked) => handleProductSelect(product.id, !!checked)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
+                      <div className="flex items-start sm:items-center justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
                             <h4 className="text-sm font-medium text-gray-900 truncate">
                               {product.name}
                             </h4>
-                            <Badge variant={stockStatus.color as any} className="ml-2">
+                            <Badge variant={stockStatus.color as any} className="text-xs w-fit">
                               {stockStatus.status}
                             </Badge>
                           </div>
-                          <div className="mt-1 flex items-center space-x-4 text-xs text-gray-500">
+                          <div className="mt-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-gray-500">
                             <span>{product.category}</span>
-                            <span>•</span>
+                            <span className="hidden sm:inline">•</span>
                             <span>SKU: {product.sku}</span>
-                            <span>•</span>
+                            <span className="hidden sm:inline">•</span>
                             <span>Current: {product.quantity}</span>
                           </div>
                         </div>
+                        {isSelected && (
+                          <div className="flex-shrink-0">
+                            <div className="h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-blue-500 flex items-center justify-center">
+                              <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -297,26 +329,30 @@ const BulkRestockModal: React.FC<BulkRestockModalProps> = ({
               <Label className="text-base font-medium mb-3 block">
                 Set Quantities for Selected Products
               </Label>
-              <div className="space-y-4 max-h-80 overflow-y-auto border rounded-lg p-4">
+              <div className="space-y-3 sm:space-y-4 max-h-60 sm:max-h-80 overflow-y-auto border rounded-lg p-3 sm:p-4">
                 {selectedProductsList.map((product) => {
                   const restockItem = restockItems.find(item => item.product_id === product.id);
                   const currentQuantity = restockItem?.new_quantity || product.quantity;
                   
                   return (
-                    <div key={product.id} className="bg-white border rounded-lg p-4 shadow-sm">
-                      <div className="flex items-start justify-between mb-3">
+                    <div key={product.id} className="bg-white border rounded-lg p-3 sm:p-4 shadow-sm">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-0 mb-3">
                         <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-medium text-gray-900">{product.name}</h4>
+                          <h4 className="text-sm font-medium text-gray-900 truncate">{product.name}</h4>
                           <p className="text-xs text-gray-500 mt-1">
-                            {product.category} • SKU: {product.sku} • Current: {product.quantity}
+                            <span className="block sm:inline">{product.category}</span>
+                            <span className="hidden sm:inline"> • </span>
+                            <span className="block sm:inline">SKU: {product.sku}</span>
+                            <span className="hidden sm:inline"> • </span>
+                            <span className="block sm:inline">Current: {product.quantity}</span>
                           </p>
                         </div>
-                        <Badge variant={getStockStatus(product).color as any}>
+                        <Badge variant={getStockStatus(product).color as any} className="text-xs w-fit">
                           {getStockStatus(product).status}
                         </Badge>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         {/* Quantity Controls */}
                         <div>
                           <Label htmlFor={`quantity-${product.id}`} className="text-sm font-medium">
@@ -327,7 +363,7 @@ const BulkRestockModal: React.FC<BulkRestockModalProps> = ({
                               variant="outline"
                               size="sm"
                               onClick={() => handleQuantityChange(product.id, -1)}
-                              className="h-8 w-8 p-0"
+                              className="h-8 w-8 p-0 touch-manipulation"
                             >
                               <Minus className="h-3 w-3" />
                             </Button>
@@ -337,13 +373,13 @@ const BulkRestockModal: React.FC<BulkRestockModalProps> = ({
                               min="0"
                               value={currentQuantity}
                               onChange={(e) => handleQuantityInput(product.id, e.target.value)}
-                              className="w-20 text-center"
+                              className="w-16 sm:w-20 text-center"
                             />
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleQuantityChange(product.id, 1)}
-                              className="h-8 w-8 p-0"
+                              className="h-8 w-8 p-0 touch-manipulation"
                             >
                               <Plus className="h-3 w-3" />
                             </Button>
@@ -368,8 +404,8 @@ const BulkRestockModal: React.FC<BulkRestockModalProps> = ({
                         </div>
                         
                         {/* Summary */}
-                        <div className="flex items-center justify-center">
-                          <div className="text-center">
+                        <div className="flex items-center justify-center lg:justify-start">
+                          <div className="text-center lg:text-left">
                             <p className="text-sm font-medium text-gray-900">
                               {currentQuantity > product.quantity ? '+' : ''}{currentQuantity - product.quantity}
                             </p>
@@ -388,7 +424,7 @@ const BulkRestockModal: React.FC<BulkRestockModalProps> = ({
           {selectedProductsList.length > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h4 className="font-medium text-blue-900 mb-3">Restock Summary</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                 <div>
                   <span className="text-blue-700">Products:</span>
                   <span className="ml-1 font-medium">{selectedProductsList.length}</span>
@@ -420,14 +456,19 @@ const BulkRestockModal: React.FC<BulkRestockModalProps> = ({
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+          <Button 
+            variant="outline" 
+            onClick={onClose} 
+            disabled={isSubmitting}
+            className="w-full sm:w-auto order-2 sm:order-1"
+          >
             Cancel
           </Button>
           <Button 
             onClick={handleSubmit} 
             disabled={selectedProducts.size === 0 || isSubmitting}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 order-1 sm:order-2"
           >
             {isSubmitting ? 'Restocking...' : `Restock ${selectedProducts.size} Products`}
           </Button>

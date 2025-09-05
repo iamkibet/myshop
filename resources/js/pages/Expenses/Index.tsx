@@ -9,6 +9,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { DollarSign, Edit, Eye, Plus, Receipt, TrendingUp, Filter, Calendar, Search, BarChart3, TrendingDown, Hash, AtSign, Clock, Info, Check, X } from 'lucide-react';
 import { useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
+import KPICard from '@/components/KPICard';
 import {
     Chart as ChartJS,
     ArcElement,
@@ -20,62 +21,6 @@ import { Pie } from 'react-chartjs-2';
 // Register Chart.js components
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-// KPI Card Component (matching dashboard style)
-function KPICard({ title, value, change, changeType, icon: Icon, color, bgColor, format = 'currency', tooltip }: {
-    title: string;
-    value: number;
-    change: number;
-    changeType: string;
-    icon: any;
-    color: string;
-    bgColor: string;
-    format?: 'currency' | 'number';
-    tooltip?: string;
-}) {
-    const isPositive = changeType === 'increase';
-    
-    const formatValue = (val: number) => {
-        if (format === 'number') {
-            return val.toLocaleString();
-        }
-        return formatCurrency(val);
-    };
-
-    return (
-        <Card className={`${bgColor} text-white border-0 shadow-lg relative`}>
-            <CardContent className="px-3 py-2 sm:px-4 sm:py-3 lg:px-6 lg:py-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1 sm:mb-2">
-                            <div className="flex items-center gap-1">
-                                <p className="text-xs sm:text-sm font-medium opacity-90 truncate">{title}</p>
-                                {tooltip && (
-                                    <div className="relative group/info">
-                                        <div className="flex-shrink-0 ml-1 p-1 rounded-full hover:bg-white/20 transition-colors cursor-help">
-                                            <Info className="h-3 w-3 sm:h-4 sm:w-4 opacity-70" />
-                                        </div>
-                                        
-                                        {/* Info Icon Tooltip */}
-                                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-4 py-3 bg-gray-900 text-white text-xs sm:text-sm rounded-xl shadow-2xl opacity-0 group-hover/info:opacity-100 transition-all duration-300 pointer-events-none z-40 w-72 text-left">
-                                            <div className="font-semibold mb-2 text-white">{title}</div>
-                                            <div className="text-gray-200 leading-relaxed text-xs sm:text-sm">
-                                                {tooltip}
-                                            </div>
-                                            {/* Arrow */}
-                                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            <Icon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 opacity-80 flex-shrink-0 ml-2" />
-                        </div>
-                        <p className="text-lg sm:text-xl lg:text-2xl font-bold mb-1 sm:mb-2 truncate">{formatValue(value)}</p>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
 
 interface Expense {
     id: number;
@@ -676,59 +621,64 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                 </div>
                             ) : (
                                 expenses.data.map((expense) => (
-                                    <div key={expense.id} className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors">
-                                        <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                                            <div className="flex-shrink-0">
-                                                <div className="h-8 w-8 sm:h-10 sm:w-10 bg-red-100 rounded-full flex items-center justify-center">
-                                                    <span className="text-xs sm:text-sm font-medium text-red-600">
-                                                        {expense.id}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
+                                    <div key={expense.id} className="p-3 sm:p-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors">
+                                        {/* Mobile Layout - Stacked */}
+                                        <div className="block sm:hidden">
+                                            <div className="flex items-start justify-between mb-3">
+                                                <div className="flex items-center space-x-3 min-w-0 flex-1">
+                                                    <div className="flex-shrink-0">
+                                                        <div className="h-8 w-8 bg-red-100 rounded-full flex items-center justify-center">
+                                                            <span className="text-xs font-medium text-red-600">
+                                                                {expense.id}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-gray-900 truncate">
                                                             {expense.title}
-                                                </p>
-                                                <div className="flex items-center space-x-2 sm:space-x-4 text-xs text-gray-500 mt-1">
+                                                        </p>
+                                                        <p className="text-lg font-bold text-gray-900 mt-1">
+                                                            {formatCurrency(expense.amount)}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <Badge className={`text-xs px-2 py-1 ${
+                                                    expense.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                                    expense.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                                    'bg-yellow-100 text-yellow-800'
+                                                }`}>
+                                                    {expense.status === 'approved' ? '✓ Approved' :
+                                                     expense.status === 'rejected' ? '✗ Rejected' :
+                                                     '⏳ Pending'}
+                                                </Badge>
+                                            </div>
+                                            
+                                            <div className="space-y-2 mb-3">
+                                                <div className="flex items-center space-x-4 text-xs text-gray-500">
                                                     <div className="flex items-center space-x-1">
                                                         <Calendar className="h-3 w-3" />
                                                         <span>{new Date(expense.expense_date).toLocaleDateString()}</span>
-                                                        </div>
+                                                    </div>
                                                     <div className="flex items-center space-x-1">
                                                         <span className="truncate">{expense.added_by.name}</span>
                                                     </div>
-                                                    <div className="flex items-center space-x-1">
-                                                        <Badge className={`text-xs px-2 py-0.5 ${getCategoryColor(expense.category)}`}>
-                                                            {categories[expense.category]}
-                                                        </Badge>
-                                                    </div>
                                                 </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
-                                            <div className="text-right">
-                                                <p className="text-xs sm:text-sm font-medium text-gray-900">{formatCurrency(expense.amount)}</p>
-                                                <div className="flex items-center space-x-1 mt-1">
-                                                    <Badge className={`text-xs px-2 py-0.5 ${
-                                                        expense.status === 'approved' ? 'bg-green-100 text-green-800' :
-                                                        expense.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                                        'bg-yellow-100 text-yellow-800'
-                                                    }`}>
-                                                        {expense.status === 'approved' ? '✓ Approved' :
-                                                         expense.status === 'rejected' ? '✗ Rejected' :
-                                                         '⏳ Pending'}
+                                                <div className="flex items-center space-x-1">
+                                                    <Badge className={`text-xs px-2 py-0.5 ${getCategoryColor(expense.category)}`}>
+                                                        {categories[expense.category]}
                                                     </Badge>
                                                 </div>
-                                        </div>
-                                            <div className="flex items-center space-x-1">
-                                                <Link href={`/expenses/${expense.id}`}>
+                                            </div>
+                                            
+                                            <div className="flex items-center space-x-2">
+                                                <Link href={`/expenses/${expense.id}`} className="flex-1">
                                                     <Button 
                                                         variant="outline"
                                                         size="sm"
-                                                        className="h-7 px-2 text-xs"
+                                                        className="w-full h-8 text-xs"
                                                     >
                                                         <Eye className="h-3 w-3 mr-1" />
-                                                        <span className="hidden sm:inline">View</span>
+                                                        View Details
                                                     </Button>
                                                 </Link>
                                                 {userRole === 'admin' && expense.status === 'pending' && (
@@ -736,22 +686,101 @@ export default function ExpensesIndex({ expenses, categories, summary, filters, 
                                                         <Button
                                                             onClick={() => handleApprove(expense.id)}
                                                             size="sm"
-                                                            className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                                            className="h-8 px-3 text-xs bg-green-600 hover:bg-green-700 text-white"
                                                         >
-                                                            <Check className="h-3 w-3 mr-1" />
-                                                            <span className="hidden sm:inline">Approve</span>
+                                                            <Check className="h-3 w-3" />
                                                         </Button>
                                                         <Button
                                                             onClick={() => handleReject(expense.id)}
                                                             variant="outline"
                                                             size="sm"
-                                                            className="h-7 px-2 text-xs border-red-300 text-red-700 hover:bg-red-50"
+                                                            className="h-8 px-3 text-xs border-red-300 text-red-700 hover:bg-red-50"
                                                         >
-                                                            <X className="h-3 w-3 mr-1" />
-                                                            <span className="hidden sm:inline">Reject</span>
+                                                            <X className="h-3 w-3" />
                                                         </Button>
                                                     </>
                                                 )}
+                                            </div>
+                                        </div>
+
+                                        {/* Desktop Layout - Horizontal */}
+                                        <div className="hidden sm:flex items-center justify-between">
+                                            <div className="flex items-center space-x-4 min-w-0 flex-1">
+                                                <div className="flex-shrink-0">
+                                                    <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center">
+                                                        <span className="text-sm font-medium text-red-600">
+                                                            {expense.id}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                                        {expense.title}
+                                                    </p>
+                                                    <div className="flex items-center space-x-4 text-xs text-gray-500 mt-1">
+                                                        <div className="flex items-center space-x-1">
+                                                            <Calendar className="h-3 w-3" />
+                                                            <span>{new Date(expense.expense_date).toLocaleDateString()}</span>
+                                                        </div>
+                                                        <div className="flex items-center space-x-1">
+                                                            <span className="truncate">{expense.added_by.name}</span>
+                                                        </div>
+                                                        <div className="flex items-center space-x-1">
+                                                            <Badge className={`text-xs px-2 py-0.5 ${getCategoryColor(expense.category)}`}>
+                                                                {categories[expense.category]}
+                                                            </Badge>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center space-x-4 flex-shrink-0">
+                                                <div className="text-right">
+                                                    <p className="text-sm font-medium text-gray-900">{formatCurrency(expense.amount)}</p>
+                                                    <div className="flex items-center space-x-1 mt-1">
+                                                        <Badge className={`text-xs px-2 py-0.5 ${
+                                                            expense.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                                            expense.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                                                            'bg-yellow-100 text-yellow-800'
+                                                        }`}>
+                                                            {expense.status === 'approved' ? '✓ Approved' :
+                                                             expense.status === 'rejected' ? '✗ Rejected' :
+                                                             '⏳ Pending'}
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center space-x-1">
+                                                    <Link href={`/expenses/${expense.id}`}>
+                                                        <Button 
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="h-7 px-2 text-xs"
+                                                        >
+                                                            <Eye className="h-3 w-3 mr-1" />
+                                                            <span className="hidden sm:inline">View</span>
+                                                        </Button>
+                                                    </Link>
+                                                    {userRole === 'admin' && expense.status === 'pending' && (
+                                                        <>
+                                                            <Button
+                                                                onClick={() => handleApprove(expense.id)}
+                                                                size="sm"
+                                                                className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                                            >
+                                                                <Check className="h-3 w-3 mr-1" />
+                                                                <span className="hidden sm:inline">Approve</span>
+                                                            </Button>
+                                                            <Button
+                                                                onClick={() => handleReject(expense.id)}
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-7 px-2 text-xs border-red-300 text-red-700 hover:bg-red-50"
+                                                            >
+                                                                <X className="h-3 w-3 mr-1" />
+                                                                <span className="hidden sm:inline">Reject</span>
+                                                            </Button>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
