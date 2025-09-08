@@ -472,6 +472,130 @@ class AnalyticsController extends Controller
     }
 
     /**
+     * Get sales overview data for different time periods
+     */
+    public function salesOverview(): JsonResponse
+    {
+        try {
+            $now = Carbon::now();
+            
+            // Today's sales
+            $todayStart = $now->copy()->startOfDay();
+            $todayData = $this->getSalesDataForPeriod($todayStart, $now);
+            $todayData['period'] = 'Today';
+            
+            // Yesterday's sales
+            $yesterdayStart = $now->copy()->subDay()->startOfDay();
+            $yesterdayEnd = $now->copy()->subDay()->endOfDay();
+            $yesterdayData = $this->getSalesDataForPeriod($yesterdayStart, $yesterdayEnd);
+            $yesterdayData['period'] = 'Yesterday';
+            
+            // Last 7 days sales
+            $last7DaysStart = $now->copy()->subDays(7);
+            $last7DaysData = $this->getSalesDataForPeriod($last7DaysStart, $now);
+            $last7DaysData['period'] = 'Last 7 Days';
+            
+            // Last 30 days sales
+            $last30DaysStart = $now->copy()->subDays(30);
+            $last30DaysData = $this->getSalesDataForPeriod($last30DaysStart, $now);
+            $last30DaysData['period'] = 'Last 30 Days';
+            
+            // All time sales (from the beginning)
+            $allTimeData = $this->getSalesDataForPeriod(null, $now);
+            $allTimeData['period'] = 'All Time';
+            
+            return response()->json([
+                'today' => $todayData,
+                'yesterday' => $yesterdayData,
+                'last7Days' => $last7DaysData,
+                'last30Days' => $last30DaysData,
+                'allTime' => $allTimeData
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching sales overview: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to fetch sales overview'], 500);
+        }
+    }
+
+    /**
+     * Get sales data for a specific period
+     */
+    private function getSalesDataForPeriod($startDate, $endDate): array
+    {
+        $query = Sale::with(['saleItems.product']);
+        
+        if ($startDate) {
+            $query->whereBetween('created_at', [$startDate, $endDate]);
+        } else {
+            // For all time data, only filter by end date
+            $query->where('created_at', '<=', $endDate);
+        }
+        
+        $sales = $query->orderBy('created_at', 'desc')->get();
+
+        $totalSales = $sales->sum('total_amount');
+        $totalOrders = $sales->count();
+        $totalProducts = $sales->sum(function($sale) {
+            return $sale->saleItems->sum('quantity');
+        });
+        $averageOrderValue = $totalOrders > 0 ? $totalSales / $totalOrders : 0;
+
+        $salesData = $sales->map(function($sale) {
+            return [
+                'id' => $sale->id,
+                'date' => $sale->created_at->toISOString(),
+                'amount' => (float) $sale->total_amount,
+                'items_count' => $sale->saleItems->count(),
+                'items' => $sale->saleItems->map(function($item) {
+                    return [
+                        'product_name' => $item->product->name ?? 'Unknown Product',
+                        'quantity' => (int) $item->quantity,
+                        'unit_price' => (float) $item->unit_price,
+                        'total_price' => (float) $item->total_price
+                    ];
+                })->toArray()
+            ];
+        })->toArray();
+
+        return [
+            'period' => $this->getPeriodLabel($startDate, $endDate),
+            'totalSales' => (float) $totalSales,
+            'totalOrders' => $totalOrders,
+            'totalProducts' => $totalProducts,
+            'averageOrderValue' => (float) $averageOrderValue,
+            'sales' => $salesData
+        ];
+    }
+
+    /**
+     * Get period label based on dates
+     */
+    private function getPeriodLabel($startDate, $endDate): string
+    {
+        $now = Carbon::now();
+        
+        if (!$startDate) {
+            return 'All Time';
+        }
+        
+        if ($startDate->isToday()) {
+            return 'Today';
+        } elseif ($startDate->isYesterday()) {
+            return 'Yesterday';
+        } elseif ($startDate->diffInDays($now) == 7) {
+            return 'Last 7 Days';
+        } elseif ($startDate->diffInDays($now) == 30) {
+            return 'Last 30 Days';
+        } elseif ($startDate->isSameWeek($now)) {
+            return 'This Week';
+        } elseif ($startDate->isSameMonth($now)) {
+            return 'This Month';
+        }
+        
+        return 'Custom Period';
+    }
+
+    /**
      * Get inventory analytics
      */
     public function inventoryAnalytics(): JsonResponse

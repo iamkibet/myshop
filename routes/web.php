@@ -50,6 +50,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('dashboard')->name('dashboard.')->group(function () {
             Route::get('/analytics', [AnalyticsController::class, 'dashboard'])->name('analytics');
             Route::get('/sales-analytics', [AnalyticsController::class, 'salesAnalytics'])->name('sales-analytics');
+            Route::get('/sales-overview', [AnalyticsController::class, 'salesOverview'])->name('sales-overview');
             Route::get('/inventory-analytics', [AnalyticsController::class, 'inventoryAnalytics'])->name('inventory-analytics');
             Route::get('/restock-recommendations', [AnalyticsController::class, 'getRestockRecommendations'])->name('restock-recommendations');
         });

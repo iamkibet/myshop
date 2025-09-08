@@ -198,7 +198,7 @@ export default function SalesIndex() {
             );
         } catch (error) {
             console.error('Failed to download receipt:', error);
-            alert(`Failed to download receipt: ${error.message}\n\nPlease try again or contact support if the issue persists.`);
+            alert(`Failed to download receipt: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease try again or contact support if the issue persists.`);
         }
     };
 

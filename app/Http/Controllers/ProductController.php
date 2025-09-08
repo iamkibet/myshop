@@ -408,6 +408,12 @@ class ProductController extends Controller
             // Send notification if any products were restocked
             if ($updatedCount > 0) {
                 $notificationService = app(\App\Services\NotificationService::class);
+                
+                // Clear old inventory notifications for restocked products
+                foreach ($restockedItems as $item) {
+                    $notificationService->clearInventoryNotificationsForProduct($item['product_id']);
+                }
+                
                 $notificationService->createRestockNotification($restockedItems);
             }
 

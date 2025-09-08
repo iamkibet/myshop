@@ -104,6 +104,10 @@ export default function NotificationsIndex({ notifications, categories, stats, c
                 body: JSON.stringify({ notification_id: notificationId }),
             });
 
+            // Trigger storage event to notify other components
+            localStorage.setItem('notifications-updated', Date.now().toString());
+            localStorage.removeItem('notifications-updated');
+
             // Refresh the page to update the notification status
             router.reload();
         } catch (error) {
@@ -121,6 +125,10 @@ export default function NotificationsIndex({ notifications, categories, stats, c
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                 },
             });
+
+            // Trigger storage event to notify other components
+            localStorage.setItem('notifications-updated', Date.now().toString());
+            localStorage.removeItem('notifications-updated');
 
             router.reload();
         } catch (error) {
@@ -226,100 +234,140 @@ export default function NotificationsIndex({ notifications, categories, stats, c
         >
             <Head title="Notifications" />
 
-            <div className="space-y-6">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold">Notifications</h1>
-                        <p className="text-muted-foreground">Manage and monitor all system notifications</p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <Button variant="outline" onClick={syncNotifications} disabled={loading}>
-                            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                            Sync
-                        </Button>
-                        <Button variant="outline" onClick={markAllAsRead} disabled={loading || stats.unread === 0}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            Mark All Read
-                        </Button>
-                        <Button variant="destructive" onClick={clearAllNotifications} disabled={loading}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Clear All
-                        </Button>
+            <div className="flex h-full flex-1 flex-col gap-4 sm:gap-6 overflow-x-auto rounded-xl p-3 sm:p-4 bg-gray-50 pb-24 sm:pb-4">
+                {/* Header Section */}
+                <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
+                                <Bell className="h-5 w-5 text-white" />
+                            </div>
+                            <div>
+                                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Notifications</h1>
+                                <p className="text-sm text-gray-500 hidden sm:block">Manage and monitor all system notifications</p>
+                            </div>
+                        </div>
+                        
+                        {/* Action Buttons - Responsive */}
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                            <Button 
+                                variant="outline" 
+                                onClick={syncNotifications} 
+                                disabled={loading}
+                                className="flex items-center justify-center gap-2 text-sm"
+                            >
+                                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                                <span className="hidden sm:inline">Sync</span>
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                onClick={markAllAsRead} 
+                                disabled={loading || stats.unread === 0}
+                                className="flex items-center justify-center gap-2 text-sm text-blue-600 border-blue-200 hover:bg-blue-50"
+                            >
+                                <Eye className="h-4 w-4" />
+                                <span className="hidden sm:inline">Mark All Read</span>
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                onClick={clearAllNotifications} 
+                                disabled={loading}
+                                className="flex items-center justify-center gap-2 text-sm text-red-600 border-red-200 hover:bg-red-50"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                                <span className="hidden sm:inline">Clear All</span>
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total</CardTitle>
-                            <Bell className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats.total}</div>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <Card className="bg-white border-0 shadow-sm hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">Total</p>
+                                    <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                                </div>
+                                <div className="p-2 bg-blue-100 rounded-lg">
+                                    <Bell className="h-5 w-5 text-blue-600" />
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Unread</CardTitle>
-                            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats.unread}</div>
+                    <Card className="bg-white border-0 shadow-sm hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">Unread</p>
+                                    <p className="text-2xl font-bold text-orange-600">{stats.unread}</p>
+                                </div>
+                                <div className="p-2 bg-orange-100 rounded-lg">
+                                    <AlertTriangle className="h-5 w-5 text-orange-600" />
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Inventory</CardTitle>
-                            <XCircle className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats.inventory}</div>
+                    <Card className="bg-white border-0 shadow-sm hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">Inventory</p>
+                                    <p className="text-2xl font-bold text-red-600">{stats.inventory}</p>
+                                </div>
+                                <div className="p-2 bg-red-100 rounded-lg">
+                                    <XCircle className="h-5 w-5 text-red-600" />
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Sales</CardTitle>
-                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stats.sales}</div>
+                    <Card className="bg-white border-0 shadow-sm hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">Sales</p>
+                                    <p className="text-2xl font-bold text-green-600">{stats.sales}</p>
+                                </div>
+                                <div className="p-2 bg-green-100 rounded-lg">
+                                    <TrendingUp className="h-5 w-5 text-green-600" />
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
 
                 {/* Filters */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center">
-                            <Filter className="mr-2 h-5 w-5" />
-                            Filters
+                <Card className="bg-white border-0 shadow-sm">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center text-lg">
+                            <Filter className="h-5 w-5 mr-2 text-blue-600" />
+                            <span className="text-base">Filters</span>
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="flex flex-col gap-4 md:flex-row">
-                            <div className="flex-1">
-                                <Label htmlFor="search">Search</Label>
+                    <CardContent className="pt-0">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="search" className="text-sm font-medium text-gray-700">Search Notifications</Label>
                                 <div className="relative">
-                                    <Search className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                                     <Input
                                         id="search"
-                                        placeholder="Search notifications..."
+                                        placeholder="Search by title or message..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-10"
+                                        className="pl-10 h-10 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                                     />
                                 </div>
                             </div>
-                            <div className="flex-1">
-                                <Label htmlFor="type-filter">Type</Label>
+                            <div className="space-y-2">
+                                <Label htmlFor="type-filter" className="text-sm font-medium text-gray-700">Filter by Type</Label>
                                 <Select value={filterType} onValueChange={setFilterType}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Filter by type" />
+                                    <SelectTrigger className="h-10 border-gray-200 focus:border-blue-500 focus:ring-blue-500">
+                                        <SelectValue placeholder="All notification types" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">All Types</SelectItem>
@@ -335,162 +383,205 @@ export default function NotificationsIndex({ notifications, categories, stats, c
                 </Card>
 
                 {/* Notifications */}
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="unread">Unread ({stats.unread})</TabsTrigger>
-                        <TabsTrigger value="read">Read ({stats.total - stats.unread})</TabsTrigger>
-                    </TabsList>
+                <Card className="bg-white border-0 shadow-sm">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center text-lg">
+                            <Bell className="h-5 w-5 mr-2 text-blue-600" />
+                            <span className="text-base">Notifications</span>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                        <Tabs value={activeTab} onValueChange={setActiveTab}>
+                            <TabsList className="grid w-full grid-cols-2 mb-6 h-auto bg-gray-100">
+                                <TabsTrigger 
+                                    value="unread" 
+                                    className="text-sm font-semibold py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-orange-600"
+                                >
+                                    Unread ({stats.unread})
+                                </TabsTrigger>
+                                <TabsTrigger 
+                                    value="read" 
+                                    className="text-sm font-semibold py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600"
+                                >
+                                    Read ({stats.total - stats.unread})
+                                </TabsTrigger>
+                            </TabsList>
 
-                    <TabsContent value="unread" className="space-y-4">
-                        <div className="space-y-4">
-                            {filteredNotifications
-                                .filter((notification) => !notification.is_read)
-                                .map((notification) => (
-                                    <Card
-                                        key={notification.id}
-                                        className={`cursor-pointer transition-all hover:shadow-md ${
-                                            notification.is_read ? 'opacity-75' : ''
-                                        } ${getNotificationColor(notification.type)}`}
-                                        onClick={() => handleNotificationClick(notification)}
-                                    >
-                                        <CardContent className="p-4">
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex flex-1 items-start space-x-3">
-                                                    {getNotificationIcon(notification.icon)}
-                                                    <div className="min-w-0 flex-1">
-                                                        <div className="mb-1 flex items-center space-x-2">
-                                                            <h4 className="font-medium">{notification.title}</h4>
-                                                            {!notification.is_read && (
-                                                                <Badge variant="secondary" className="text-xs">
-                                                                    New
+                            <TabsContent value="unread" className="mt-0">
+                                <div className="space-y-3">
+                                    {filteredNotifications
+                                        .filter((notification) => !notification.is_read)
+                                        .map((notification) => (
+                                            <div
+                                                key={notification.id}
+                                                className={`border border-gray-200 rounded-lg p-4 cursor-pointer transition-all hover:shadow-md hover:border-gray-300 ${
+                                                    notification.is_read ? 'opacity-75' : ''
+                                                } ${getNotificationColor(notification.type)}`}
+                                                onClick={() => handleNotificationClick(notification)}
+                                            >
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex flex-1 items-start space-x-3">
+                                                        <div className="p-2 bg-white rounded-lg shadow-sm">
+                                                            {getNotificationIcon(notification.icon)}
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="mb-2 flex items-center space-x-2">
+                                                                <h4 className="font-semibold text-gray-900">{notification.title}</h4>
+                                                                {!notification.is_read && (
+                                                                    <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
+                                                                        New
+                                                                    </Badge>
+                                                                )}
+                                                                <Badge 
+                                                                    variant="outline" 
+                                                                    className={`text-xs ${
+                                                                        notification.type === 'success' ? 'border-green-200 text-green-800' :
+                                                                        notification.type === 'warning' ? 'border-yellow-200 text-yellow-800' :
+                                                                        notification.type === 'error' ? 'border-red-200 text-red-800' :
+                                                                        'border-blue-200 text-blue-800'
+                                                                    }`}
+                                                                >
+                                                                    {notification.type}
                                                                 </Badge>
-                                                            )}
-                                                            <Badge variant="outline" className="text-xs">
-                                                                {notification.type}
-                                                            </Badge>
-                                                        </div>
-                                                        <p className="mb-2 text-sm text-muted-foreground">{notification.message}</p>
-                                                        <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                                                            <span>{new Date(notification.created_at).toLocaleString()}</span>
-                                                            {notification.is_read && notification.read_by && (
-                                                                <span>Read by {notification.read_by.name}</span>
-                                                            )}
+                                                            </div>
+                                                            <p className="mb-2 text-sm text-gray-600 leading-relaxed">{notification.message}</p>
+                                                            <div className="flex items-center space-x-4 text-xs text-gray-500">
+                                                                <span>{new Date(notification.created_at).toLocaleString()}</span>
+                                                                {notification.is_read && notification.read_by && (
+                                                                    <span>Read by {notification.read_by.name}</span>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                                <div className="flex items-center space-x-2">
-                                                    {!notification.is_read && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                markAsRead(notification.id);
-                                                            }}
-                                                        >
-                                                            <Eye className="h-4 w-4" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
-
-                            {filteredNotifications.filter((n) => !n.is_read).length === 0 && (
-                                <Card>
-                                    <CardContent className="p-8 text-center">
-                                        <Bell className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                                        <h3 className="mb-2 text-lg font-medium">No unread notifications</h3>
-                                        <p className="text-muted-foreground">
-                                            {searchTerm || filterType !== 'all'
-                                                ? 'Try adjusting your filters'
-                                                : 'All caught up! No unread notifications.'}
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                            )}
-                        </div>
-                    </TabsContent>
-
-                    <TabsContent value="read" className="space-y-4">
-                        <div className="space-y-4">
-                            {filteredNotifications
-                                .filter((notification) => notification.is_read)
-                                .map((notification) => (
-                                    <Card
-                                        key={notification.id}
-                                        className={`cursor-pointer opacity-75 transition-all hover:shadow-md ${getNotificationColor(notification.type)}`}
-                                        onClick={() => handleNotificationClick(notification)}
-                                    >
-                                        <CardContent className="p-4">
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex flex-1 items-start space-x-3">
-                                                    {getNotificationIcon(notification.icon)}
-                                                    <div className="min-w-0 flex-1">
-                                                        <div className="mb-1 flex items-center space-x-2">
-                                                            <h4 className="font-medium">{notification.title}</h4>
-                                                            <Badge variant="outline" className="text-xs">
-                                                                {notification.type}
-                                                            </Badge>
-                                                        </div>
-                                                        <p className="mb-2 text-sm text-muted-foreground">{notification.message}</p>
-                                                        <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                                                            <span>{new Date(notification.created_at).toLocaleString()}</span>
-                                                            {notification.read_by && <span>Read by {notification.read_by.name}</span>}
-                                                        </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        {!notification.is_read && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    markAsRead(notification.id);
+                                                                }}
+                                                                className="h-8 w-8 p-0 hover:bg-blue-50"
+                                                            >
+                                                                <Eye className="h-4 w-4 text-blue-600" />
+                                                            </Button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
+                                        ))}
 
-                            {filteredNotifications.filter((n) => n.is_read).length === 0 && (
-                                <Card>
-                                    <CardContent className="p-8 text-center">
-                                        <Bell className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                                        <h3 className="mb-2 text-lg font-medium">No read notifications</h3>
-                                        <p className="text-muted-foreground">
-                                            {searchTerm || filterType !== 'all' ? 'Try adjusting your filters' : 'No read notifications yet.'}
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                            )}
-                        </div>
-                    </TabsContent>
-                </Tabs>
+                                    {filteredNotifications.filter((n) => !n.is_read).length === 0 && (
+                                        <div className="text-center py-12">
+                                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                <Bell className="h-8 w-8 text-gray-400" />
+                                            </div>
+                                            <h3 className="text-lg font-semibold text-gray-900 mb-2">No unread notifications</h3>
+                                            <p className="text-gray-500">
+                                                {searchTerm || filterType !== 'all'
+                                                    ? 'Try adjusting your filters to see more notifications'
+                                                    : 'All caught up! No unread notifications.'}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="read" className="mt-0">
+                                <div className="space-y-3">
+                                    {filteredNotifications
+                                        .filter((notification) => notification.is_read)
+                                        .map((notification) => (
+                                            <div
+                                                key={notification.id}
+                                                className={`border border-gray-200 rounded-lg p-4 cursor-pointer opacity-75 transition-all hover:shadow-md hover:border-gray-300 ${getNotificationColor(notification.type)}`}
+                                                onClick={() => handleNotificationClick(notification)}
+                                            >
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex flex-1 items-start space-x-3">
+                                                        <div className="p-2 bg-white rounded-lg shadow-sm">
+                                                            {getNotificationIcon(notification.icon)}
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="mb-2 flex items-center space-x-2">
+                                                                <h4 className="font-semibold text-gray-900">{notification.title}</h4>
+                                                                <Badge 
+                                                                    variant="outline" 
+                                                                    className={`text-xs ${
+                                                                        notification.type === 'success' ? 'border-green-200 text-green-800' :
+                                                                        notification.type === 'warning' ? 'border-yellow-200 text-yellow-800' :
+                                                                        notification.type === 'error' ? 'border-red-200 text-red-800' :
+                                                                        'border-blue-200 text-blue-800'
+                                                                    }`}
+                                                                >
+                                                                    {notification.type}
+                                                                </Badge>
+                                                            </div>
+                                                            <p className="mb-2 text-sm text-gray-600 leading-relaxed">{notification.message}</p>
+                                                            <div className="flex items-center space-x-4 text-xs text-gray-500">
+                                                                <span>{new Date(notification.created_at).toLocaleString()}</span>
+                                                                {notification.read_by && <span>Read by {notification.read_by.name}</span>}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+
+                                    {filteredNotifications.filter((n) => n.is_read).length === 0 && (
+                                        <div className="text-center py-12">
+                                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                <Bell className="h-8 w-8 text-gray-400" />
+                                            </div>
+                                            <h3 className="text-lg font-semibold text-gray-900 mb-2">No read notifications</h3>
+                                            <p className="text-gray-500">
+                                                {searchTerm || filterType !== 'all' ? 'Try adjusting your filters to see more notifications' : 'No read notifications yet.'}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </TabsContent>
+                        </Tabs>
+                    </CardContent>
+                </Card>
 
                 {/* Pagination */}
                 {notifications.last_page > 1 && (
-                    <div className="flex items-center justify-between">
-                        <p className="text-sm text-muted-foreground">
-                            Showing {(notifications.current_page - 1) * notifications.per_page + 1} to{' '}
-                            {Math.min(notifications.current_page * notifications.per_page, notifications.total)} of {notifications.total}{' '}
-                            notifications
-                        </p>
-                        <div className="flex items-center space-x-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={notifications.current_page === 1}
-                                onClick={() => router.get('/notifications', { page: notifications.current_page - 1 })}
-                            >
-                                Previous
-                            </Button>
-                            <span className="text-sm">
-                                Page {notifications.current_page} of {notifications.last_page}
-                            </span>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={notifications.current_page === notifications.last_page}
-                                onClick={() => router.get('/notifications', { page: notifications.current_page + 1 })}
-                            >
-                                Next
-                            </Button>
-                        </div>
-                    </div>
+                    <Card className="bg-white border-0 shadow-sm">
+                        <CardContent className="p-4">
+                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                                <p className="text-sm text-gray-600">
+                                    Showing <span className="font-semibold">{(notifications.current_page - 1) * notifications.per_page + 1}</span> to{' '}
+                                    <span className="font-semibold">{Math.min(notifications.current_page * notifications.per_page, notifications.total)}</span> of{' '}
+                                    <span className="font-semibold">{notifications.total}</span> notifications
+                                </p>
+                                <div className="flex items-center space-x-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={notifications.current_page === 1}
+                                        onClick={() => router.get('/notifications', { page: notifications.current_page - 1 })}
+                                        className="text-sm"
+                                    >
+                                        Previous
+                                    </Button>
+                                    <span className="text-sm font-medium text-gray-700 px-3">
+                                        Page {notifications.current_page} of {notifications.last_page}
+                                    </span>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={notifications.current_page === notifications.last_page}
+                                        onClick={() => router.get('/notifications', { page: notifications.current_page + 1 })}
+                                        className="text-sm"
+                                    >
+                                        Next
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
                 )}
             </div>
         </AppLayout>

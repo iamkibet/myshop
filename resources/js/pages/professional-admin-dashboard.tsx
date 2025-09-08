@@ -8,6 +8,7 @@ import AppLayout from '@/layouts/app-layout';
 import { formatCurrency } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import KPICard from '@/components/KPICard';
+import SalesOverview from '@/components/SalesOverview';
 import { Head, Link, usePage, router } from '@inertiajs/react';
 import { useState } from 'react';
 import {
@@ -222,6 +223,173 @@ function FinancialCard({ title, value, change, changeType, icon: Icon }: {
     );
 }
 
+// Revenue vs Expenses Chart Component
+function RevenueExpensesChart({ data, period = '1M', analytics }: { data: any[], period?: string, analytics?: any }) {
+    console.log('Chart - Backend data:', data);
+    console.log('Chart - Data length:', data?.length);
+    console.log('Chart - Period:', period);
+    
+    // Simple fallback - use the data as-is and filter by period
+    const getFilteredData = (data: any[], period: string) => {
+        if (!data || data.length === 0) {
+            console.log('No data available');
+            return [];
+        }
+        
+        // Take the last N days based on period
+        const daysToShow = period === '1W' ? 7 : 30;
+        const filteredData = data.slice(-daysToShow);
+        
+        console.log('Filtered data for period:', period, filteredData);
+        return filteredData;
+    };
+
+    const filteredData = getFilteredData(data, period);
+    
+    if (filteredData.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="text-6xl mb-4">📊</div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Available</h3>
+                <p className="text-gray-500 text-sm max-w-sm">
+                    Revenue vs Expenses data will appear here once you start recording transactions.
+                </p>
+            </div>
+        );
+    }
+    
+    // Calculate daily expenses for the period
+    const totalExpenses = analytics?.professional?.financial?.totalExpenses?.value || 0;
+    const daysInPeriod = period === '1W' ? 7 : 30;
+    const dailyExpenses = totalExpenses / 30; // Use monthly average
+    
+    const chartData = {
+        labels: filteredData.map(item => item.time),
+        datasets: [
+            {
+                label: 'Revenue',
+                data: filteredData.map(item => item.sales || 0),
+                borderColor: '#10B981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#10B981',
+                pointBorderColor: '#FFFFFF',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+            },
+            {
+                label: 'Expenses',
+                data: filteredData.map(() => dailyExpenses), // Same daily expense for all days
+                borderColor: '#EF4444',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#EF4444',
+                pointBorderColor: '#FFFFFF',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+            }
+        ]
+    };
+
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+            intersect: false,
+            mode: 'index' as const
+        },
+        plugins: {
+            legend: {
+                display: false // We have custom legend in the UI
+            },
+            tooltip: {
+                backgroundColor: 'rgba(31, 41, 55, 0.95)',
+                titleColor: '#D1D5DB',
+                bodyColor: '#FFFFFF',
+                borderColor: '#374151',
+                borderWidth: 1,
+                cornerRadius: 8,
+                displayColors: true,
+                padding: 10,
+                callbacks: {
+                    label: function(context: any) {
+                        const value = context.parsed.y;
+                        const label = context.dataset.label;
+                        let formattedValue;
+                        if (value >= 1000000) {
+                            formattedValue = (value / 1000000).toFixed(1) + 'M';
+                        } else if (value >= 1000) {
+                            formattedValue = (value / 1000).toFixed(1) + 'K';
+                        } else {
+                            formattedValue = value.toLocaleString();
+                        }
+                        return `${label}: ${formattedValue}`;
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                display: true,
+                grid: {
+                    display: false
+                },
+                ticks: {
+                    color: '#6B7280',
+                    font: {
+                        size: 12,
+                        family: 'Inter, sans-serif'
+                    }
+                }
+            },
+            y: {
+                display: true,
+                grid: {
+                    display: true,
+                    color: '#F3F4F6',
+                    drawBorder: false
+                },
+                ticks: {
+                    color: '#6B7280',
+                    font: {
+                        size: 12,
+                        family: 'Inter, sans-serif'
+                    },
+                    callback: function(value: any) {
+                        if (value >= 1000000) {
+                            return (value / 1000000).toFixed(1) + 'M';
+                        } else if (value >= 1000) {
+                            return (value / 1000).toFixed(1) + 'K';
+                        }
+                        return value.toLocaleString();
+                    }
+                }
+            }
+        },
+        elements: {
+            line: {
+                borderCapStyle: 'round' as const
+            }
+        },
+        animation: {
+            duration: 800,
+            easing: 'easeInOutQuart' as const
+        }
+    };
+
+    return (
+        <div className="w-full h-full">
+            <Line data={chartData} options={chartOptions} />
+        </div>
+    );
+}
+
 // Sales Chart Component with Chart.js
 function SalesChart({ data, onExport }: { data: any[], onExport?: (chartRef: ChartJS | null) => void }) {
     const [chartRef, setChartRef] = useState<ChartJS | null>(null);
@@ -250,7 +418,7 @@ function SalesChart({ data, onExport }: { data: any[], onExport?: (chartRef: Cha
         labels: data.map(item => item.time),
         datasets: [
             {
-                label: 'Total Purchase',
+                label: 'Cost of Goods Sold',
                 data: data.map(item => item.purchase || 0),
                 borderColor: '#3B82F6',
                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -829,10 +997,23 @@ function OrderStatisticsHeatmap({ data }: { data: any[] }) {
         
         const cellData = transformedData.find(d => d.day === hoveredCell.day && d.hour === hoveredCell.hour);
         
+        // Get the date for this day (assuming current week)
+        const getDateForDay = (day: string) => {
+            const today = new Date();
+            const currentDay = today.getDay();
+            const dayMap: { [key: string]: number } = { 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6, 'Sun': 0 };
+            const targetDay = dayMap[day];
+            const diff = targetDay - currentDay;
+            const targetDate = new Date(today);
+            targetDate.setDate(today.getDate() + diff);
+            return targetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        };
+        
         if (!cellData || cellData.orders === 0) {
             return (
                 <div className="bg-gray-800 text-white p-2 rounded shadow-lg text-xs">
                     <div className="font-semibold">{hoveredCell.day} {hoveredCell.hour}</div>
+                    <div className="text-gray-300 text-xs">{getDateForDay(hoveredCell.day)}</div>
                     <div>No sales recorded</div>
                 </div>
             );
@@ -845,6 +1026,7 @@ function OrderStatisticsHeatmap({ data }: { data: any[] }) {
         return (
             <div className="bg-gray-800 text-white p-3 rounded shadow-lg text-xs min-w-[200px]">
                 <div className="font-semibold text-orange-300 mb-1">{hoveredCell.day} {hoveredCell.hour}</div>
+                <div className="text-gray-300 text-xs mb-2">{getDateForDay(hoveredCell.day)}</div>
                 <div className="mb-1">{cellData.orders} {cellData.orders === 1 ? 'order' : 'orders'}</div>
                 <div className="mb-1 text-orange-200">{intensityText}</div>
                 <div className="mb-1">Total: {formatCurrency(cellData.total_amount || 0)}</div>
@@ -884,7 +1066,10 @@ function OrderStatisticsHeatmap({ data }: { data: any[] }) {
                 {/* Data rows */}
                 {hours.map(hour => (
                     <div key={hour} className="contents">
-                        <div className="text-xs sm:text-sm text-gray-600 pr-1 sm:pr-2 text-right sm:text-left">{hour}</div>
+                        <div className="text-xs sm:text-sm text-gray-600 pr-1 sm:pr-2 text-right sm:text-left flex items-center justify-end sm:justify-start min-h-[16px] sm:min-h-[24px]">
+                            <span className="hidden sm:inline">{hour}</span>
+                            <span className="sm:hidden text-[10px] leading-none">{hour.replace(' AM', 'A').replace(' PM', 'P')}</span>
+                        </div>
                         {days.map(day => {
                             const cellData = transformedData.find(d => d.day === day && d.hour === hour);
                             return (
@@ -922,6 +1107,14 @@ export default function ProfessionalAdminDashboard() {
     const [selectedPeriod, setSelectedPeriod] = useState('1M'); // Default to 1 month
     const [selectedChartPeriod, setSelectedChartPeriod] = useState((usePage().props as any).chartPeriod || '1M'); // For Sales Statistics chart
     const [salesChartRef, setSalesChartRef] = useState<ChartJS | null>(null);
+    const [salesOverviewData, setSalesOverviewData] = useState<{
+        today: any;
+        yesterday: any;
+        last7Days: any;
+        last30Days: any;
+        allTime: any;
+    } | null>(null);
+    const [isLoadingSalesOverview, setIsLoadingSalesOverview] = useState(false);
     
     // State for managing permanently dismissed alerts (persistent)
     const [dismissedLowStock, setDismissedLowStock] = useState<number[]>(() => {
@@ -980,6 +1173,26 @@ export default function ProfessionalAdminDashboard() {
 
     // Use real chart data from analytics
     const chartData = salesPurchaseChartData && salesPurchaseChartData.length > 0 ? salesPurchaseChartData : [];
+
+    // Fetch sales overview data
+    useEffect(() => {
+        const fetchSalesOverview = async () => {
+            setIsLoadingSalesOverview(true);
+            try {
+                const response = await fetch('/dashboard/sales-overview');
+                if (response.ok) {
+                    const data = await response.json();
+                    setSalesOverviewData(data);
+                }
+            } catch (error) {
+                console.error('Error fetching sales overview:', error);
+            } finally {
+                setIsLoadingSalesOverview(false);
+            }
+        };
+
+        fetchSalesOverview();
+    }, []);
 
     // Handle period change
     const handlePeriodChange = (newPeriod: string) => {
@@ -1151,14 +1364,14 @@ export default function ProfessionalAdminDashboard() {
                         tooltip="Total number of completed sales transactions. Each order represents a single customer purchase containing one or more items."
                     />
                     <KPICard
-                        title="Total Purchase"
+                        title="Cost of Goods Sold"
                         value={kpi.totalPurchase.value}
                         change={kpi.totalPurchase.change}
                         changeType={kpi.totalPurchase.changeType}
                         icon={Package}
                         color="green"
                         bgColor="bg-green-800"
-                        tooltip="Total amount spent on purchasing inventory items from suppliers. This represents your cost of goods sold."
+                        tooltip="Total cost of inventory items that were sold to customers. This helps calculate your profit margins and business profitability."
                     />
                     <KPICard
                         title="Total Inventory Value"
@@ -1204,6 +1417,9 @@ export default function ProfessionalAdminDashboard() {
                     />
                 </div>
 
+                {/* Sales Overview Component */}
+                <SalesOverview data={salesOverviewData} />
+
                 {/* Main Content Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
                     {/* Sales & Purchase Chart */}
@@ -1212,7 +1428,7 @@ export default function ProfessionalAdminDashboard() {
                             <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                                 <CardTitle className="flex items-center">
                                     <BarChart3 className="h-5 w-5 mr-2" />
-                                    Sales & Purchase (Ksh)
+                                    Sales & Cost of Goods Sold (Ksh)
                                 </CardTitle>
                                 
                                 {/* Desktop: Button Group */}
@@ -1266,8 +1482,8 @@ export default function ProfessionalAdminDashboard() {
                                     <div className="flex items-center gap-2">
                                         <div className="w-3 h-3 bg-orange-500 rounded-full flex-shrink-0"></div>
                                         <span className="text-sm">
-                                            <span className="hidden sm:inline">Total Purchase: </span>
-                                            <span className="sm:hidden">Purchase: </span>
+                                            <span className="hidden sm:inline">Cost of Goods Sold: </span>
+                                            <span className="sm:hidden">COGS: </span>
                                             {formatCurrency(chartTotals?.totalPurchase || 0)}
                                         </span>
                                     </div>
@@ -1481,218 +1697,212 @@ export default function ProfessionalAdminDashboard() {
                     </div>
                 </div>
 
-                {/* Sales Statistics and Recent Transactions Side by Side */}
-                <div className="col-span-full grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6 sm:mb-0">
-                    {/* Sales Statistics Section */}
-                    <Card>
-                        <CardHeader>
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                <CardTitle className="flex items-center">
-                                    <TriangleAlert className="h-5 w-5 mr-2 text-red-500" />
-                                    Sales Statistics
-                                </CardTitle>
-                                <Select 
-                                    value={selectedChartPeriod} 
-                                    onValueChange={(value: string) => {
-                                        setSelectedChartPeriod(value);
-                                        router.get('/admin-dashboard', { period: value }, { preserveState: true });
-                                    }}
-                                >
-                                    <SelectTrigger className="w-full sm:w-24">
-                                        <SelectValue placeholder="Select period" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="1W">Weekly</SelectItem>
-                                        <SelectItem value="1M">1 Month</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-6">
-                                {/* KPI Cards - Mobile Responsive */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-xl sm:text-2xl font-bold text-green-600 truncate">{formatCurrency(analytics?.professional?.kpi?.totalSales?.value || 0)}</p>
-                                            <p className="text-sm text-gray-600">Revenue</p>
-                                        </div>
-                                        <div className="flex items-center ml-2">
-                                            <Badge className="bg-green-100 text-green-800 text-xs">25%</Badge>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg">
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-xl sm:text-2xl font-bold text-red-600 truncate">{formatCurrency(analytics?.professional?.financial?.totalExpenses?.value || 0)}</p>
-                                            <p className="text-sm text-gray-600">Expense</p>
-                                        </div>
-                                        <div className="flex items-center ml-2">
-                                            <Badge className="bg-red-100 text-red-800 text-xs">25%</Badge>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* AmCharts Stacked Bar Chart */}
-                                <div className="space-y-4">
-                                    <h4 className="text-sm font-semibold text-gray-700">Monthly Overview</h4>
-                                    <SalesExpensesChart data={analytics?.professional?.salesPurchaseChartData || []} />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Recent Transactions Section */}
+                {/* Shop Summary */}
+                <div className="col-span-full">
                     <Card className="h-fit">
                         <CardHeader className="pb-3">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                 <CardTitle className="flex items-center text-lg">
-                                    <TriangleAlert className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-orange-500" />
-                                    <span className="text-base sm:text-lg">Recent Transactions</span>
+                                    <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-blue-600" />
+                                    <span className="text-base sm:text-lg">Shop Summary</span>
                                 </CardTitle>
-                                <Button variant="outline" size="sm" className="text-orange-600 border-orange-200 hover:bg-orange-50 text-xs sm:text-sm w-fit">
-                                    View All
-                                </Button>
+                                <div className="flex gap-2">
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="text-blue-600 border-blue-200 hover:bg-blue-50 text-xs sm:text-sm w-fit"
+                                        onClick={() => router.get('/sales')}
+                                    >
+                                        View All Sales
+                                    </Button>
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="text-orange-600 border-orange-200 hover:bg-orange-50 text-xs sm:text-sm w-fit"
+                                        onClick={() => router.get('/products')}
+                                    >
+                                        View All Products
+                                    </Button>
+                                </div>
                             </div>
                         </CardHeader>
                         <CardContent className="pt-0 pb-6 sm:pb-6">
                             <Tabs defaultValue="sale" className="w-full">
-                                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 mb-4 sm:mb-6 h-auto">
-                                    <TabsTrigger value="sale" className="text-xs sm:text-sm py-2 px-2 sm:px-3">Sales</TabsTrigger>
-                                    <TabsTrigger value="low-stock" className="text-xs sm:text-sm py-2 px-2 sm:px-3">Low Stock</TabsTrigger>
-                                    <TabsTrigger value="out-of-stock" className="text-xs sm:text-sm py-2 px-2 sm:px-3">Out of Stock</TabsTrigger>
-                                    <TabsTrigger value="expenses" className="text-xs sm:text-sm py-2 px-2 sm:px-3">Expenses</TabsTrigger>
+                                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 mb-6 h-auto bg-gray-100">
+                                    <TabsTrigger value="sale" className="text-sm font-semibold py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600">
+                                        Sales
+                                    </TabsTrigger>
+                                    <TabsTrigger value="low-stock" className="text-sm font-semibold py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-orange-600">
+                                        Low Stock
+                                    </TabsTrigger>
+                                    <TabsTrigger value="out-of-stock" className="text-sm font-semibold py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-red-600">
+                                        Out of Stock
+                                    </TabsTrigger>
+                                    <TabsTrigger value="expenses" className="text-sm font-semibold py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-purple-600">
+                                        Expenses
+                                    </TabsTrigger>
                                 </TabsList>
                                 
                                 <TabsContent value="sale" className="mt-0">
-                                    <div className="space-y-2 sm:space-y-3">
-                                        {analytics?.professional?.recentSales?.slice(0, 4).map((sale: any, index: number) => (
-                                            <div key={index} className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100 last:border-b-0">
-                                                <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                                                    <div className="flex-shrink-0">
-                                                        <div className="h-8 w-8 sm:h-10 sm:w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                                            <span className="text-xs sm:text-sm font-medium text-blue-600">
-                                                                {sale.customer?.name?.charAt(0) || 'S'}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">
-                                                            {sale.customer?.name || `Sale #${sale.id}`}
-                                                        </p>
-                                                        <p className="text-xs text-gray-500">#{sale.id}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
-                                                    <div className="text-right">
-                                                        <p className="text-xs sm:text-sm font-medium text-gray-900">{formatCurrency(sale.amount || sale.total || 0)}</p>
-                                                        <p className="text-xs text-gray-500 hidden sm:block">{sale.date}</p>
-                                                    </div>
-                                                    <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 text-xs">
-                                                        <span className="hidden sm:inline">Completed</span>
-                                                        <span className="sm:hidden">✓</span>
-                                                    </Badge>
-                                                </div>
-                                            </div>
-                                        ))}
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="border-b border-gray-200">
+                                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Customer</th>
+                                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Sale ID</th>
+                                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Date</th>
+                                                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Amount</th>
+                                                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {analytics?.professional?.recentSales?.slice(0, 10).map((sale: any, index: number) => (
+                                                    <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                                                        <td className="py-3 px-4">
+                                                            <div className="text-sm font-medium text-gray-900">
+                                                                {sale.customer?.name || `Sale #${sale.id}`}
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-3 px-4">
+                                                            <div className="text-sm text-gray-600">#{sale.id}</div>
+                                                        </td>
+                                                        <td className="py-3 px-4">
+                                                            <div className="text-sm text-gray-600">{sale.date}</div>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right">
+                                                            <div className="text-sm font-semibold text-gray-900">{formatCurrency(sale.amount || sale.total || 0)}</div>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-center">
+                                                            <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 text-xs">
+                                                                Completed
+                                                            </Badge>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </TabsContent>
                                 
                                 <TabsContent value="low-stock" className="mt-0">
-                                    <div className="space-y-2 sm:space-y-3">
-                                        {analytics?.professional?.lowStockAlerts?.slice(0, 4).map((product: any, index: number) => (
-                                            <div key={index} className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100 last:border-b-0">
-                                                <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                                                    <div className="flex-shrink-0">
-                                                        <div className="h-8 w-8 sm:h-10 sm:w-10 bg-orange-100 rounded-full flex items-center justify-center">
-                                                            <Package className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{product.name}</p>
-                                                        <p className="text-xs text-gray-500">SKU: {product.sku}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
-                                                    <div className="text-right">
-                                                        <p className="text-xs sm:text-sm font-medium text-gray-900">{product.quantity} units</p>
-                                                        <p className="text-xs text-gray-500 hidden sm:block">Low stock</p>
-                                                    </div>
-                                                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">
-                                                        <span className="hidden sm:inline">Low Stock</span>
-                                                        <span className="sm:hidden">⚠</span>
-                                                    </Badge>
-                                                </div>
-                                            </div>
-                                        ))}
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="border-b border-gray-200">
+                                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Product</th>
+                                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">SKU</th>
+                                                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Quantity</th>
+                                                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {analytics?.professional?.lowStockAlerts?.slice(0, 4).map((product: any, index: number) => (
+                                                    <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                                                        <td className="py-3 px-4">
+                                                            <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                                        </td>
+                                                        <td className="py-3 px-4">
+                                                            <div className="text-sm text-gray-600">{product.sku}</div>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right">
+                                                            <div className="text-sm font-semibold text-gray-900">{product.quantity} units</div>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-center">
+                                                            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">
+                                                                Low Stock
+                                                            </Badge>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </TabsContent>
                                 
                                 <TabsContent value="out-of-stock" className="mt-0">
-                                    <div className="space-y-2 sm:space-y-3">
-                                        {analytics?.professional?.outOfStockAlerts?.slice(0, 4).map((product: any, index: number) => (
-                                            <div key={index} className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100 last:border-b-0">
-                                                <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                                                    <div className="flex-shrink-0">
-                                                        <div className="h-8 w-8 sm:h-10 sm:w-10 bg-red-100 rounded-full flex items-center justify-center">
-                                                            <Package className="h-4 w-4 sm:h-5 sm:w-5 text-red-600" />
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{product.name}</p>
-                                                        <p className="text-xs text-gray-500">SKU: {product.sku}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
-                                                    <div className="text-right">
-                                                        <p className="text-xs sm:text-sm font-medium text-gray-900">0 units</p>
-                                                        <p className="text-xs text-gray-500 hidden sm:block">Out of stock</p>
-                                                    </div>
-                                                    <Badge variant="secondary" className="bg-red-100 text-red-800 border-red-200 text-xs">
-                                                        <span className="hidden sm:inline">Out of Stock</span>
-                                                        <span className="sm:hidden">❌</span>
-                                                    </Badge>
-                                                </div>
-                                            </div>
-                                        ))}
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="border-b border-gray-200">
+                                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Product</th>
+                                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">SKU</th>
+                                                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Quantity</th>
+                                                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {analytics?.professional?.outOfStockAlerts?.slice(0, 4).map((product: any, index: number) => (
+                                                    <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                                                        <td className="py-3 px-4">
+                                                            <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                                        </td>
+                                                        <td className="py-3 px-4">
+                                                            <div className="text-sm text-gray-600">{product.sku}</div>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right">
+                                                            <div className="text-sm font-semibold text-gray-900">0 units</div>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-center">
+                                                            <Badge variant="secondary" className="bg-red-100 text-red-800 border-red-200 text-xs">
+                                                                Out of Stock
+                                                            </Badge>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </TabsContent>
                                 
                                 <TabsContent value="expenses" className="mt-0">
-                                    <div className="space-y-2 sm:space-y-3">
-                                        {analytics?.professional?.recentExpenses && analytics.professional.recentExpenses.length > 0 ? (
-                                            analytics.professional.recentExpenses.slice(0, 4).map((expense: any, index: number) => (
-                                                <div key={index} className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-100 last:border-b-0">
-                                                    <div className="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-1">
-                                                        <div className="flex-shrink-0">
-                                                            <div className="h-8 w-8 sm:h-10 sm:w-10 bg-purple-100 rounded-full flex items-center justify-center">
-                                                                <span className="text-xs sm:text-sm font-medium text-purple-600">
-                                                                    {expense.title?.charAt(0) || 'E'}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{expense.title}</p>
-                                                            <p className="text-xs text-gray-500">{expense.category} • {expense.added_by}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
-                                                        <div className="text-right">
-                                                            <p className="text-xs sm:text-sm font-medium text-gray-900">{formatCurrency(expense.amount)}</p>
-                                                            <p className="text-xs text-gray-500 hidden sm:block">{expense.date}</p>
-                                                        </div>
-                                                        <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
-                                                            <span className="hidden sm:inline">{expense.status}</span>
-                                                            <span className="sm:hidden">$</span>
-                                                        </Badge>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <div className="text-center py-8 text-gray-500">
-                                                <div className="text-4xl mb-2">💰</div>
-                                                <p className="text-sm">No expenses recorded</p>
-                                            </div>
-                                        )}
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="border-b border-gray-200">
+                                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Title</th>
+                                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Category</th>
+                                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Added By</th>
+                                                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Amount</th>
+                                                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Date</th>
+                                                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {analytics?.professional?.recentExpenses && analytics.professional.recentExpenses.length > 0 ? (
+                                                    analytics.professional.recentExpenses.slice(0, 4).map((expense: any, index: number) => (
+                                                        <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                                                            <td className="py-3 px-4">
+                                                                <div className="text-sm font-medium text-gray-900">{expense.title}</div>
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <div className="text-sm text-gray-600">{expense.category}</div>
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <div className="text-sm text-gray-600">{expense.added_by}</div>
+                                                            </td>
+                                                            <td className="py-3 px-4 text-right">
+                                                                <div className="text-sm font-semibold text-gray-900">{formatCurrency(expense.amount)}</div>
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <div className="text-sm text-gray-600">{expense.date}</div>
+                                                            </td>
+                                                            <td className="py-3 px-4 text-center">
+                                                                <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
+                                                                    {expense.status}
+                                                                </Badge>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                ) : (
+                                                    <tr>
+                                                        <td colSpan={6} className="py-8 text-center text-gray-500">
+                                                            <div className="text-4xl mb-2">💰</div>
+                                                            <p className="text-sm">No expenses recorded</p>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </TabsContent>
                             </Tabs>

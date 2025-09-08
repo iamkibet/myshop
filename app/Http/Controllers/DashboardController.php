@@ -121,8 +121,9 @@ class DashboardController extends Controller
             $analyticsData = json_decode($analyticsResponse->getContent(), true);
         }
 
-        // Get recent notifications for the header
+        // Get recent notifications for the header (unread only)
         $recentNotifications = Notification::where('user_id', $user->id)
+            ->where('is_read', false)
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get()

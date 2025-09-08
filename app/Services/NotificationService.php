@@ -159,6 +159,24 @@ class NotificationService
      */
     public function createLowStockNotification(Product $product): void
     {
+        // Check if a low stock notification has already been created for this product
+        // in the last 24 hours to avoid duplicate notifications
+        $existingNotification = Notification::where('category', 'inventory')
+            ->where('type', 'warning')
+            ->where('metadata->product_id', $product->id)
+            ->where('created_at', '>=', now()->subDay())
+            ->where('title', 'Low Stock Alert')
+            ->first();
+
+        if ($existingNotification) {
+            Log::info('Low stock notification already exists for product', [
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'existing_notification_id' => $existingNotification->id
+            ]);
+            return;
+        }
+
         // Get all admin users to notify them about low stock
         $adminUsers = \App\Models\User::where('role', 'admin')->get();
 
@@ -179,6 +197,13 @@ class NotificationService
                 ],
             ]);
         }
+
+        Log::info('Low stock notification created for product', [
+            'product_id' => $product->id,
+            'product_name' => $product->name,
+            'quantity' => $product->quantity,
+            'threshold' => $product->low_stock_threshold
+        ]);
     }
 
     /**
@@ -186,6 +211,24 @@ class NotificationService
      */
     public function createOutOfStockNotification(Product $product): void
     {
+        // Check if an out of stock notification has already been created for this product
+        // in the last 24 hours to avoid duplicate notifications
+        $existingNotification = Notification::where('category', 'inventory')
+            ->where('type', 'error')
+            ->where('metadata->product_id', $product->id)
+            ->where('created_at', '>=', now()->subDay())
+            ->where('title', 'Out of Stock Alert')
+            ->first();
+
+        if ($existingNotification) {
+            Log::info('Out of stock notification already exists for product', [
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'existing_notification_id' => $existingNotification->id
+            ]);
+            return;
+        }
+
         // Get all admin users to notify them about out of stock
         $adminUsers = \App\Models\User::where('role', 'admin')->get();
 
@@ -207,6 +250,28 @@ class NotificationService
                 ],
             ]);
         }
+
+        Log::info('Out of stock notification created for product', [
+            'product_id' => $product->id,
+            'product_name' => $product->name,
+            'quantity' => $product->quantity
+        ]);
+    }
+
+    /**
+     * Clear old inventory notifications for a product when it's restocked
+     */
+    public function clearInventoryNotificationsForProduct(int $productId): void
+    {
+        $deletedCount = Notification::where('category', 'inventory')
+            ->where('metadata->product_id', $productId)
+            ->whereIn('title', ['Low Stock Alert', 'Out of Stock Alert'])
+            ->delete();
+
+        Log::info('Cleared old inventory notifications for product', [
+            'product_id' => $productId,
+            'deleted_count' => $deletedCount
+        ]);
     }
 
     /**
@@ -349,11 +414,12 @@ class NotificationService
     }
 
     /**
-     * Get recent notifications
+     * Get recent notifications (unread only)
      */
     public function getRecentNotifications(int $limit = 10): \Illuminate\Database\Eloquent\Collection
     {
         return Notification::with('readBy')
+            ->unread()
             ->orderByDesc('created_at')
             ->limit($limit)
             ->get();

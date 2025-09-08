@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { router } from '@inertiajs/react';
 import { AlertTriangle, ArrowRight, Bell, CheckCircle, Eye, Info, TrendingUp, XCircle } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Notification {
     id: number;
@@ -36,6 +36,39 @@ export default function NotificationsDropdown({ notifications, unreadCount, onNo
     const [loading, setLoading] = useState(false);
     const [localNotifications, setLocalNotifications] = useState(notifications);
     const [localUnreadCount, setLocalUnreadCount] = useState(unreadCount);
+
+    // Sync local state with props when they change
+    useEffect(() => {
+        setLocalNotifications(notifications);
+        setLocalUnreadCount(unreadCount);
+    }, [notifications, unreadCount]);
+
+    // Listen for storage events to sync across tabs
+    useEffect(() => {
+        const handleStorageChange = (e: StorageEvent) => {
+            if (e.key === 'notifications-updated') {
+                // Refresh notifications from server
+                refreshNotifications();
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
+    }, []);
+
+    // Refresh notifications from server
+    const refreshNotifications = async () => {
+        try {
+            const response = await fetch('/notifications/recent');
+            if (response.ok) {
+                const data = await response.json();
+                setLocalNotifications(data.notifications);
+                setLocalUnreadCount(data.unread_count);
+            }
+        } catch (error) {
+            console.error('Failed to refresh notifications:', error);
+        }
+    };
 
     const getNotificationIcon = (icon: string) => {
         switch (icon) {
@@ -83,7 +116,7 @@ export default function NotificationsDropdown({ notifications, unreadCount, onNo
             });
 
             if (response.ok) {
-                // Remove notification from local state (make it disappear)
+                // Remove notification from local state completely
                 setLocalNotifications((prev) =>
                     prev.filter((notification) => notification.id !== notificationId)
                 );
@@ -91,11 +124,43 @@ export default function NotificationsDropdown({ notifications, unreadCount, onNo
                 // Update unread count
                 setLocalUnreadCount((prev) => Math.max(0, prev - 1));
 
+                // Trigger storage event to notify other components
+                localStorage.setItem('notifications-updated', Date.now().toString());
+                localStorage.removeItem('notifications-updated');
+
                 // Notify parent component
                 onNotificationRead?.(notificationId);
             }
         } catch (error) {
             console.error('Failed to mark notification as read:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const markAllAsRead = async () => {
+        try {
+            setLoading(true);
+
+            const response = await fetch('/notifications/mark-all-read', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+            });
+
+            if (response.ok) {
+                // Clear all notifications from local state
+                setLocalNotifications([]);
+                setLocalUnreadCount(0);
+
+                // Trigger storage event to notify other components
+                localStorage.setItem('notifications-updated', Date.now().toString());
+                localStorage.removeItem('notifications-updated');
+            }
+        } catch (error) {
+            console.error('Failed to mark all notifications as read:', error);
         } finally {
             setLoading(false);
         }
@@ -160,9 +225,27 @@ export default function NotificationsDropdown({ notifications, unreadCount, onNo
                     <CardHeader className="pb-3">
                         <CardTitle className="flex items-center justify-between text-sm">
                             <span>Recent Notifications</span>
-                            <Button variant="ghost" size="sm" onClick={() => router.visit('/notifications')} className="h-6 px-2 text-xs">
-                                View All
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                {localUnreadCount > 0 && (
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        onClick={markAllAsRead} 
+                                        className="h-6 px-2 text-xs font-medium text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                                        disabled={loading}
+                                    >
+                                        {loading ? 'Marking...' : 'Mark All Read'}
+                                    </Button>
+                                )}
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => router.visit('/notifications')} 
+                                    className="h-6 px-2 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                                >
+                                    View All
+                                </Button>
+                            </div>
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-0">
