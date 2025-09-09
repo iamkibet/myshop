@@ -728,15 +728,101 @@ class AnalyticsController extends Controller
             $totalCOGS += $cost * $item->quantity;
         });
 
-        // Calculate previous period for comparison (last 30 days vs previous 30 days)
+        // Calculate previous period for comparison (last 7 days vs previous 7 days for more granular data)
         $now = Carbon::now();
-        $last30Days = Sale::where('created_at', '>=', $now->copy()->subDays(30))->sum('total_amount');
-        $previous30Days = Sale::whereBetween('created_at', [
-            $now->copy()->subDays(60), 
-            $now->copy()->subDays(30)
+        $last7Days = Sale::where('created_at', '>=', $now->copy()->subDays(7))->sum('total_amount');
+        $previous7Days = Sale::whereBetween('created_at', [
+            $now->copy()->subDays(14), 
+            $now->copy()->subDays(7)
         ])->sum('total_amount');
         
-        $salesChange = $previous30Days > 0 ? (($last30Days - $previous30Days) / $previous30Days) * 100 : 22;
+        
+
+        // Calculate percentage change with more reasonable logic
+        if ($previous7Days > 0) {
+            // Normal case: compare last 7 days vs previous 7 days
+            $salesChange = (($last7Days - $previous7Days) / $previous7Days) * 100;
+        } else if ($last7Days > 0) {
+            // If no previous 7 days data, use a more conservative approach
+            // Compare last 7 days with the average of all time (but cap the percentage)
+            $allTimeAverage = $totalSales / max(1, Sale::count());
+            $expected7DaysSales = $allTimeAverage * 7;
+            $rawChange = $expected7DaysSales > 0 ? (($last7Days - $expected7DaysSales) / $expected7DaysSales) * 100 : 0;
+            // Cap the percentage change to reasonable levels (max 500%)
+            $salesChange = min(max($rawChange, -50), 500);
+        } else {
+            $salesChange = 0;
+        }
+
+        // Calculate orders change (last 7 days vs previous 7 days)
+        $last7DaysOrders = Sale::where('created_at', '>=', $now->copy()->subDays(7))->count();
+        $previous7DaysOrders = Sale::whereBetween('created_at', [
+            $now->copy()->subDays(14), 
+            $now->copy()->subDays(7)
+        ])->count();
+        
+        
+
+        // Calculate percentage change with more reasonable logic
+        if ($previous7DaysOrders > 0) {
+            // Normal case: compare last 7 days vs previous 7 days
+            $ordersChange = (($last7DaysOrders - $previous7DaysOrders) / $previous7DaysOrders) * 100;
+        } else if ($last7DaysOrders > 0) {
+            // If no previous 7 days data, use a more conservative approach
+            // Compare last 7 days with the average of all time (but cap the percentage)
+            $allTimeAverage = $totalOrders / max(1, Sale::count());
+            $expected7DaysOrders = $allTimeAverage * 7;
+            $rawChange = $expected7DaysOrders > 0 ? (($last7DaysOrders - $expected7DaysOrders) / $expected7DaysOrders) * 100 : 0;
+            // Cap the percentage change to reasonable levels (max 500%)
+            $ordersChange = min(max($rawChange, -50), 500);
+        } else {
+            $ordersChange = 0;
+        }
+
+        // Calculate COGS change (last 7 days vs previous 7 days)
+        $last7DaysCOGS = SaleItem::with('product')
+            ->join('products', 'sale_items.product_id', '=', 'products.id')
+            ->where('sale_items.created_at', '>=', $now->copy()->subDays(7))
+            ->sum(DB::raw('products.cost_price * sale_items.quantity'));
+            
+        $previous7DaysCOGS = SaleItem::with('product')
+            ->join('products', 'sale_items.product_id', '=', 'products.id')
+            ->whereBetween('sale_items.created_at', [
+                $now->copy()->subDays(14), 
+                $now->copy()->subDays(7)
+            ])
+            ->sum(DB::raw('products.cost_price * sale_items.quantity'));
+        
+        
+
+        // Calculate percentage change with more reasonable logic
+        if ($previous7DaysCOGS > 0) {
+            // Normal case: compare last 7 days vs previous 7 days
+            $cogsChange = (($last7DaysCOGS - $previous7DaysCOGS) / $previous7DaysCOGS) * 100;
+        } else if ($last7DaysCOGS > 0) {
+            // If no previous 7 days data, use a more conservative approach
+            // Compare last 7 days with the average of all time (but cap the percentage)
+            $allTimeAverage = $totalCOGS / max(1, Sale::count());
+            $expected7DaysCOGS = $allTimeAverage * 7;
+            $rawChange = $expected7DaysCOGS > 0 ? (($last7DaysCOGS - $expected7DaysCOGS) / $expected7DaysCOGS) * 100 : 0;
+            // Cap the percentage change to reasonable levels (max 500%)
+            $cogsChange = min(max($rawChange, -50), 500);
+        } else {
+            $cogsChange = 0;
+        }
+
+        // Calculate inventory value change (current vs previous month)
+        $currentInventoryValue = $this->getTotalInventoryValue();
+        
+        // For inventory, we'll compare current month vs previous month
+        $currentMonth = Carbon::now()->startOfMonth();
+        $previousMonth = Carbon::now()->subMonth()->startOfMonth();
+        
+        // Get inventory value at the end of previous month (approximation)
+        // This is a simplified calculation - in a real scenario, you'd want to track inventory changes over time
+        $previousInventoryValue = $this->getTotalInventoryValue(); // For now, using current value as approximation
+        
+        $inventoryChange = 0; // Default to 0 for now since we don't have historical inventory tracking
 
         // For display, use total sales if no specific period is requested
         $displaySales = $totalSales;
@@ -744,23 +830,27 @@ class AnalyticsController extends Controller
         return [
             'totalSales' => [
                 'value' => $displaySales,
-                'change' => round($salesChange, 1),
-                'changeType' => $salesChange >= 0 ? 'increase' : 'decrease'
+                'change' => $last7Days, // Show actual last 7 days value
+                'changeType' => $salesChange >= 0 ? 'increase' : 'decrease',
+                'changeLabel' => 'Last 7 days'
             ],
             'totalOrders' => [
-                'value' => Sale::count(), // Total number of sales transactions
-                'change' => 22,
-                'changeType' => 'increase'
+                'value' => $totalOrders, // Total number of sales transactions
+                'change' => $last7DaysOrders, // Show actual last 7 days orders
+                'changeType' => $ordersChange >= 0 ? 'increase' : 'decrease',
+                'changeLabel' => 'Last 7 days'
             ],
             'totalPurchase' => [
                 'value' => $totalCOGS, // Cost of Goods Sold
-                'change' => 22,
-                'changeType' => 'increase'
+                'change' => $last7DaysCOGS, // Show actual last 7 days COGS
+                'changeType' => $cogsChange >= 0 ? 'increase' : 'decrease',
+                'changeLabel' => 'Last 7 days'
             ],
             'totalInventoryValue' => [
-                'value' => $this->getTotalInventoryValue(), // Total value of current stock
-                'change' => 22,
-                'changeType' => 'increase'
+                'value' => $currentInventoryValue, // Total value of current stock
+                'change' => 0, // No change for inventory
+                'changeType' => 'increase',
+                'changeLabel' => 'Current stock'
             ]
         ];
     }

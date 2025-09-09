@@ -12,6 +12,8 @@ interface KPICardProps {
     bgColor: string;
     format?: 'currency' | 'number';
     tooltip?: string;
+    changeLabel?: string;
+    showAbsoluteValue?: boolean;
 }
 
 const formatCurrency = (value: number) => {
@@ -42,7 +44,9 @@ export default function KPICard({
     color, 
     bgColor, 
     format = 'currency', 
-    tooltip 
+    tooltip,
+    changeLabel = 'vs Last Month',
+    showAbsoluteValue = false
 }: KPICardProps) {
     const [showTooltip, setShowTooltip] = useState(false);
     const [tooltipTimeout, setTooltipTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -100,7 +104,7 @@ export default function KPICard({
 
     return (
         <Card className={`${bgColor} text-white border-0 shadow-lg relative`}>
-            <CardContent className="px-3 py-2 sm:px-4 sm:py-3 lg:px-6 lg:py-4">
+            <CardContent className="px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3">
                 <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1 sm:mb-2">
@@ -147,11 +151,11 @@ export default function KPICard({
                             <TrendingDown className="h-3 w-3 sm:h-4 sm:w-4" />
                         )}
                         <span className="text-xs sm:text-sm font-medium">
-                            {Math.abs(change)}%
+                            {showAbsoluteValue ? formatValue(Math.abs(change)) : `${Math.abs(change)}%`}
                         </span>
                     </div>
-                    <span className="text-xs sm:text-sm opacity-75">
-                        vs Last Month
+                    <span className="pt-2 text-xs sm:text-sm opacity-75">
+                        {changeLabel}
                     </span>
                 </div>
             </CardContent>

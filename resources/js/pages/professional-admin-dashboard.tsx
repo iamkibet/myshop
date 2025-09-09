@@ -1351,6 +1351,8 @@ export default function ProfessionalAdminDashboard() {
                         color="orange"
                         bgColor="bg-orange-800"
                         tooltip="Total revenue generated from all completed sales transactions. This includes the sum of all items sold to customers."
+                        changeLabel={kpi.totalSales.changeLabel || "Last 7 days"}
+                        showAbsoluteValue={true}
                     />
                     <KPICard
                         title="Total Orders"
@@ -1362,6 +1364,8 @@ export default function ProfessionalAdminDashboard() {
                         bgColor="bg-blue-800"
                         format="number"
                         tooltip="Total number of completed sales transactions. Each order represents a single customer purchase containing one or more items."
+                        changeLabel={kpi.totalOrders.changeLabel || "Last 7 days"}
+                        showAbsoluteValue={true}
                     />
                     <KPICard
                         title="Cost of Goods Sold"
@@ -1372,6 +1376,8 @@ export default function ProfessionalAdminDashboard() {
                         color="green"
                         bgColor="bg-green-800"
                         tooltip="Total cost of inventory items that were sold to customers. This helps calculate your profit margins and business profitability."
+                        changeLabel={kpi.totalPurchase.changeLabel || "Last 7 days"}
+                        showAbsoluteValue={true}
                     />
                     <KPICard
                         title="Total Inventory Value"
@@ -1382,6 +1388,8 @@ export default function ProfessionalAdminDashboard() {
                         color="blue"
                         bgColor="bg-gray-900"
                         tooltip="Current value of all inventory items in stock, calculated using the cost price × quantity for each product."
+                        changeLabel={kpi.totalInventoryValue.changeLabel || "Current stock"}
+                        showAbsoluteValue={false}
                     />
                 </div>
 
